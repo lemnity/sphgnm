@@ -1,0 +1,8 @@
+/*
+  Только база Tailwind. Шрифты, палитра и анимации лендинга живут в
+  components/sphagnum-styles.tsx — компонент самодостаточен, чтобы его можно
+  было перенести в другой проект, ничего не дописывая в глобальные стили.
+*/
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
