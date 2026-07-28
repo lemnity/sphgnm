@@ -1,0 +1,27 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+.env
+.env.*
+!.env.example
+
+next-env.d.ts
+*.tsbuildinfo
+
+.DS_Store
+.idea/
+.vscode/
+
+# Снимки экрана — локальный артефакт ревью (~9 МБ) и устаревают, как только
+# подставят реальные фото. Пересоздаются: node scripts/screenshots.mjs
+# Хотите держать их в репозитории — удалите строку ниже.
+screenshots/

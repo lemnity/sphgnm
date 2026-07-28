@@ -30,7 +30,23 @@ components/
   sphagnum-landing.tsx   разметка страницы
   sphagnum-styles.tsx    шрифты, палитра, анимации (одним тегом <style>)
   sphagnum-visuals.tsx   текстура мха, счётчики цифр, «водяная батарея»
+scripts/
+  screenshots.mjs        съёмка страницы целиком и по секциям
+screenshots/             результат съёмки (в git не попадает)
 ```
+
+## Снимки экрана
+
+```bash
+npm i -D playwright && npx playwright install chromium   # один раз
+npm run dev                                              # в соседнем окне
+node scripts/screenshots.mjs
+```
+
+Кладёт в `screenshots/` три полностраничных снимка (1440 / 834 / 390 px) и
+восемь посекционных, попутно печатая горизонтальное переполнение, ошибки JS и
+неудачные запросы. Playwright намеренно не в зависимостях — он тянет ~300 МБ
+браузеров, а нужен раз в несколько правок.
 
 ## Как править текст
 
