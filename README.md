@@ -25,9 +25,13 @@ npm run typecheck                # tsc --noEmit
 Деплой автоматический: `.github/workflows/deploy.yml` на каждый push в `main`
 собирает статику (`output: "export"` → папка `out`) и публикует её.
 
-**Разовая настройка в репозитории:** Settings → Pages → Source → **GitHub Actions**.
-Пока там стоит «Deploy from a branch», Pages отдаёт репозиторий как есть, не находит
-`index.html` и рендерит вместо сайта этот README.
+Источник публикации уже переключён на GitHub Actions — `actions/configure-pages`
+делает это сам при первом успешном прогоне. Ручных действий не требуется.
+
+Если по адресу вдруг снова окажется этот README, значит источник сбросился на
+«Deploy from a branch»: тогда Pages отдаёт репозиторий как есть, не находит
+`index.html` и рендерит README через Jekyll. Лечится в Settings → Pages →
+Source → **GitHub Actions**.
 
 Про подпапку: сайт отдаётся не из корня домена, а из `/sphgnm/`. Поэтому сборка для
 Pages идёт с `basePath: "/sphgnm"` — его включает переменная `GITHUB_PAGES=true`,
