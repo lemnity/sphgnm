@@ -18,6 +18,31 @@ npm run build && npm run start   # прод-сборка
 npm run typecheck                # tsc --noEmit
 ```
 
+## Публикация на GitHub Pages
+
+Живёт по адресу **https://lemnity.github.io/sphgnm/**
+
+Деплой автоматический: `.github/workflows/deploy.yml` на каждый push в `main`
+собирает статику (`output: "export"` → папка `out`) и публикует её.
+
+**Разовая настройка в репозитории:** Settings → Pages → Source → **GitHub Actions**.
+Пока там стоит «Deploy from a branch», Pages отдаёт репозиторий как есть, не находит
+`index.html` и рендерит вместо сайта этот README.
+
+Про подпапку: сайт отдаётся не из корня домена, а из `/sphgnm/`. Поэтому сборка для
+Pages идёт с `basePath: "/sphgnm"` — его включает переменная `GITHUB_PAGES=true`,
+которую выставляет только workflow. Локально она пуста, и `npm run dev` работает на
+`http://localhost:3000/` без префикса. Если репозиторий переименуют, `basePath`
+в `next.config.mjs` надо поменять, иначе стили и скрипты отвалятся.
+
+Локально проверить прод-сборку:
+
+```bash
+npm run build && npm run preview
+```
+
+`next start` не используется — он несовместим с `output: "export"`.
+
 ## Структура
 
 ```

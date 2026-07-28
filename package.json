@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "preview": "npx --yes serve out",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
