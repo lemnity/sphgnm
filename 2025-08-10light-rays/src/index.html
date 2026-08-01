@@ -1,0 +1,57 @@
+<canvas id="light-ray-canvas"></canvas>
+
+<script type="x-shader/x-vertex" id="vertexShader">
+  precision mediump float;
+
+  varying vec2 vUv;
+  attribute vec2 a_position;
+
+  void main() {
+    vUv = vec2(0.5 * (a_position.x + 1.0), 0.5 * (1.0 - a_position.y));
+    gl_Position = vec4(a_position, 0.0, 1.0);
+  }
+</script>
+
+<script type="x-shader/x-fragment" id="fragmentShader">
+  // this fragment shader is based on this fantastic work from ElusivePete: https://www.shadertoy.com/view/lljGDt
+  precision mediump float;
+
+  varying vec2 vUv;
+  uniform float u_time;
+  uniform vec2 u_resolution;
+
+  float rayStrength(vec2 raySource, vec2 rayRefDirection, vec2 coord, float seedA, float seedB, float speed) {
+    vec2 sourceToCoord = coord - raySource;
+    float cosAngle = dot(normalize(sourceToCoord), rayRefDirection);
+
+    return clamp(
+      (0.45 + 0.15 * sin(cosAngle * seedA + u_time * speed)) +
+      (0.3 + 0.2 * cos(-cosAngle * seedB + u_time * speed)),
+      0.0, 1.0) *
+      clamp((u_resolution.x - length(sourceToCoord)) / u_resolution.x, 0.5, 1.0);
+  }
+
+  void main() {
+    vec2 fragCoord = vUv * u_resolution;
+
+    // Set the parameters of the light rays
+    vec2 rayPos = vec2(u_resolution.x * 0.5, u_resolution.y * -0.3);
+    vec2 rayRefDir = normalize(vec2(1.0, -0.116));
+    float raySeedA = 36.2214;
+    float raySeedB = 21.11349;
+    float raySpeed = 1.5;
+
+    // Calculate the colour of the light rays on the current fragment
+    vec4 rays =
+      vec4(1.0, 1.0, 1.0, 1.0) *
+      rayStrength(rayPos, rayRefDir, fragCoord, raySeedA, raySeedB, raySpeed);
+
+    // Attenuate brightness towards the bottom, simulating light-loss due to depth.
+    float brightness = 1.0 - (fragCoord.y / u_resolution.y);
+    rays.x *= 0.3 + brightness;
+    rays.y *= 0.2 + brightness;
+    rays.z *= 0.1 + brightness;
+
+    gl_FragColor = rays * 0.5;
+  }
+</script>
