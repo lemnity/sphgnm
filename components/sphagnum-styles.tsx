@@ -218,22 +218,59 @@ export function SphagnumStyles() {
 */
 .sph .light-rays { inset: 0; overflow: hidden; mix-blend-mode: screen; }
 
+/*
+  Луч состоит из ДВУХ отрезков в обычном потоке: .ray-a и .ray-b. Нижний начинается
+  ровно там, где кончается верхний, потому что это поток, а не абсолютное
+  позиционирование, — считать точку стыка вручную при повороте не пришлось бы.
+  Поворот .ray-b вокруг своей ВЕРХНЕЙ кромки и даёт излом: луч меняет угол там,
+  где входит в мох. Это и есть преломление на границе сред.
+*/
 .sph .light-rays .ray {
-  position: absolute; top: -24%; right: 13%; height: 132%;
+  position: absolute; top: -24%; right: 2%; height: 132%;
   transform-origin: 50% 0;
+  animation-name: sphRay;
+  animation-timing-function: cubic-bezier(.37, 0, .63, 1);
+  animation-iteration-count: infinite;
+}
+
+.sph .light-rays .ray-a,
+.sph .light-rays .ray-b {
+  display: block; width: 100%;
   border-radius: 999px;
-  background: linear-gradient(180deg,
-    rgba(186,225,75,.62) 0%, rgba(186,225,75,.2) 40%, rgba(186,225,75,0) 78%);
+  /*
+    Заливка ГОРИЗОНТАЛЬНАЯ: тёплая кромка слева, холодная справа. Это дисперсия —
+    белый свет на границе сред расходится по спектру, и именно она читается как
+    преломление, а не просто как излом. Вертикальное затухание снято маской,
+    иначе два градиента в одном фоне не совместить.
+  */
+  background: linear-gradient(90deg,
+    rgba(226,240,150,.5) 0%, rgba(186,225,75,.62) 46%, rgba(140,200,170,.4) 100%);
   /* Размытие маленькое НАМЕРЕННО: на 11px соседние столбы сливались в одно
      зарево, и вместо лучей получалось просто светлое пятно в углу. */
   filter: blur(6px);
   /* Сглаживание синусоидой, а не ease-in-out: у последнего заметны остановки
      в крайних точках, и луч на них «клюёт». Здесь скорость меняется плавно,
      петля читается непрерывной. */
-  animation-name: sphRay;
-  animation-timing-function: cubic-bezier(.37, 0, .63, 1);
-  animation-iteration-count: infinite;
 }
+
+.sph .light-rays .ray-a {
+  height: 62%;
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0,0,0,.55) 55%, rgba(0,0,0,.25) 100%);
+          mask-image: linear-gradient(180deg, #000 0%, rgba(0,0,0,.55) 55%, rgba(0,0,0,.25) 100%);
+}
+
+/* Преломлённый отрезок: короче, тусклее и чуть сильнее размыт — за границей
+   сред свет рассеивается. Угол излома свой у каждого луча (--bend). */
+.sph .light-rays .ray-b {
+  height: 54%;
+  transform-origin: 50% 0;
+  transform: rotate(var(--bend));
+  filter: blur(8px);
+  opacity: .72;
+  -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,.6) 0%, rgba(0,0,0,.22) 48%, transparent 88%);
+          mask-image: linear-gradient(180deg, rgba(0,0,0,.6) 0%, rgba(0,0,0,.22) 48%, transparent 88%);
+}
+
 /*
   Кадры 0% и 100% одинаковые — иначе на стыке петли будет рывок.
   Амплитуды намеренно маленькие: свет должен ЖИТЬ, а не мигать. Прозрачность
@@ -424,22 +461,59 @@ export function SphagnumStyles() {
 */
 .sph .light-rays { inset: 0; overflow: hidden; mix-blend-mode: screen; }
 
+/*
+  Луч состоит из ДВУХ отрезков в обычном потоке: .ray-a и .ray-b. Нижний начинается
+  ровно там, где кончается верхний, потому что это поток, а не абсолютное
+  позиционирование, — считать точку стыка вручную при повороте не пришлось бы.
+  Поворот .ray-b вокруг своей ВЕРХНЕЙ кромки и даёт излом: луч меняет угол там,
+  где входит в мох. Это и есть преломление на границе сред.
+*/
 .sph .light-rays .ray {
-  position: absolute; top: -24%; right: 13%; height: 132%;
+  position: absolute; top: -24%; right: 2%; height: 132%;
   transform-origin: 50% 0;
+  animation-name: sphRay;
+  animation-timing-function: cubic-bezier(.37, 0, .63, 1);
+  animation-iteration-count: infinite;
+}
+
+.sph .light-rays .ray-a,
+.sph .light-rays .ray-b {
+  display: block; width: 100%;
   border-radius: 999px;
-  background: linear-gradient(180deg,
-    rgba(186,225,75,.62) 0%, rgba(186,225,75,.2) 40%, rgba(186,225,75,0) 78%);
+  /*
+    Заливка ГОРИЗОНТАЛЬНАЯ: тёплая кромка слева, холодная справа. Это дисперсия —
+    белый свет на границе сред расходится по спектру, и именно она читается как
+    преломление, а не просто как излом. Вертикальное затухание снято маской,
+    иначе два градиента в одном фоне не совместить.
+  */
+  background: linear-gradient(90deg,
+    rgba(226,240,150,.5) 0%, rgba(186,225,75,.62) 46%, rgba(140,200,170,.4) 100%);
   /* Размытие маленькое НАМЕРЕННО: на 11px соседние столбы сливались в одно
      зарево, и вместо лучей получалось просто светлое пятно в углу. */
   filter: blur(6px);
   /* Сглаживание синусоидой, а не ease-in-out: у последнего заметны остановки
      в крайних точках, и луч на них «клюёт». Здесь скорость меняется плавно,
      петля читается непрерывной. */
-  animation-name: sphRay;
-  animation-timing-function: cubic-bezier(.37, 0, .63, 1);
-  animation-iteration-count: infinite;
 }
+
+.sph .light-rays .ray-a {
+  height: 62%;
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0,0,0,.55) 55%, rgba(0,0,0,.25) 100%);
+          mask-image: linear-gradient(180deg, #000 0%, rgba(0,0,0,.55) 55%, rgba(0,0,0,.25) 100%);
+}
+
+/* Преломлённый отрезок: короче, тусклее и чуть сильнее размыт — за границей
+   сред свет рассеивается. Угол излома свой у каждого луча (--bend). */
+.sph .light-rays .ray-b {
+  height: 54%;
+  transform-origin: 50% 0;
+  transform: rotate(var(--bend));
+  filter: blur(8px);
+  opacity: .72;
+  -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,.6) 0%, rgba(0,0,0,.22) 48%, transparent 88%);
+          mask-image: linear-gradient(180deg, rgba(0,0,0,.6) 0%, rgba(0,0,0,.22) 48%, transparent 88%);
+}
+
 /*
   Кадры 0% и 100% одинаковые — иначе на стыке петли будет рывок.
   Амплитуды намеренно маленькие: свет должен ЖИТЬ, а не мигать. Прозрачность

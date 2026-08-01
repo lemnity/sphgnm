@@ -304,14 +304,19 @@ export function MossMoths({
  * в фазе и весь веер вспыхивает разом. Отрицательные задержки разносят старт,
  * иначе первые секунды после загрузки все шесть идут синхронно.
  * sw — размах разворота: чем уже луч, тем он подвижнее.
+ * bend — угол преломления на входе в мох. Разный у всех: одинаковый читался бы
+ * как сгиб трафарета, а не как граница сред.
+ *
+ * Углы 4–28°, а не 9–41°: исток уехал к самому правому краю, и на прежнем
+ * развороте веер уходил в середину кадра, к заголовку.
  */
 const RAYS = [
-  { rot: "9deg", w: "3.4vw", op: 0.3, dur: "29s", sw: "1.1deg", delay: "0s" },
-  { rot: "15deg", w: "1.5vw", op: 0.2, dur: "19s", sw: "1.6deg", delay: "-7s" },
-  { rot: "22deg", w: "4.6vw", op: 0.26, dur: "34s", sw: "0.8deg", delay: "-13s" },
-  { rot: "27deg", w: "2.1vw", op: 0.15, dur: "23s", sw: "1.9deg", delay: "-3s" },
-  { rot: "34deg", w: "3.1vw", op: 0.22, dur: "31s", sw: "1.2deg", delay: "-17s" },
-  { rot: "41deg", w: "1.3vw", op: 0.13, dur: "21s", sw: "2.2deg", delay: "-11s" },
+  { rot: "4deg", w: "3.4vw", op: 0.3, dur: "29s", sw: "1.1deg", bend: "11deg", delay: "0s" },
+  { rot: "9deg", w: "1.5vw", op: 0.2, dur: "19s", sw: "1.6deg", bend: "16deg", delay: "-7s" },
+  { rot: "14deg", w: "4.6vw", op: 0.26, dur: "34s", sw: "0.8deg", bend: "9deg", delay: "-13s" },
+  { rot: "18deg", w: "2.1vw", op: 0.15, dur: "23s", sw: "1.9deg", bend: "14deg", delay: "-3s" },
+  { rot: "23deg", w: "3.1vw", op: 0.22, dur: "31s", sw: "1.2deg", bend: "8deg", delay: "-17s" },
+  { rot: "28deg", w: "1.3vw", op: 0.13, dur: "21s", sw: "2.2deg", bend: "18deg", delay: "-11s" },
 ];
 
 export function LightRays({ className = "" }: { className?: string }) {
@@ -332,7 +337,10 @@ export function LightRays({ className = "" }: { className?: string }) {
               "--sw": r.sw,
             } as CSSProperties
           }
-        />
+        >
+          <span className="ray-a" />
+          <span className="ray-b" style={{ "--bend": r.bend } as CSSProperties} />
+        </span>
       ))}
     </div>
   );
