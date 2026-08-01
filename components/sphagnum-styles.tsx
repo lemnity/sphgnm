@@ -23,6 +23,9 @@ export function SphagnumStyles() {
   --brand-cream: #F4F1EA;
   --brand-moss: #3E5042;
   --brand-sage: #8AA18A;
+  /* Лайм — акцент из присланной палитры. Живёт на ТЁМНОМ: по Ink это 11.4:1,
+     по Cream всего 1.5:1, так что на светлых секциях его быть не должно. */
+  --brand-lime: #BAE14B;
 
   /*
     Приглушённые оттенки — ГОТОВЫМИ rgba, а не утилитой прозрачности Tailwind.
@@ -203,6 +206,46 @@ export function SphagnumStyles() {
 @keyframes sphDrop { 0%, 100% { transform: scale(1); opacity: .9; } 50% { transform: scale(1.09); opacity: 1; } }
 .sph .wb-drop { animation: sphDrop 3.8s ease-in-out infinite; }
 
+/*
+  ── ЛУЧИ СВЕТА НА МОХ ──
+  Падают из правого верхнего угла на уступ. mix-blend-mode: screen, потому что
+  свет должен ПРИБАВЛЯТЬСЯ к тёмному фону: обычная полупрозрачная заливка на
+  Ink давала грязно-серые полосы вместо свечения.
+
+  Поворот сидит ВНУТРИ ключевых кадров и берётся из --rot. Если задать его
+  инлайновым transform, анимация transform его перезапишет, и веер схлопнется
+  в вертикальный пучок.
+*/
+.sph .light-rays { inset: 0; overflow: hidden; mix-blend-mode: screen; }
+
+.sph .light-rays .ray {
+  position: absolute; top: -24%; right: 13%; height: 132%;
+  transform-origin: 50% 0;
+  border-radius: 999px;
+  background: linear-gradient(180deg,
+    rgba(186,225,75,.62) 0%, rgba(186,225,75,.2) 40%, rgba(186,225,75,0) 78%);
+  /* Размытие маленькое НАМЕРЕННО: на 11px соседние столбы сливались в одно
+     зарево, и вместо лучей получалось просто светлое пятно в углу. */
+  filter: blur(6px);
+  animation-name: sphRay; animation-timing-function: ease-in-out; animation-iteration-count: infinite;
+}
+@keyframes sphRay {
+  0%, 100% { opacity: calc(var(--ro) * .5); transform: rotate(var(--rot)) scaleX(.88); }
+  50%      { opacity: var(--ro);            transform: rotate(var(--rot)) scaleX(1.1); }
+}
+
+/* Источник: мягкое пятно у самого угла, иначе лучи начинаются ниоткуда. */
+.sph .light-source {
+  position: absolute; top: -12%; right: 1%; width: 20vw; height: 20vw;
+  border-radius: 999px;
+  /* Пятно только обозначает исток. Крупное и яркое, оно перебивало сами лучи
+     и заливало шапку жёлтым. */
+  background: radial-gradient(circle, rgba(186,225,75,.13) 0%, rgba(186,225,75,.04) 45%, rgba(186,225,75,0) 70%);
+  filter: blur(12px);
+  animation: sphGlow 9.5s ease-in-out infinite;
+}
+@keyframes sphGlow { 0%, 100% { opacity: .7; transform: scale(1); } 50% { opacity: 1; transform: scale(1.06); } }
+
 @media (prefers-reduced-motion: reduce) {
   .sph .hero-pin { height: auto; }
   .sph .hero-pin-inner { position: static; height: auto; min-height: 100dvh; }
@@ -354,6 +397,46 @@ export function SphagnumStyles() {
 @keyframes sphDrop { 0%, 100% { transform: scale(1); opacity: .9; } 50% { transform: scale(1.09); opacity: 1; } }
 .sph .wb-drop { animation: sphDrop 3.8s ease-in-out infinite; }
 
+/*
+  ── ЛУЧИ СВЕТА НА МОХ ──
+  Падают из правого верхнего угла на уступ. mix-blend-mode: screen, потому что
+  свет должен ПРИБАВЛЯТЬСЯ к тёмному фону: обычная полупрозрачная заливка на
+  Ink давала грязно-серые полосы вместо свечения.
+
+  Поворот сидит ВНУТРИ ключевых кадров и берётся из --rot. Если задать его
+  инлайновым transform, анимация transform его перезапишет, и веер схлопнется
+  в вертикальный пучок.
+*/
+.sph .light-rays { inset: 0; overflow: hidden; mix-blend-mode: screen; }
+
+.sph .light-rays .ray {
+  position: absolute; top: -24%; right: 13%; height: 132%;
+  transform-origin: 50% 0;
+  border-radius: 999px;
+  background: linear-gradient(180deg,
+    rgba(186,225,75,.62) 0%, rgba(186,225,75,.2) 40%, rgba(186,225,75,0) 78%);
+  /* Размытие маленькое НАМЕРЕННО: на 11px соседние столбы сливались в одно
+     зарево, и вместо лучей получалось просто светлое пятно в углу. */
+  filter: blur(6px);
+  animation-name: sphRay; animation-timing-function: ease-in-out; animation-iteration-count: infinite;
+}
+@keyframes sphRay {
+  0%, 100% { opacity: calc(var(--ro) * .5); transform: rotate(var(--rot)) scaleX(.88); }
+  50%      { opacity: var(--ro);            transform: rotate(var(--rot)) scaleX(1.1); }
+}
+
+/* Источник: мягкое пятно у самого угла, иначе лучи начинаются ниоткуда. */
+.sph .light-source {
+  position: absolute; top: -12%; right: 1%; width: 20vw; height: 20vw;
+  border-radius: 999px;
+  /* Пятно только обозначает исток. Крупное и яркое, оно перебивало сами лучи
+     и заливало шапку жёлтым. */
+  background: radial-gradient(circle, rgba(186,225,75,.13) 0%, rgba(186,225,75,.04) 45%, rgba(186,225,75,0) 70%);
+  filter: blur(12px);
+  animation: sphGlow 9.5s ease-in-out infinite;
+}
+@keyframes sphGlow { 0%, 100% { opacity: .7; transform: scale(1); } 50% { opacity: 1; transform: scale(1.06); } }
+
 @media (prefers-reduced-motion: reduce) {
   .sph .a-up, .sph .a-in, .sph .a-left, .sph .a-right, .sph .a-scale,
   .sph .word > span, .sph .reveal.in { animation: none; }
@@ -364,6 +447,16 @@ export function SphagnumStyles() {
      статичные точки без всякого смысла. Бабочка просто перестаёт махать. */
   .sph .butterfly, .sph .wing, .sph .drift, .sph .orbit { animation: none; }
   .sph .firefly { animation: none; opacity: 0; }
+
+  /* «Водяная батарейка» и лучи. Пузырьки, как и светлячки, ПРЯЧУТСЯ, а не
+     застывают: их keyframes стартуют с opacity 0, и без анимации в колбе
+     повисли бы неподвижные точки. Волна, капля и лучи просто замирают —
+     их статичное состояние осмысленно. */
+  /* Селектор луча ПОЛНЫЙ (.light-rays .ray), а не короткий: базовое правило
+     состоит из трёх классов, и «.sph .ray» проигрывало ему по специфичности —
+     луч продолжал мигать при включённом «меньше движения». */
+  .sph .wb-wave, .sph .wb-drop, .sph .light-rays .ray, .sph .light-source { animation: none; }
+  .sph .wb-bubble { animation: none; opacity: 0; }
 }
 `}</style>
   );

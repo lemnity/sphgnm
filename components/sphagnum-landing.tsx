@@ -32,7 +32,7 @@ import {
 import mossLedge from "./assets/moss-ledge.png";
 import { SphagnumLogo, SphagnumMark } from "./sphagnum-logo";
 import { SphagnumStyles } from "./sphagnum-styles";
-import { CountUp, Fireflies, MossButterfly, MossMoths, MossTexture, WaterBattery } from "./sphagnum-visuals";
+import { CountUp, Fireflies, LightRays, MossButterfly, MossMoths, MossTexture, WaterBattery } from "./sphagnum-visuals";
 import {
   ADVANTAGES,
   APPLICATIONS,
@@ -700,7 +700,7 @@ export default function SphagnumLanding() {
                 кромка кочки идёт примерно на 30–40%, так что тут она сидит на
                 мху, а не висит над ним и не тонет в нём.
               */}
-              <MossButterfly className="absolute bottom-[34%] left-[30%] w-[6%] text-[color:var(--brand-cream)] opacity-80" />
+              <MossButterfly className="absolute bottom-[34%] left-[30%] w-[6%] text-[color:var(--brand-lime)] opacity-80" />
 
               {/*
                 Рой стартует из одной точки — центра ростка (см. SWARM_ORIGIN),
@@ -717,6 +717,17 @@ export default function SphagnumLanding() {
               <MossMoths className="inset-0" orbit={heroGrow} />
             </div>
           </div>
+
+          {/*
+            Лучи идут ПОСЛЕ уступа, но ДО текста, и порядок здесь смысловой:
+            раньше уступа — свет оказался бы под мхом и не читался бы как
+            падающий на него; позже текста — засветил бы заголовок.
+
+            Разметка тут, а не внутри обёртки уступа, намеренно: обёртка узкая
+            и сдвинута за правый край, лучи от неё стартовали бы из середины
+            экрана. Отсчёт нужен от угла кадра, поэтому inset-0 по всей сцене.
+          */}
+          <LightRays className="inset-0" />
 
           <div className="relative mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
             <div className="max-w-[560px] lg:max-w-[760px]">
