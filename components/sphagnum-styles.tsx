@@ -7,11 +7,51 @@
 export function SphagnumStyles() {
   return (
     <style>{`
-@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Work+Sans:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Playfair+Display:wght@400;500;600;700&family=Work+Sans:wght@400;500;600&display=swap');
 
 .sph {
   /*
-    Палитра снята с референса: акцент — олива rgb(150,164,55).
+    ── ФИРМЕННАЯ ПАЛИТРА (Brand Identity Guidebook v1.0, раздел «Цвет») ──
+    Пропорция по гайду: Cream 65% · Ink 25% · Moss 10% · Sage только акцент.
+    Гайд прямо запрещает «перекрашивать в любые цвета вне палитры», поэтому
+    новые блоки берут ТОЛЬКО эти четыре токена.
+
+    Контраст проверен (WCAG): Cream на Ink 16.2:1 · Sage на Ink 6.6:1 ·
+    Cream на Moss 7.6:1 — все проходят AA даже для мелкого текста.
+  */
+  --brand-ink: #141816;
+  --brand-cream: #F4F1EA;
+  --brand-moss: #3E5042;
+  --brand-sage: #8AA18A;
+
+  /*
+    Приглушённые оттенки — ГОТОВЫМИ rgba, а не утилитой прозрачности Tailwind.
+    Причина конкретная: запись вида text-[color:var(--brand-cream)]/85
+    собирается в rgb(#F4F1EA / 0.85) — переменная хранит готовый hex, разложить
+    его на каналы Tailwind не может. Значение невалидно, браузер выбрасывает всю
+    декларацию, и цвет падает на унаследованный --ink: тёмный текст по тёмному
+    фону, буквально невидимый. Ловилось скриншотом, а не типами.
+    (Обратные кавычки в этом файле запрещены — он внутри template literal.)
+
+    Контраст поверх Ink: cream-85 — 11.9:1, cream-72 — 8.8:1.
+  */
+  --brand-cream-85: rgba(244, 241, 234, .85);
+  --brand-cream-72: rgba(244, 241, 234, .72);
+  --brand-cream-15: rgba(244, 241, 234, .15);
+  --brand-ink-85: rgba(20, 24, 22, .85);
+  --brand-ink-45: rgba(20, 24, 22, .45);
+  --brand-ink-20: rgba(20, 24, 22, .2);
+  --brand-ink-10: rgba(20, 24, 22, .1);
+  /* Приглушённый Sage под декоративный знак в фоне героя: в полную силу
+     он на пол-экрана перебивал бы заголовок. */
+  --brand-sage-45: rgba(138, 161, 138, .45);
+
+  /*
+    ── ЛЕГАСИ-ПАЛИТРА ОСТАЛЬНЫХ СЕКЦИЙ ──
+    Олива снята с референса Sempergreen и в фирменный гайд НЕ входит.
+    Первый экран уже переведён на бренд; секции ниже ждут своей очереди,
+    до тех пор эти токены нужны — удалять их сейчас нельзя.
+
     ВАЖНО про контраст: у Sempergreen белый текст лежит прямо на #96A437,
     а это 2.7:1 — провал даже по смягчённому порогу 3:1. Поэтому яркая олива
     осталась для заливок и КРУПНОГО текста, а под мелкий текст и кнопки
@@ -45,6 +85,34 @@ export function SphagnumStyles() {
    пункты FAQ), нормальный регистр возвращается классом .normal-case-h */
 .sph .normal-case-h { text-transform: none; letter-spacing: -0.01em; }
 
+/*
+  ── ФИРМЕННАЯ АНТИКВА (гайд, раздел «Типографика») ──
+  Гайд называет Georgia: «высокий контраст, классическая антиква». Georgia —
+  системный шрифт Microsoft: на macOS и Windows он есть, а на Android НЕТ, и
+  половина трафика получила бы произвольную подстановку. Поэтому берём Playfair
+  Display — та же конструкция и заметно более выраженный контраст штриха,
+  одинаково на всех платформах. Откатить на Georgia = заменить одну строку.
+
+  Регистр НОРМАЛЬНЫЙ, а не верхний: в самом гайдбуке все заголовки набраны
+  строчными («Мох, который держит воду»), и антиква в капсе с плотным трекингом
+  теряет читаемость. Поэтому класс перебивает общее правило .sph h1/h2/h3.
+*/
+.sph .brand-serif {
+  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  text-transform: none;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+/* Кнопка на фирменном акценте: Sage-заливка, текст Ink — 6.6:1, проходит AA.
+   Белый текст по Sage дал бы 2.5:1, поэтому текст именно тёмный. */
+.sph .btn-sage { background: var(--brand-sage); color: var(--brand-ink); }
+.sph .btn-sage:hover { background: #9CB19C; }
+
+/* Moss под кнопку в шапке: Cream по нему 7.6:1. */
+.sph .btn-moss { background: var(--brand-moss); color: var(--brand-cream); }
+.sph .btn-moss:hover { background: var(--brand-ink); }
+
 /* Кнопки референса — прямые углы, верхний регистр, жирные */
 .sph .btn {
   /* display НЕ задаём: селектор .sph .btn перебивал бы утилиту hidden
@@ -66,6 +134,26 @@ export function SphagnumStyles() {
 
 /* Якорная навигация из фиксированной шапки: без отступа заголовок уезжает под неё. */
 .sph section[id] { scroll-margin-top: 116px; }
+
+/*
+  ── ЗАЛИПАНИЕ ПЕРВОГО ЭКРАНА ──
+  Секция вдвое выше экрана, внутренний слой прилипает к верху: первую половину
+  прокрутки картинка стоит на месте и растёт знак, дальше экран уезжает обычным
+  порядком. Высота задаётся классом, а не утилитой, чтобы её можно было снять
+  медиа-запросом ниже.
+
+  При отключённом движении залипание выключается целиком: пользователь, который
+  просил меньше анимации, не должен упираться в экран, который «не скроллится».
+  Кто-то воспримет это как зависшую страницу, а не как приём.
+*/
+@media (min-width: 1024px) {
+  .sph .hero-pin { height: 200dvh; }
+  .sph .hero-pin-inner { position: sticky; top: 0; height: 100dvh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sph .hero-pin { height: auto; }
+  .sph .hero-pin-inner { position: static; height: auto; min-height: 100dvh; }
+}
 
 @keyframes sphFadeUp   { from { opacity:0; transform: translateY(30px); } to { opacity:1; transform:none; } }
 @keyframes sphFadeIn   { from { opacity:0; } to { opacity:1; } }
@@ -103,6 +191,84 @@ export function SphagnumStyles() {
   .sph .reveal[data-anim="right"].in { animation: sphFadeUp .8s cubic-bezier(.16,1,.3,1) both; }
 }
 
+/*
+  ── ЖИВНОСТЬ НАД МОХОВЫМ УСТУПОМ ──
+  Светлячки, бабочка и мотыльки. Анимируются ТОЛЬКО transform и opacity: оба
+  свойства композитор считает без пересчёта раскладки, поэтому десяток
+  бесконечных циклов не отъедает кадры у прокрутки (а она несёт залипание героя).
+
+  Движение собрано из ДВУХ вложенных слоёв, а не из одной анимации:
+    .drift — разлёт от общей точки, у каждого своё направление;
+    .orbit — круг вокруг этой же точки.
+  Обе крутятся всегда, а переключение режимов идёт амплитудами (--dx/--dy и
+  --orb), которые считает React от прогресса прорастания. Так «разлетелись» и
+  «кружат вокруг ростка» — это плавная растяжка одного движения, тогда как смена
+  самих keyframes на пороге давала бы рывок с потерей фазы.
+
+  Общая точка у всех одна — центр ростка. Пока ростка нет, разброс задаёт только
+  дрейф, поэтому рой выглядит рассеянным; когда росток вычерчен, дрейф гаснет,
+  и все сходятся на орбиты разного радиуса вокруг него.
+*/
+@keyframes sphDrift {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  25%      { transform: translate3d(var(--dx), calc(var(--dy) * -1), 0); }
+  50%      { transform: translate3d(calc(var(--dx) * .28), calc(var(--dy) * .55), 0); }
+  75%      { transform: translate3d(calc(var(--dx) * -.8), calc(var(--dy) * -.45), 0); }
+}
+
+/* Восемь точек, а не четыре: по четырём получается ромб, а не круг. */
+@keyframes sphOrbit {
+  0%     { transform: translate3d(var(--orb), 0, 0); }
+  12.5%  { transform: translate3d(calc(var(--orb) * .707), calc(var(--orb) * -.707), 0); }
+  25%    { transform: translate3d(0, calc(var(--orb) * -1), 0); }
+  37.5%  { transform: translate3d(calc(var(--orb) * -.707), calc(var(--orb) * -.707), 0); }
+  50%    { transform: translate3d(calc(var(--orb) * -1), 0, 0); }
+  62.5%  { transform: translate3d(calc(var(--orb) * -.707), calc(var(--orb) * .707), 0); }
+  75%    { transform: translate3d(0, var(--orb), 0); }
+  87.5%  { transform: translate3d(calc(var(--orb) * .707), calc(var(--orb) * .707), 0); }
+  100%   { transform: translate3d(var(--orb), 0, 0); }
+}
+
+.sph .drift { position: absolute; display: block; animation: sphDrift ease-in-out infinite; will-change: transform; }
+.sph .orbit { display: block; animation: sphOrbit linear infinite; will-change: transform; }
+
+/* Мерцание вынесено на саму точку: на слоях выше живёт transform, а смешивать
+   в одних keyframes движение и прозрачность значит связать их периоды. */
+@keyframes sphGlow {
+  0%, 100% { opacity: .15; transform: scale(.6); }
+  45%      { opacity: .95; transform: scale(1); }
+}
+.sph .firefly {
+  display: block;
+  border-radius: 9999px;
+  background: var(--brand-cream);
+  /* Свечение — это и есть светлячок; без ореола точка читается как пылинка. */
+  box-shadow: 0 0 6px 1px rgba(244, 241, 234, .55), 0 0 14px 3px rgba(138, 161, 138, .35);
+  animation: sphGlow ease-in-out infinite;
+}
+
+/* Взмах крыла: сжатие поперёк, ось — линия тела. Так плоское крыло читается
+   как повёрнутое в перспективе, без 3D-трансформаций и perspective на предке. */
+@keyframes sphWing {
+  0%, 100% { transform: scaleX(1); }
+  50%      { transform: scaleX(.28); }
+}
+/* transform-box: fill-box обязателен — иначе процентный origin у SVG-фигуры
+   считается от системы координат всего документа, и крыло улетает вбок. */
+.sph .wing { transform-box: fill-box; animation: sphWing 1.6s ease-in-out infinite; }
+.sph .wing-l { transform-origin: 100% 50%; }
+.sph .wing-r { transform-origin: 0% 50%; animation-delay: -.04s; }
+
+/* Бабочка сидит, но чуть переступает — иначе при живых крыльях тело выглядит приклеенным. */
+@keyframes sphPerch {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50%      { transform: translate3d(0, -4%, 0) rotate(-1.6deg); }
+}
+.sph .butterfly { animation: sphPerch 3.2s ease-in-out infinite; }
+/* У летящих покачивание сидящей отключено: две анимации на вложенных узлах
+   складывались бы и давали дёрганый полёт. */
+.sph .drift .butterfly { animation: none; }
+
 .sph .d1{animation-delay:.1s} .sph .d2{animation-delay:.2s} .sph .d3{animation-delay:.3s}
 .sph .d4{animation-delay:.4s} .sph .d5{animation-delay:.5s} .sph .d6{animation-delay:.6s}
 .sph .d7{animation-delay:.7s} .sph .d8{animation-delay:.8s}
@@ -112,6 +278,11 @@ export function SphagnumStyles() {
   .sph .word > span, .sph .reveal.in { animation: none; }
   .sph .reveal, .sph .reveal.in { opacity: 1; }
   .sph * { scroll-behavior: auto !important; }
+  /* Живность замирает целиком. Светлячки при этом ПРЯЧУТСЯ, а не застывают:
+     их keyframes стартуют с opacity 0, и без анимации остались бы висеть
+     статичные точки без всякого смысла. Бабочка просто перестаёт махать. */
+  .sph .butterfly, .sph .wing, .sph .drift, .sph .orbit { animation: none; }
+  .sph .firefly { animation: none; opacity: 0; }
 }
 `}</style>
   );

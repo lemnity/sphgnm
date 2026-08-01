@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 /**
  * Визуальные элементы SPHAGNUM ECO: живая текстура мха, счётчики цифр и
@@ -60,6 +60,235 @@ function useInView<T extends HTMLElement>() {
     return () => io.disconnect();
   }, []);
   return { ref, seen };
+}
+
+/* ═══════════════ Росток ═══════════════ */
+
+/**
+ * Побег с четырьмя ланцетными листьями — декоративный элемент первого экрана,
+ * который «прорастает» из мохового уступа по мере прокрутки.
+ *
+ * Почему нарисован заново, а не вырезан из фирменного знака: в знаке растение и
+ * литера S — ОДИН непрерывный контур (проверено: у пути ровно один субпуть,
+ * стебель внизу переходит в нижнюю дугу буквы). Отделить побег обрезкой viewBox
+ * тоже нельзя — через центр знака проходит диагональ S. Поэтому здесь отдельная
+ * форма, повторяющая мотив: узкие листья с острым кончиком и тонкий изогнутый
+ * стебель. Сам логотип при этом остаётся нетронутым.
+ *
+ * Пути статичны — считать их на рендере незачем, а SSR и клиент обязаны выдать
+ * побайтово одинаковую разметку.
+ */
+const SPROUT_LEAVES = [
+  "M70 110C62.8 73.9 39.7 41.3 20 24C28.8 53.4 46.3 89.2 70 110Z",
+  "M70 86C81 56.4 105 32 124 20C112.6 43.7 92.9 71.6 70 86Z",
+  "M69 164C81.8 133 108.7 108.9 130 98C116.8 122.6 94.5 150.9 69 164Z",
+  "M68 198C57 167.6 32 143.4 12 132C23.7 156.2 44 184.3 68 198Z",
+];
+
+export function SphagnumSprout({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 -14 142 288" className={className} fill="currentColor" aria-hidden focusable="false">
+      <path
+        d="M70 258C66 216 66 172 68 132C69.5 100 70 64 70 26"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3.2"
+        strokeLinecap="round"
+      />
+      {SPROUT_LEAVES.map((d) => (
+        <path key={d} d={d} />
+      ))}
+    </svg>
+  );
+}
+
+/* ═══════════════ Живность над моховым уступом ═══════════════ */
+
+/**
+ * Общая точка, вокруг которой собирается рой, — центр вычерчиваемого ростка.
+ * Считается из его посадки в разметке: bottom 36%, ширина 28% от обёртки при
+ * пропорции картинки 1.5 дают высоту 70.8% и центр на 71.4% снизу.
+ * Меняете посадку ростка — правьте и это, иначе рой закружится мимо него.
+ */
+const SWARM_ORIGIN = { left: "44%", top: "29%" };
+
+/** Насколько гасится разлёт при полностью выросшем ростке (0.15 = остаётся 15%). */
+const DRIFT_AT_FULL = 0.15;
+
+/** Плавно стягивает разлёт к центру по мере прорастания. */
+function driftScale(orbit: number) {
+  return 1 - (1 - DRIFT_AT_FULL) * Math.min(Math.max(orbit, 0), 1);
+}
+
+/**
+ * Светлячки над мхом.
+ *
+ * Таблица, а не PRNG: анимация бесконечная, случайные значения при гидрации
+ * разошлись бы с серверными. Периоды разной длины и отрицательные задержки
+ * разводят фазы — синхронный рой читается как гирлянда, а не как насекомые.
+ *
+ * Амплитуды в vw, а НЕ в процентах: процент в translate берётся от размера
+ * самого элемента, а светлячок 4–6 px — он смещался бы на пять пикселей.
+ */
+const FIREFLIES = [
+  { id: "f1", size: 5, driftDur: 11, driftDelay: -1.2, dx: "7vw", dy: "9vw", orbDur: 14, orbDelay: -2, orb: 6.5, glow: 3.1 },
+  { id: "f2", size: 4, driftDur: 14, driftDelay: -5.5, dx: "-9vw", dy: "6vw", orbDur: 18, orbDelay: -7, orb: 9, glow: 4.4 },
+  { id: "f3", size: 6, driftDur: 9.5, driftDelay: -3.1, dx: "5vw", dy: "-7vw", orbDur: 11, orbDelay: -4, orb: 4.5, glow: 2.6 },
+  { id: "f4", size: 4, driftDur: 16, driftDelay: -8.4, dx: "-6vw", dy: "-9vw", orbDur: 21, orbDelay: -11, orb: 11, glow: 5.2 },
+  { id: "f5", size: 5, driftDur: 12.5, driftDelay: -6.2, dx: "8vw", dy: "4vw", orbDur: 16, orbDelay: -6, orb: 7.8, glow: 3.7 },
+];
+
+export function Fireflies({
+  className = "",
+  /** 0…1 — прогресс прорастания. 0: рассеянный разлёт, 1: орбиты вокруг ростка. */
+  orbit = 0,
+}: {
+  className?: string;
+  orbit?: number;
+}) {
+  const k = driftScale(orbit);
+  return (
+    <div className={`pointer-events-none absolute ${className}`} aria-hidden>
+      {FIREFLIES.map((f) => (
+        <span
+          key={f.id}
+          className="drift"
+          style={
+            {
+              left: SWARM_ORIGIN.left,
+              top: SWARM_ORIGIN.top,
+              animationDuration: `${f.driftDur}s`,
+              animationDelay: `${f.driftDelay}s`,
+              "--dx": `calc(${f.dx} * ${k.toFixed(3)})`,
+              "--dy": `calc(${f.dy} * ${k.toFixed(3)})`,
+            } as CSSProperties
+          }
+        >
+          <span
+            className="orbit"
+            style={
+              {
+                animationDuration: `${f.orbDur}s`,
+                animationDelay: `${f.orbDelay}s`,
+                "--orb": `${(f.orb * orbit).toFixed(2)}vw`,
+              } as CSSProperties
+            }
+          >
+            <span
+              className="firefly"
+              style={{
+                width: f.size,
+                height: f.size,
+                animationDuration: `${f.glow}s`,
+                animationDelay: `${f.driftDelay}s`,
+              }}
+            />
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Бабочка: сидящая на мху или летящая. Крылья — два зеркальных пути; взмах
+ * делается сжатием поперёк (scaleX) с осью по линии тела, см. keyframes sphWing.
+ * Это дешевле 3D-поворота, не требует perspective на родителе и на таком
+ * размере читается одинаково.
+ */
+export function MossButterfly({
+  className = "",
+  /** Период взмаха. Сидящая машет лениво, летящая — вдвое чаще. */
+  flapMs = 1600,
+}: {
+  className?: string;
+  flapMs?: number;
+}) {
+  const wing = { animationDuration: `${flapMs}ms` };
+  return (
+    <svg viewBox="0 0 64 48" className={className} aria-hidden focusable="false">
+      <g className="butterfly">
+        {/* Усики — до крыльев, чтобы крыло при взмахе не резало линию пополам */}
+        <path
+          d="M31 19C29 14 25 11 21 10M33 19C35 14 39 11 43 10"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.1"
+          strokeLinecap="round"
+          opacity=".75"
+        />
+        <path
+          className="wing wing-l"
+          style={wing}
+          d="M32 24C24 8 12 2 7 10C3 17 16 23 32 24ZM32 26C25 33 18 42 13 36C9 31 20 27 32 26Z"
+          fill="currentColor"
+        />
+        <path
+          className="wing wing-r"
+          style={wing}
+          d="M32 24C40 8 52 2 57 10C61 17 48 23 32 24ZM32 26C39 33 46 42 51 36C55 31 44 27 32 26Z"
+          fill="currentColor"
+        />
+        <ellipse cx="32" cy="26" rx="1.7" ry="8" fill="currentColor" />
+      </g>
+    </svg>
+  );
+}
+
+/**
+ * Мотыльки. Как и светлячки, стартуют из общей точки и переходят от разлёта
+ * к орбите вокруг ростка. Периоды взаимно непериодичны (13 / 17 / 21 с) —
+ * с кратными значениями рой каждые несколько секунд собирается в строй.
+ */
+const MOTHS = [
+  { id: "m1", w: "4.6%", driftDur: 13, driftDelay: -2.5, dx: "8vw", dy: "5vw", orbDur: 15, orbDelay: -3, orb: 8, flap: 320, opacity: 0.7 },
+  { id: "m2", w: "3.8%", driftDur: 17, driftDelay: -8, dx: "-7vw", dy: "-6vw", orbDur: 20, orbDelay: -9, orb: 11.5, flap: 380, opacity: 0.55 },
+  { id: "m3", w: "5.2%", driftDur: 21, driftDelay: -14, dx: "6vw", dy: "-8vw", orbDur: 12, orbDelay: -5, orb: 5.5, flap: 290, opacity: 0.8 },
+];
+
+export function MossMoths({
+  className = "",
+  orbit = 0,
+}: {
+  className?: string;
+  orbit?: number;
+}) {
+  const k = driftScale(orbit);
+  return (
+    <div className={`pointer-events-none absolute ${className}`} aria-hidden>
+      {MOTHS.map((m) => (
+        <span
+          key={m.id}
+          className="drift"
+          style={
+            {
+              left: SWARM_ORIGIN.left,
+              top: SWARM_ORIGIN.top,
+              width: m.w,
+              opacity: m.opacity,
+              animationDuration: `${m.driftDur}s`,
+              animationDelay: `${m.driftDelay}s`,
+              "--dx": `calc(${m.dx} * ${k.toFixed(3)})`,
+              "--dy": `calc(${m.dy} * ${k.toFixed(3)})`,
+            } as CSSProperties
+          }
+        >
+          <span
+            className="orbit"
+            style={
+              {
+                animationDuration: `${m.orbDur}s`,
+                animationDelay: `${m.orbDelay}s`,
+                "--orb": `${(m.orb * orbit).toFixed(2)}vw`,
+              } as CSSProperties
+            }
+          >
+            <MossButterfly className="w-full text-[color:var(--brand-cream)]" flapMs={m.flap} />
+          </span>
+        </span>
+      ))}
+    </div>
+  );
 }
 
 /* ═══════════════ Живая текстура мха ═══════════════ */

@@ -26,8 +26,13 @@ import {
   Minus,
 } from "lucide-react";
 
+// Статический импорт, а не путь /moss-ledge.png из public: на GitHub Pages сайт
+// живёт в подпапке (basePath /sphgnm), и абсолютный путь к public улетел бы в
+// корень домена и вернул 404. Импорт отдаёт уже пре­фиксованный URL.
+import mossLedge from "./assets/moss-ledge.png";
+import { SphagnumLogo, SphagnumMark } from "./sphagnum-logo";
 import { CornerMark, SphagnumStyles } from "./sphagnum-styles";
-import { CountUp, MossTexture, WaterBattery } from "./sphagnum-visuals";
+import { CountUp, Fireflies, MossButterfly, MossMoths, MossTexture, WaterBattery } from "./sphagnum-visuals";
 import {
   ADVANTAGES,
   APPLICATIONS,
@@ -37,7 +42,8 @@ import {
   FUSCUM_METRICS,
   FUSCUM_PROPERTIES,
   HERO_BULLETS,
-  HERO_DESIGNED_FOR,
+  // HERO_DESIGNED_FOR больше не выводится: ряд чипов дублировал HERO_BULLETS.
+  // Данные оставлены в sphagnum-data.ts — пригодятся в секции ниже.
   HERO_WORDS,
   NAV_LINKS,
   PLATFORM_BENEFITS,
@@ -350,6 +356,9 @@ export default function SphagnumLanding() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [stripCard, setStripCard] = useState(0);
   const [heroShift, setHeroShift] = useState(0);
+  /** 0…1 — насколько «пророс» фирменный знак справа от героя. */
+  const [heroGrow, setHeroGrow] = useState(0);
+  const heroRef = useRef<HTMLElement | null>(null);
 
   // Автокарусель нижней полосы героя — 3500 мс, как в референсе.
   useEffect(() => {
@@ -357,31 +366,64 @@ export default function SphagnumLanding() {
     return () => window.clearInterval(id);
   }, []);
 
-  // Параллакс фона героя: фон уходит медленнее контента — даёт глубину.
-  // Считаем в rAF, чтобы не дёргать layout на каждом событии прокрутки.
+  // Параллакс фона героя + прорастание знака справа. Оба считаются от прокрутки,
+  // поэтому живут в одном rAF-обработчике: два независимых слушателя scroll
+  // дёргали бы layout дважды за кадр.
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      // Знак показываем целиком: при отключённом движении он должен просто
+      // быть на месте, а не остаться навсегда «непроросшим» (то есть невидимым).
+      setHeroGrow(1);
+      return;
+    }
     let frame = 0;
     const onScroll = () => {
       if (frame) return;
       frame = requestAnimationFrame(() => {
         frame = 0;
-        // Ограничиваем первым экраном: дальше параллакс не виден, а фон уехал бы в пустоту.
-        setHeroShift(Math.min(window.scrollY, window.innerHeight) * 0.28);
+        const el = heroRef.current;
+        const vh = window.innerHeight;
+        // Сколько секция «держит» экран. На залипающей раскладке это лишняя
+        // высота сверх экрана, на обычной (мобильный, reduced-motion) — ноль,
+        // и тогда прогресс считается от прокрутки, как раньше.
+        const pinned = el ? el.offsetHeight - vh : 0;
+        const p =
+          pinned > 8 && el
+            ? Math.min(Math.max(-el.getBoundingClientRect().top / pinned, 0), 1)
+            : Math.min(Math.max(window.scrollY / vh, 0), 1);
+        setHeroGrow(p);
+        // 0.16, а не прежние 0.28: запас фона по вертикали 20%, и больший сдвиг
+        // на залипшем экране оголил бы полосу сверху — раньше это скрывал уезд секции.
+        setHeroShift(p * vh * 0.16);
       });
     };
+    onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
     return () => {
       window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
       if (frame) cancelAnimationFrame(frame);
     };
   }, []);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
+    const onScroll = () => {
+      const el = heroRef.current;
+      // Пока первый экран залип, страница визуально стоит на месте. Перекрашивать
+      // шапку в белое в этот момент — значит сообщать о прокрутке, которой не
+      // видно. Поэтому порог сдвинут за конец залипания; там, где залипания нет
+      // (мобильный, reduced-motion), pinned = 0 и порог прежний — 24 px.
+      const pinned = el ? Math.max(el.offsetHeight - window.innerHeight, 0) : 0;
+      setScrolled(window.scrollY > pinned + 24);
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
   }, []);
 
   useEffect(() => {
@@ -437,13 +479,21 @@ export default function SphagnumLanding() {
         </div>
 
         <div className="a-in flex items-center gap-6 py-4 mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
-          <a href="#top" className={`a-left d2 shrink-0 leading-tight ${scrolled ? "" : "text-white"}`}>
-            <span className="display block text-[17px] font-extrabold tracking-[-0.02em] sm:text-[19px]">
-              SPHAGNUM AE
-            </span>
-            <span className={`block text-[11px] tracking-[0.16em] ${scrolled ? "text-[color:var(--muted)]" : "text-white/70"}`}>
-              NATURAL SUBSTRATES
-            </span>
+          {/*
+            Фирменный логотип заказчика. Дескриптор «NATURAL SUBSTRATES» убран:
+            логотип уже содержит знак и словесную часть, а охранное поле вокруг
+            него равно высоте литеры S — подпись вплотную снизу в него заходить
+            не может.
+            Высота 28/32 px даёт ширину 143/164 px — обе выше минимума 120 px;
+            32 px — ровно та высота, которую гайд задаёт для шапки сайта.
+          */}
+          <a
+            href="#top"
+            className={`a-left d2 shrink-0 ${
+              scrolled ? "text-[color:var(--brand-ink)]" : "text-[color:var(--brand-cream)]"
+            }`}
+          >
+            <SphagnumLogo className="h-7 w-auto lg:h-8" />
           </a>
 
           <nav className="a-in d4 ml-auto hidden items-center gap-5 xl:flex 2xl:gap-6">
@@ -460,19 +510,28 @@ export default function SphagnumLanding() {
             ))}
           </nav>
 
+          {/* Moss, а не олива: шапка висит над ВСЕМИ секциями, и брендовый Sage
+              спорил бы с оливковыми блоками ниже, а олива — с брендовым первым
+              экраном. Тёмно-зелёный Moss из гайда спокойно работает поверх обоих. */}
           <a
             href="#contact"
-            className="btn btn-accent a-right d3 ml-auto hidden shrink-0 whitespace-nowrap text-[12px] md:inline-flex lg:text-[13px] xl:ml-0"
+            className="btn btn-moss a-right d3 ml-auto hidden shrink-0 whitespace-nowrap text-[12px] md:inline-flex lg:text-[13px] xl:ml-0"
           >
             Get Expert Advice
             <ArrowRight className="size-4" strokeWidth={2} />
           </a>
 
+          {/* ml-auto только пока кнопка CTA скрыта. С md она появляется и сама
+              несёт ml-auto — два auto-отступа подряд делили свободное место
+              пополам, и на планшете кнопка «Get Expert Advice» повисала
+              посередине шапки вместо правого края. */}
           <button
             type="button"
             onClick={() => setMenuOpen(true)}
             aria-label="Open menu"
-            className={`ml-auto xl:hidden ${scrolled ? "text-[color:var(--ink)]" : "text-white"}`}
+            className={`ml-auto md:ml-5 xl:hidden ${
+              scrolled ? "text-[color:var(--brand-ink)]" : "text-[color:var(--brand-cream)]"
+            }`}
           >
             <Menu className="size-6" strokeWidth={1.6} />
           </button>
@@ -480,14 +539,14 @@ export default function SphagnumLanding() {
       </header>
 
       {menuOpen ? (
-        <div className="fixed inset-0 z-50 flex flex-col bg-[color:var(--ink)] px-6 py-5 xl:hidden">
+        <div className="fixed inset-0 z-50 flex flex-col bg-[color:var(--brand-ink)] px-6 py-5 xl:hidden">
           <div className="flex items-center">
-            <span className="display text-[17px] font-extrabold text-white">SPHAGNUM AE</span>
+            <SphagnumLogo className="h-7 w-auto text-[color:var(--brand-cream)]" />
             <button
               type="button"
               onClick={() => setMenuOpen(false)}
               aria-label="Close menu"
-              className="ml-auto text-white"
+              className="ml-auto text-[color:var(--brand-cream)]"
             >
               <X className="size-6" strokeWidth={1.6} />
             </button>
@@ -504,10 +563,12 @@ export default function SphagnumLanding() {
               </a>
             ))}
           </nav>
+          {/* Здесь Sage, а не Moss как в шапке: Moss по Ink даёт всего 2.1:1 и на
+              тёмной подложке меню кнопка бы утонула. Sage по Ink — 6.6:1. */}
           <a
             href="#contact"
             onClick={() => setMenuOpen(false)}
-            className="btn btn-accent mt-auto flex w-full text-[14px]"
+            className="btn btn-sage mt-auto flex w-full text-[14px]"
           >
             Get Expert Advice <ArrowRight className="size-4" strokeWidth={2} />
           </a>
@@ -516,110 +577,238 @@ export default function SphagnumLanding() {
 
       {/* ═══════════ РАЗДЕЛ 1 — HERO (структура TerraElix: полноэкранный блок,
            пословный заголовок, CTA-ряд и полоса из трёх панелей внизу экрана) ═══════════ */}
-      <section id="top" className="relative flex min-h-dvh flex-col overflow-hidden bg-[color:var(--ink)]">
+      <section id="top" ref={heroRef} className="hero-pin relative">
+        {/* Внутренний слой и есть «экран»: он прилипает к верху окна, пока идёт
+            прорастание, поэтому вся начинка героя переехала внутрь него.
+            overflow-hidden оставлен ЗДЕСЬ, а не на секции: скролл-контейнер на
+            родителе сломал бы sticky. */}
+        <div className="hero-pin-inner relative flex min-h-dvh flex-col overflow-hidden bg-[color:var(--brand-ink)]">
         <div
-          // -inset-y даёт запас: при сдвиге вниз сверху не должно оголиться
-          className="absolute -inset-y-[14%] inset-x-0 bg-cover bg-center bg-no-repeat will-change-transform"
+          // Запас 20%: при залипании секция больше не уезжает вверх, и сдвиг
+          // фона стал бы виден как оголённая полоса сверху. Сдвиг ограничен 16%.
+          className="absolute -inset-y-[20%] inset-x-0 bg-cover bg-center bg-no-repeat will-change-transform"
           style={{ backgroundImage: `url("${HERO_BG}")`, transform: `translate3d(0, ${heroShift}px, 0)` }}
           aria-hidden
         />
-        {/* Подложка: белый текст поверх фото не держит контраст 4.5:1 без затемнения. */}
+        {/*
+          Затемнение под текст. Раньше был один диагональный градиент — на
+          десктопе он работал, но на узком экране контент занимает ВСЮ ширину,
+          и правый край текста оказывался на прозрачной части (34%), где
+          контраст рушился. Поэтому подложек две: вертикальная для мобильного,
+          диагональная с lg. Цвет — брендовый Ink, а не прежний rgb(8,20,14).
+        */}
         <div
-          className="absolute inset-0"
+          className="absolute inset-0 lg:hidden"
+          aria-hidden
+          style={{ background: "linear-gradient(180deg, rgba(20,24,22,.90) 0%, rgba(20,24,22,.80) 100%)" }}
+        />
+        <div
+          className="absolute inset-0 hidden lg:block"
           aria-hidden
           style={{
             background:
-              "linear-gradient(100deg, rgba(8,20,14,.88) 0%, rgba(8,20,14,.66) 46%, rgba(8,20,14,.34) 100%)",
+              "linear-gradient(100deg, rgba(20,24,22,.94) 0%, rgba(20,24,22,.80) 46%, rgba(20,24,22,.38) 100%)",
           }}
         />
 
-        {/* Контент героя: flex-1 + justify-center — как в референсе */}
+        {/*
+          Одна колонка вместо прежних двух. Белая карточка формы занимала правую
+          треть, а вместе с ней в экран набивались заголовок, подзаголовок,
+          кнопка, три буллета, три чипа и сама форма — семь конкурирующих блоков.
+          Теперь контент прижат влево, а правая часть отдана фотографии: под неё
+          и построен диагональный градиент.
+        */}
         <div className="relative z-10 flex flex-1 items-center pb-12 pt-28 lg:pb-14 lg:pt-32">
-          <div className="mx-auto grid w-full max-w-[1460px] items-center gap-10 px-5 sm:px-8 lg:grid-cols-[1fr_380px] lg:items-start lg:gap-20 lg:px-14">
-            <div>
+          {/*
+            Моховой уступ в правом нижнем углу, из него по мере прокрутки
+            прорастает фирменный знак. Порядок в разметке важен: знак идёт
+            ПЕРВЫМ, уступ — вторым и перекрывает его корень, поэтому росток
+            выглядит выходящим из мха, а не приклеенным сверху.
+
+            Живёт внутри контентного блока, а не рядом с ним: bottom-0 здесь —
+            это граница с нижней полосой, то есть уступ стоит ровно на ней.
+            Соседним слоем пришлось бы подбирать отступ под высоту полосы.
+
+            Только с xl: на 1024–1279 px уступ шириной в треть экрана заезжал
+            бы под буллеты. Фото приглушено фильтром — в полную силу яркая
+            зелень спорила с заголовком и выбивалась из палитры героя.
+          */}
+          {/*
+            Ширина растёт тремя ступенями, а не одной: контейнер текста
+            центрирован и с ростом экрана отъезжает от правого края, поэтому
+            свободное поле справа увеличивается быстрее ширины окна. С одним
+            размером уступ либо наезжал на буллеты на 1280 px, либо оставлял
+            пустое поле в 200+ px на 1500. Промежуточная ступень 1440 добавлена
+            под распространённые 15" ноутбуки — между xl и 2xl их иначе нет.
+
+            Зазор между правым краем текста и левым краем уступа: 1280 → 8 px,
+            1440 → 48 px, 1536 → 26 px. Отрицательный right уводит правый край
+            за пределы экрана, поэтому уступ читается как элемент сбоку.
+          */}
+          {/*
+            Сдвиг именно translate, а не right/bottom: проценты в right/bottom
+            считаются от размеров РОДИТЕЛЯ, а нужны доли самой картинки.
+            У PNG по краям прозрачные поля (замерено по альфе: справа 3.8%,
+            снизу 13.4%), их надо компенсировать, иначе уступ висит, не доставая
+            ни до края экрана, ни до полосы.
+
+            По горизонтали сдвиг 32% — это 3.8% компенсации плюс ещё 28% ширины,
+            которые намеренно уезжают за правый край: крупная кочка, показанная
+            целиком, читается как вырезанная картинка, а обрезанная краем — как
+            продолжающийся за экраном ландшафт.
+
+            Ширина растёт тремя ступенями. Ограничение одно: видимый левый край
+            уступа (= экран − W × 0.647) обязан оставаться правее колонки текста.
+            Отсюда запас на каждой ступени: 1280 → 11 px, 1440 → 42 px,
+            1536 → 9 px. Увеличивать ширину дальше нельзя, не сдвигая текст.
+
+            Выехавший вниз край закрывает полоса: она идёт следом в разметке при
+            том же z-10, поэтому уступ выглядит стоящим на ней.
+          */}
+          <div
+            className="pointer-events-none absolute bottom-0 right-0 hidden w-[700px] translate-x-[32%] translate-y-[13.4%] xl:block min-[1440px]:w-[900px] 2xl:w-[1040px]"
+            aria-hidden
+          >
+            <div className="relative">
+              {/*
+                Знак вычерчивается линией, а не открывается обрезкой: прежний
+                clip-path шёл прямоугольной шторкой снизу вверх и на изогнутом
+                контуре читался как срез, а не как рост.
+
+                Прогресс пропущен через smoothstep — прокрутка линейна, и без
+                сглаживания вычерчивание стартовало и обрывалось рывком.
+              */}
+              <div className="absolute bottom-[36%] right-[42%] w-[28%]">
+                <SphagnumMark
+                  className="w-full text-[color:var(--brand-sage-45)]"
+                  draw={heroGrow * heroGrow * (3 - 2 * heroGrow)}
+                />
+              </div>
+              <img
+                src={mossLedge.src}
+                alt=""
+                width={mossLedge.width}
+                height={mossLedge.height}
+                className="relative w-full select-none"
+                style={{ filter: "brightness(.62) saturate(.72) contrast(1.05)" }}
+              />
+
+              {/*
+                Бабочка и светлячки — ПОСЛЕ картинки, иначе уступ перекрыл бы их
+                собой. Координаты в процентах от обёртки, поэтому живность едет
+                вместе с уступом на всех трёх его размерах.
+
+                Бабочка посажена на 34% снизу: у PNG нижние 13.4% прозрачны, а
+                кромка кочки идёт примерно на 30–40%, так что тут она сидит на
+                мху, а не висит над ним и не тонет в нём.
+              */}
+              <MossButterfly className="absolute bottom-[34%] left-[30%] w-[6%] text-[color:var(--brand-cream)] opacity-80" />
+
+              {/*
+                Рой стартует из одной точки — центра ростка (см. SWARM_ORIGIN),
+                поэтому зона задаётся просто inset-0: разброс даёт не раскладка,
+                а амплитуда разлёта. Пока ростка нет, она максимальна и рой
+                рассеян; по мере вычерчивания разлёт гаснет, а радиус орбиты
+                растёт — и живность собирается кружить вокруг ростка.
+
+                Тот же heroGrow, что и у знака, но БЕЗ smoothstep: у знака он
+                сглаживает вычерчивание, а здесь линейная доля читается как
+                равномерное стягивание роя.
+              */}
+              <Fireflies className="inset-0" orbit={heroGrow} />
+              <MossMoths className="inset-0" orbit={heroGrow} />
+            </div>
+          </div>
+
+          <div className="relative mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
+            <div className="max-w-[560px] lg:max-w-[760px]">
+              {/*
+                Антиква в нормальном регистре. Прежний вариант был в капсе, и
+                часть слов гасилась до 45% белого — гасились при этом не
+                служебные слова, а существительные («roofs, vertical»), из-за
+                чего фраза читалась обрывками. Поле `dim` в HERO_WORDS осталось
+                в данных, но больше не используется: заголовок одноцветный.
+              */}
               <h1
-                className="display font-normal leading-[1.1] text-[28px] sm:text-[36px] md:text-[42px] lg:text-[46px] xl:text-[52px]"
-                style={{ letterSpacing: "-0.045em" }}
+                className="brand-serif leading-[1.08] text-[32px] text-[color:var(--brand-cream)] sm:text-[42px] md:text-[50px] lg:text-[56px] xl:text-[64px]"
               >
                 {HERO_WORDS.map((w, i) => (
                   // Пробел настоящим текстовым узлом: margin-left между словами
                   // сдвигал вправо ПЕРВОЕ слово каждой перенесённой строки.
                   <span key={`${w.text}-${i}`}>
                     <span className="word">
-                      <span
-                        className={w.dim ? "text-white/45" : "text-white"}
-                        style={{ animationDelay: `${0.3 + i * 0.06}s` }}
-                      >
-                        {w.text}
-                      </span>
+                      <span style={{ animationDelay: `${0.3 + i * 0.06}s` }}>{w.text}</span>
                     </span>{" "}
                   </span>
                 ))}
               </h1>
 
-              <p className="a-in d6 mt-6 text-base font-medium text-[#C3D45F] sm:text-lg lg:mt-7">
+              <p className="a-in d6 mt-5 text-base font-medium text-[color:var(--brand-sage)] sm:text-lg lg:mt-6">
                 Resilient greenery in any climate
               </p>
 
-              {/* CTA-ряд: кнопка + абзац, как в референсе */}
-              <div className="a-up d7 mt-9 flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-10 lg:mt-12 lg:gap-14">
+              {/*
+                Единственное действие на экране — якорь на секцию Contact, где
+                стоит развёрнутая форма. Раньше первый экран нёс сразу три
+                равнозначных призыва (кнопка в шапке, кнопка в теле и форма
+                справа); остались два, и они разнесены по ролям: постоянный —
+                в шапке, основной — здесь.
+              */}
+              <div className="a-up d7 mt-8 lg:mt-10">
                 <a
                   href="#contact"
-                  className="btn btn-accent flex w-full whitespace-nowrap text-[13px] sm:w-auto sm:px-8 lg:py-[18px] lg:text-[14px]"
-                  style={{ letterSpacing: "-0.03em" }}
+                  className="btn btn-sage inline-flex w-full whitespace-nowrap text-[13px] sm:w-auto sm:px-9 lg:py-[18px] lg:text-[14px]"
                 >
                   Get Expert Advice
                   <ArrowUpRight className="size-5" strokeWidth={1.8} />
                 </a>
-                <ul className="grid flex-1 gap-2">
-                  {HERO_BULLETS.map((b) => (
-                    <li key={b} className="flex gap-2.5 text-[14px] leading-snug text-white/80">
-                      <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[#C3D45F]" strokeWidth={1.7} aria-hidden />
-                      {b}
-                    </li>
-                  ))}
-                </ul>
               </div>
 
-              <div className="a-up d8 mt-10 flex flex-wrap gap-x-10 gap-y-4 border-t border-white/12 pt-7 lg:mt-12">
-                {HERO_DESIGNED_FOR.map((d) => (
-                  <span key={d.label} className="flex items-center gap-2.5 text-[13.5px] font-medium text-white/80">
-                    <span className="grid size-8 place-items-center rounded-lg bg-white/10 text-[#C3D45F]">
-                      <Icon name={d.icon} className="size-4" />
-                    </span>
-                    {d.label}
-                  </span>
+              {/*
+                Три продуктовые линейки. Прежде рядом с ними стоял ещё ряд чипов
+                («Moisture control», «Air purification», «Healthy growth») —
+                второй список преимуществ подряд, дублировавший этот по смыслу.
+                Оставлена одна пара: что продаём, без повтора зачем.
+              */}
+              <ul className="a-up d8 mt-9 grid gap-3 border-t border-[color:var(--brand-cream-15)] pt-7 lg:mt-11 lg:grid-cols-3 lg:gap-x-8">
+                {HERO_BULLETS.map((b) => (
+                  <li
+                    key={b}
+                    className="flex gap-2.5 text-[14px] leading-snug text-[color:var(--brand-cream-85)]"
+                  >
+                    <CheckCircle2
+                      className="mt-0.5 size-4 shrink-0 text-[color:var(--brand-sage)]"
+                      strokeWidth={1.7}
+                      aria-hidden
+                    />
+                    {b}
+                  </li>
                 ))}
-              </div>
-            </div>
-
-            {/* Форма-виджет справа — требование ТЗ. В референсе это место занимал
-                плавающий продукт; здесь тот же визуальный якорь, но лидогенерирующий. */}
-            <div className="a-scale d4 rounded-2xl bg-white p-7 shadow-2xl sm:p-8">
-              <h2 className="display text-[19px] font-bold leading-tight tracking-[-0.02em]">
-                Request a Sample or Quote
-              </h2>
-              <p className="mb-5 mt-1.5 text-[13px] leading-snug text-[color:var(--muted)]">
-                We respond within 24 hours — with a technical passport and load figures.
-              </p>
-              <LeadForm id="hero" compact />
+              </ul>
             </div>
           </div>
         </div>
 
-        {/* ── Полоса из трёх панелей внизу экрана (паттерн TerraElix) ── */}
-        <div className="relative z-10 grid grid-cols-1 md:grid-cols-[2fr_1fr_2fr]">
+        {/*
+          ── Полоса из трёх панелей внизу экрана ──
+          Раньше панели стояли на #ECEDEC, #FEFDF9 и чистом чёрном: первые два
+          оттенка почти совпадали, но не в точности, и разница читалась как
+          случайность, а не как решение. Теперь два светлых блока — один и тот же
+          брендовый Cream, разделённый линией, третий — Ink. Пропорция Cream/Ink
+          в полосе примерно 65/35, как и требует гайд.
+        */}
+        {/* Три колонки — только с lg. На планшете (834 px) средняя занимала
+            ~110 px внутренней ширины, и текст ломался по одному слову в строку.
+            Теперь на md две колонки, а третья панель растянута на всю ширину. */}
+        <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[2fr_1fr_2fr]">
           {/* Панель 1 */}
-          <div className="a-up d8 relative flex flex-col justify-between overflow-hidden bg-[#ECEDEC] p-7 lg:p-9">
-            <p
-              className="display normal-case-h max-w-[350px] text-xl leading-[1.1] sm:text-[24px] lg:text-[28px]"
-              style={{ letterSpacing: "-0.05em" }}
-            >
+          <div className="a-up d8 relative flex flex-col justify-between overflow-hidden bg-[color:var(--brand-cream)] p-7 text-[color:var(--brand-ink)] lg:p-9">
+            <p className="brand-serif max-w-[350px] text-xl leading-[1.12] sm:text-[24px] lg:text-[28px]">
               {STRIP_PANEL_1.text}
             </p>
             <a
               href={STRIP_PANEL_1.linkHref}
-              className="mt-5 inline-block text-base underline underline-offset-4 hover:text-[color:var(--olive-ink)] lg:text-lg"
+              className="mt-5 inline-block text-base underline underline-offset-4 hover:text-[color:var(--brand-moss)] lg:text-lg"
               style={{ letterSpacing: "-0.03em" }}
             >
               {STRIP_PANEL_1.linkLabel}
@@ -627,7 +816,7 @@ export default function SphagnumLanding() {
           </div>
 
           {/* Панель 2 — автокарусель */}
-          <div className="a-up d8 flex flex-col justify-between bg-[#FEFDF9] p-7 lg:p-8">
+          <div className="a-up d8 flex flex-col justify-between bg-[color:var(--brand-cream)] p-7 text-[color:var(--brand-ink)] md:border-l md:border-[color:var(--brand-ink-10)] lg:p-8">
             <div className="relative min-h-[84px] flex-1 sm:min-h-[96px]">
               {STRIP_CARDS.map((c, i) => {
                 const active = i === stripCard;
@@ -645,11 +834,15 @@ export default function SphagnumLanding() {
                       active ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-4 opacity-0"
                     }`}
                   >
-                    <span className={`grid size-10 shrink-0 place-items-center rounded-full text-white sm:size-12 ${c.circle}`}>
+                    {/* Кружок всегда Moss. Поле `circle` в данных задавало cyan и
+                        amber — цвета вне фирменной палитры, а «кодировка типа
+                        свойства цветом» всё равно не считывалась: легенды нет,
+                        и по §«не только цветом» смысл обязан быть в тексте. */}
+                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[color:var(--brand-moss)] text-[color:var(--brand-cream)] sm:size-12">
                       <Icon name={c.icon} className="size-[18px]" />
                     </span>
                     <p
-                      className="text-sm leading-[1.2] text-black/80 sm:text-base lg:text-lg"
+                      className="text-sm leading-[1.25] text-[color:var(--brand-ink-85)] sm:text-base lg:text-lg"
                       style={{ letterSpacing: "-0.03em" }}
                     >
                       {c.text}
@@ -663,23 +856,24 @@ export default function SphagnumLanding() {
                 <span
                   key={c.text}
                   className={`h-0.5 flex-1 rounded-full transition-colors duration-500 ${
-                    i === stripCard ? "bg-black" : "bg-black/20"
+                    i === stripCard ? "bg-[color:var(--brand-ink)]" : "bg-[color:var(--brand-ink-20)]"
                   }`}
                 />
               ))}
             </div>
           </div>
 
-          {/* Панель 3 */}
-          <div className="a-up d8 flex items-center gap-5 bg-black p-7 lg:gap-7 lg:p-9">
-            <p
-              className="display shrink-0 text-2xl font-normal text-white sm:text-3xl lg:text-[35px]"
-              style={{ letterSpacing: "-0.05em" }}
-            >
+          {/* Панель 3. Подпись была на white/60 — это 6.4:1 по чёрному, но по
+              брендовому Ink уже 5.8:1; поднято до 75%, чтобы держать запас. */}
+          <div className="a-up d8 flex items-center gap-5 bg-[color:var(--brand-ink)] p-7 lg:gap-7 lg:p-9">
+            <p className="brand-serif shrink-0 text-2xl text-[color:var(--brand-cream)] sm:text-3xl lg:text-[35px]">
               {STRIP_PANEL_3.value}
             </p>
-            <p className="text-sm leading-[1.25] text-white/60 sm:text-base lg:text-lg">{STRIP_PANEL_3.text}</p>
+            <p className="text-sm leading-[1.3] text-[color:var(--brand-cream-72)] sm:text-base lg:text-lg">
+              {STRIP_PANEL_3.text}
+            </p>
           </div>
+        </div>
         </div>
       </section>
       {/* ═══════════ РАЗДЕЛ 2 — НАШИ РЕШЕНИЯ ═══════════ */}
