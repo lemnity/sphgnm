@@ -14,7 +14,11 @@ const nextConfig = {
   reactStrictMode: true,
   output: "export",
   basePath: isPages ? "/sphgnm" : "",
-  assetPrefix: isPages ? "/sphgnm/" : "",
+  // БЕЗ хвостового слэша. С ним Next склеивал префикс с "/_next/..." и выдавал
+  // "/sphgnm//_next/static/media/...": статически импортированные картинки
+  // получали двойной слэш. GitHub Pages его прощает, но это везение — другой
+  // хостинг или CDN на таком пути отдаст 404.
+  assetPrefix: isPages ? "/sphgnm" : "",
   // Оптимизатор картинок — серверная штука, в статике его нет. Лендинг его и не
   // использует (везде обычный <img>), но без флага next build падает на проверке.
   images: { unoptimized: true },
