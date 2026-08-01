@@ -291,56 +291,494 @@ export function MossMoths({
   );
 }
 
-/* ═══════════════ Лучи света ═══════════════ */
+/* ═══════════════ Моховой фон ═══════════════ */
 
 /**
- * Столбы света из правого верхнего угла на моховой уступ.
+ * Фон первого экрана: мох, нарастающий броуновским движением.
  *
- * Таблица, а не генератор: анимация бесконечная, случайные значения при
- * гидрации разошлись бы с серверными. Углы разведены неравномерно — равный
- * шаг читается как веер жалюзи, а не как свет сквозь листву.
+ * Основа: CodePen «Moss by Brownian Motion» (Johan Karlsson / DonKarlssonSan,
+ * MIT, лежит в moss-by-brownian-motion/). Оригинал написан на p5.js; здесь
+ * чистый canvas 2D — тянуть 300 КБ библиотеки ради ста частиц и рисования
+ * отрезков незачем, а весь эффект это и есть сто частиц и отрезки.
  *
- * Диапазон 3–24°: исток стоит у самого правого края, и на широком развороте
- * нижние концы лучей уходили в середину кадра, на заголовок.
+ * Как это работает. Сто точек блуждают случайным шагом и оставляют за собой
+ * едва заметные штрихи. Холст НИКОГДА не очищается, поэтому штрихи копятся, и
+ * фон медленно зарастает мхом — отсюда и название.
  *
- * rot — наклон падающего луча, ЗАФИКСИРОВАН: сам луч не двигается.
- * bend — угол преломления на входе в мох, у всех разный (одинаковый читался бы
- * как сгиб трафарета). sw — насколько этот угол гуляет; чем уже луч, тем
- * подвижнее. Периоды 11–23 с и взаимно не кратные, иначе веер играет разом.
+ * ЧТО ИЗМЕНЕНО ПРОТИВ ОРИГИНАЛА:
+ * 1. Холст прозрачный, а не чёрный: под ним фирменный Ink, и мох нарастает
+ *    поверх него. Чёрная заливка выбила бы Ink из палитры.
+ * 2. Шагов за кадр 8, а не 50 — фон должен зарастать МЕДЛЕННО. Заодно это
+ *    вшестеро меньше работы на кадр.
+ * 3. Есть предел: после FILL_FRAMES кадров цикл останавливается совсем.
+ *    Иначе холст зарастает в сплошное пятно, а процессор занят вечно.
+ * 4. Оттенки сужены к фирменной зелени (жёлтая часть диапазона убрана) и
+ *    сгруппированы в шесть корзин — см. комментарий у MOSS_HUES.
  */
-const RAYS = [
-  { rot: "3deg", w: "3.4vw", op: 0.3, bend: "11deg", sw: "3.5deg", dur: "17s", delay: "0s" },
-  { rot: "8deg", w: "1.5vw", op: 0.2, bend: "16deg", sw: "5deg", dur: "13s", delay: "-5s" },
-  { rot: "13deg", w: "4.6vw", op: 0.26, bend: "9deg", sw: "2.6deg", dur: "23s", delay: "-9s" },
-  { rot: "17deg", w: "2.1vw", op: 0.15, bend: "14deg", sw: "5.5deg", dur: "15s", delay: "-2s" },
-  { rot: "21deg", w: "3.1vw", op: 0.22, bend: "8deg", sw: "3deg", dur: "19s", delay: "-12s" },
-  { rot: "24deg", w: "1.3vw", op: 0.13, bend: "18deg", sw: "6deg", dur: "11s", delay: "-7s" },
+const MOSS_PARTICLES = 100;
+const MOSS_STEP_MAX = 5;
+const MOSS_STEPS_PER_FRAME = 8;
+/** Через сколько кадров фон считается заросшим и цикл останавливается. */
+const MOSS_FILL_FRAMES = 2600;
+
+type MossParticle = { x: number; y: number; bucket: number };
+
+/*
+  Оттенки СГРУППИРОВАНЫ в корзины, и это не про цвет, а про скорость.
+  В оригинале каждая частица красится в свой оттенок, то есть на каждый штрих
+  идёт свой stroke(): сто частиц на восемь шагов — восемьсот вызовов за кадр,
+  и это главный расход всей страницы. Замер прокрутки: 59 кадров за 2.2 с
+  против 131 без холста вовсе.
+
+  С шестью корзинами все штрихи одного оттенка собираются в ОДИН путь и
+  рисуются одним вызовом: 48 вызовов за кадр вместо 800. На глаз разницы нет —
+  шесть зелёных на полупрозрачных штрихах неотличимы от ста.
+*/
+const MOSS_HUES = [98, 108, 118, 128, 136, 142];
+
+function drawMossFrame(
+  ctx: CanvasRenderingContext2D,
+  parts: MossParticle[],
+  w: number,
+  h: number,
+  steps: number
+) {
+  ctx.lineWidth = 1;
+  for (let i = 0; i < steps; i++) {
+    for (let b = 0; b < MOSS_HUES.length; b++) {
+      ctx.strokeStyle = "hsla(" + MOSS_HUES[b] + ", 48%, 64%, .075)";
+      ctx.beginPath();
+      let drew = false;
+      for (const p of parts) {
+        if (p.bucket !== b) continue;
+        const ox = p.x;
+        const oy = p.y;
+        p.x += (Math.random() * 2 - 1) * MOSS_STEP_MAX;
+        p.y += (Math.random() * 2 - 1) * MOSS_STEP_MAX;
+        // Ушедшую за край возвращаем в кадр, иначе половина частиц разбредается
+        // наружу и фон зарастает только в середине.
+        if (p.x < 0 || p.x > w || p.y < 0 || p.y > h) {
+          p.x = Math.random() * w;
+          p.y = Math.random() * h;
+          continue;
+        }
+        ctx.moveTo(ox, oy);
+        ctx.lineTo(p.x, p.y);
+        drew = true;
+      }
+      if (drew) ctx.stroke();
+    }
+  }
+}
+
+export function MossBackdrop({
+  className = "",
+  style,
+}: {
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let parts: MossParticle[] = [];
+    let raf = 0;
+    let drawn = 0;
+    let visible = true;
+
+    const seed = (w: number, h: number) => {
+      parts = Array.from({ length: MOSS_PARTICLES }, () => ({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        // Фирменная зелень: жёлтая часть исходного диапазона (70…150) убрана,
+        // иначе фон уходит в салатовый и спорит с лаймовыми бабочками.
+        bucket: Math.floor(Math.random() * MOSS_HUES.length),
+      }));
+    };
+
+    // Плотность пикселей 1: это шумовая текстура, на удвоенной сетке она
+    // выглядит так же, а работы вчетверо больше.
+    const size = () => {
+      const w = Math.max(1, Math.round(canvas.clientWidth));
+      const h = Math.max(1, Math.round(canvas.clientHeight));
+      if (canvas.width === w && canvas.height === h) return false;
+      canvas.width = w;
+      canvas.height = h;
+      seed(w, h);
+      drawn = 0;
+      return true;
+    };
+    size();
+
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (still) {
+      // При «меньше движения» фон не зарастает на глазах, а сразу готов:
+      // текстура осмысленна сама по себе, её нарастание — украшение.
+      drawMossFrame(ctx, parts, canvas.width, canvas.height, 220);
+      return;
+    }
+
+    const loop = () => {
+      raf = requestAnimationFrame(loop);
+      if (!visible || document.hidden) return;
+      if (drawn >= MOSS_FILL_FRAMES) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+        return;
+      }
+      drawn += 1;
+      drawMossFrame(ctx, parts, canvas.width, canvas.height, MOSS_STEPS_PER_FRAME);
+    };
+
+    const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; }, { threshold: 0 });
+    io.observe(canvas);
+    // Пересев при смене размера: холст очищается сменой width/height, и
+    // нарастание начинается заново — иначе текстура растянулась бы.
+    const ro = new ResizeObserver(() => { if (size()) drawn = 0; });
+    ro.observe(canvas);
+    raf = requestAnimationFrame(loop);
+
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      io.disconnect();
+      ro.disconnect();
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className={`moss-backdrop ${className}`} style={style} aria-hidden />;
+}
+
+/* ═══════════════ Лучи света ═══════════════ */
+
+/*
+  Лучи — фрагментный шейдер на WebGL.
+
+  Основа: CodePen «2025-08-10 light rays» (Loïc Laudet, MIT, лежит в
+  2025-08-10light-rays/), сам он по мотивам ElusivePete на Shadertoy.
+  Лицензия MIT — файл LICENSE.txt в той же папке, авторство ниже в коде.
+
+  Почему шейдер, а не CSS. Столб света — это не фигура, а ПОЛЕ яркости: она
+  зависит от угла к солнцу и от расстояния до него в каждой точке кадра. CSS
+  умеет рисовать фигуры, поэтому там приходилось собирать луч из двух
+  прямоугольников, клина-обрезки, маски-колокола и размытия — и всё равно
+  оставались стыки, ступеньки и пересчёт blur на каждом кадре. Здесь яркость
+  считается прямо для каждого пикселя, а анимация — это сдвиг фазы синуса,
+  то есть ровно то самое «плавное свечение».
+
+  ЧТО ИЗМЕНЕНО ПРОТИВ ОРИГИНАЛА (и зачем):
+  1. Источник вынесен в uniform и стоит в правом верхнем углу, а не по центру.
+  2. Добавлено затухание с расстоянием от солнца. В оригинале фон чёрный и
+     ровная засветка всего кадра выглядит туманом; у нас под лучами лежит
+     заголовок, и такая засветка съедала бы ему контраст.
+  3. Добавлен порог (raw - 0.58): в оригинале яркость лучей никогда не падает
+     до нуля, промежутки между ними светлые. Без тёмных промежутков пучок
+     читается сплошным конусом — фонарём, а не солнцем.
+  4. Добавлен ореол вокруг источника (u_glow) — то самое пятно солнца.
+  5. Тёплый разбор по каналам: к низу свет холоднее и слабее.
+*/
+const RAY_VERTEX_SHADER = `
+precision mediump float;
+attribute vec2 a_position;
+varying vec2 vUv;
+void main() {
+  // y переворачивается здесь: в кадре ноль сверху, у clip-space — снизу.
+  vUv = vec2(0.5 * (a_position.x + 1.0), 0.5 * (1.0 - a_position.y));
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}
+`;
+
+const RAY_FRAGMENT_SHADER = `
+precision mediump float;
+varying vec2 vUv;
+uniform float u_time;
+uniform vec2 u_resolution;
+uniform vec2 u_source;
+uniform float u_intensity;
+uniform float u_glow;
+
+/*
+  Яркость луча в точке. cosAngle — косинус угла между направлением на точку и
+  опорным направлением; синусы от него и дают чередование лучей и промежутков.
+  Время сдвигает фазу: рисунок медленно перетекает, лучи «дышат».
+*/
+float rayStrength(vec2 src, vec2 refDir, vec2 coord, float seedA, float seedB, float speed) {
+  vec2 sourceToCoord = coord - src;
+  float cosAngle = dot(normalize(sourceToCoord), refDir);
+  float raw =
+    (0.45 + 0.15 * sin(cosAngle * seedA + u_time * speed)) +
+    (0.30 + 0.20 * cos(-cosAngle * seedB + u_time * speed));
+  // Порог: без него промежутки между лучами никогда не темнеют.
+  return clamp((raw - 0.58) / 0.52, 0.0, 1.0);
+}
+
+void main() {
+  vec2 frag = vUv * u_resolution;
+  float dist = length(frag - u_source);
+
+  /*
+    Частоты 36.2 / 21.1 — как в исходном пене. Держать их в связке с тем, где
+    стоит вершина: рисунок задан через КОСИНУС УГЛА на точку кадра, и если
+    унести источник далеко за край, угол по кадру меняется мало, синус успевает
+    сделать пол-колебания и вместо веера остаётся один размазанный луч.
+    Вершина рядом с кадром — эти частоты правильные.
+  */
+  float rays = rayStrength(u_source, normalize(vec2(-0.78, 1.0)), frag, 36.2214, 21.11349, 0.32);
+
+  // Затухание с расстоянием от солнца — квадратичное, чтобы дальний край кадра
+  // оставался тёмным и заголовок не терял контраст.
+  float fall = 1.0 - smoothstep(0.0, u_resolution.x * 1.15, dist);
+  fall *= fall;
+
+  // Ореол солнца.
+  float glow = exp(-dist / (u_resolution.x * u_glow));
+
+  float v = (rays * fall * 0.62 + glow * 0.5) * u_intensity;
+
+  // Тёплый, к золоту. depth: вверху кадра свет теплее и сильнее, книзу
+  // рассеивается и холоднеет — так ведёт себя свет в толще воздуха.
+  float depth = 1.0 - vUv.y;
+  vec3 tint = vec3(0.56 + 0.44 * depth, 0.50 + 0.40 * depth, 0.32 + 0.30 * depth);
+
+  /*
+    Холст ПРОЗРАЧНЫЙ: альфа равна самой яркости света, а цвет уже умножен на
+    неё (контекст создан с premultipliedAlpha). Там, где света нет, пиксель
+    полностью прозрачен.
+
+    Так было не сразу. Сначала холст был непрозрачным по образцу оригинального
+    пена (там под ним чёрный фон страницы, и это незаметно). Расчёт был на
+    mix-blend-mode: screen у контейнера — screen с чёрным ничего не меняет.
+    На деле кадр потемнел: замер показал слева rgb(4,4,3) против rgb(34,40,26)
+    без лучей, то есть чёрный холст ЗАКРАШИВАЛ сцену, а не смешивался с ней.
+    С прозрачным холстом вопрос снят вовсе — он не зависит от того, дошло ли
+    смешивание, и лишний слой краски в кадр не попадает.
+  */
+  gl_FragColor = vec4(tint * v, v);
+}
+`;
+
+/**
+ * Положение солнца и сила свечения по ширине экрана.
+ *
+ * ВЕРШИНА ПОДНЯТА НАД ВЕРХНЕЙ КРОМКОЙ (sy отрицательный), но недалеко.
+ * Смысл в том, чтобы в кадре не было видно точки, ОТКУДА расходятся лучи:
+ * видимая вершина сразу читается лампой. При этом уносить источник далеко
+ * нельзя — рисунок задан косинусом угла на точку кадра, и с дальней вершины
+ * угол по всему кадру почти не меняется: веер вырождается в один размазанный
+ * луч. Проверено: sy около -0.35 уже даёт ровно это.
+ *
+ * На узком экране уступ с мхом не выводится вовсе, а заголовок занимает всю
+ * ширину — поэтому там солнце ещё дальше за краем и заметно тусклее.
+ */
+function rayTuning(width: number) {
+  if (width < 768) return { sx: 1.02, sy: -0.16, intensity: 0.5, glow: 0.15 };
+  if (width < 1280) return { sx: 0.99, sy: -0.15, intensity: 0.75, glow: 0.16 };
+  return { sx: 0.95, sy: -0.14, intensity: 1, glow: 0.18 };
+}
+
+/**
+ * Пылинки в столбах света.
+ *
+ * Главный признак того, что свет ОБЪЁМНЫЙ, а не нарисован поверх кадра: столб
+ * виден только потому, что в нём висит взвесь. Без неё это градиент, с ней —
+ * воздух.
+ *
+ * Это НЕ светлячки: у тех есть ореол (см. .firefly в стилях), и он же делает их
+ * живностью. У пылинки ореола нет намеренно — только точка на грани видимости.
+ *
+ * Координаты держат пылинки в правом верхнем углу, где идут столбы: россыпь по
+ * всему кадру читалась бы шумом или снегом. Таблица, а не генератор: анимация
+ * бесконечная, случайные значения при гидрации разошлись бы с серверными.
+ *
+ * dx/dy — куда пылинку сносит за период. Снос вниз слабый и вбок разный:
+ * пыль в воздухе не падает, а плавает. Периоды 21–37 с взаимно не кратны.
+ */
+const MOTES = [
+  { top: "9%", right: "7%", s: "2.6px", o: 0.34, dx: "-1.6vw", dy: "7vh", dur: "27s", delay: "0s" },
+  { top: "16%", right: "18%", s: "1.8px", o: 0.24, dx: "1.1vw", dy: "9vh", dur: "34s", delay: "-11s" },
+  { top: "6%", right: "26%", s: "2.1px", o: 0.2, dx: "-0.9vw", dy: "6vh", dur: "23s", delay: "-6s" },
+  { top: "24%", right: "5%", s: "3px", o: 0.3, dx: "1.4vw", dy: "8vh", dur: "31s", delay: "-19s" },
+  { top: "31%", right: "14%", s: "1.6px", o: 0.22, dx: "-1.2vw", dy: "5vh", dur: "37s", delay: "-3s" },
+  { top: "12%", right: "33%", s: "2.3px", o: 0.18, dx: "0.8vw", dy: "10vh", dur: "29s", delay: "-14s" },
+  { top: "38%", right: "22%", s: "2px", o: 0.26, dx: "-1.5vw", dy: "6vh", dur: "25s", delay: "-8s" },
+  { top: "44%", right: "9%", s: "1.7px", o: 0.2, dx: "1vw", dy: "7vh", dur: "33s", delay: "-21s" },
+  { top: "20%", right: "40%", s: "1.5px", o: 0.15, dx: "-0.7vw", dy: "8vh", dur: "21s", delay: "-5s" },
+  { top: "52%", right: "16%", s: "2.4px", o: 0.24, dx: "1.3vw", dy: "5vh", dur: "35s", delay: "-16s" },
+  { top: "3%", right: "13%", s: "1.9px", o: 0.28, dx: "-1vw", dy: "9vh", dur: "26s", delay: "-24s" },
+  { top: "35%", right: "31%", s: "1.6px", o: 0.16, dx: "0.9vw", dy: "6vh", dur: "30s", delay: "-9s" },
 ];
 
 export function LightRays({ className = "" }: { className?: string }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // alpha: true + premultipliedAlpha — холст прозрачен там, где нет света
+    // (см. конец фрагментного шейдера). depth/stencil не нужны: рисуем один
+    // прямоугольник без глубины.
+    const gl =
+      canvas.getContext("webgl", {
+        alpha: true,
+        premultipliedAlpha: true,
+        antialias: false,
+        depth: false,
+        stencil: false,
+      }) ?? canvas.getContext("experimental-webgl", { alpha: true });
+    // Без WebGL просто не рисуем: лучи — украшение, а не содержание. Никаких
+    // alert, как в оригинальном пене.
+    if (!gl || !(gl instanceof WebGLRenderingContext)) return;
+
+    const compile = (src: string, type: number) => {
+      const sh = gl.createShader(type);
+      if (!sh) return null;
+      gl.shaderSource(sh, src);
+      gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+        console.error("light rays: shader", gl.getShaderInfoLog(sh));
+        gl.deleteShader(sh);
+        return null;
+      }
+      return sh;
+    };
+
+    const vs = compile(RAY_VERTEX_SHADER, gl.VERTEX_SHADER);
+    const fs = compile(RAY_FRAGMENT_SHADER, gl.FRAGMENT_SHADER);
+    const program = gl.createProgram();
+    if (!vs || !fs || !program) return;
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      console.error("light rays: link", gl.getProgramInfoLog(program));
+      return;
+    }
+    gl.useProgram(program);
+
+    const uTime = gl.getUniformLocation(program, "u_time");
+    const uRes = gl.getUniformLocation(program, "u_resolution");
+    const uSrc = gl.getUniformLocation(program, "u_source");
+    const uInt = gl.getUniformLocation(program, "u_intensity");
+    const uGlow = gl.getUniformLocation(program, "u_glow");
+
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    const aPos = gl.getAttribLocation(program, "a_position");
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+    // Размер берём от СВОЕЙ коробки, а не от окна: холст лежит внутри героя,
+    // а не на весь экран, и по окну он растянулся бы мимо.
+    const resize = () => {
+      /*
+        Считаем в ПОЛОВИНУ экранного разрешения и растягиваем: картинка — сплошь
+        плавные градиенты, ступенек на них взяться неоткуда, а фрагментов вчетверо
+        меньше. Это страховка для машин без аппаратного ускорения: там шейдер
+        считает процессор, и полное разрешение обходится дорого.
+      */
+      const dpr = 0.5;
+      const w = Math.max(1, Math.round(canvas.clientWidth * dpr));
+      const h = Math.max(1, Math.round(canvas.clientHeight * dpr));
+      if (canvas.width === w && canvas.height === h) return;
+      canvas.width = w;
+      canvas.height = h;
+      gl.viewport(0, 0, w, h);
+      gl.uniform2f(uRes, w, h);
+      const t = rayTuning(canvas.clientWidth);
+      gl.uniform2f(uSrc, w * t.sx, h * t.sy);
+      gl.uniform1f(uInt, t.intensity);
+      gl.uniform1f(uGlow, t.glow);
+    };
+    resize();
+
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    let frame = 0;
+    let visible = true;
+    gl.clearColor(0, 0, 0, 0);
+    const draw = (timeSec: number) => {
+      // Очистка обязательна: холст прозрачный, и без неё поверх прозрачных
+      // мест остаётся предыдущий кадр — свет копится в грязное пятно.
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.uniform1f(uTime, timeSec);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    };
+
+    if (still) {
+      // При «меньше движения» кадр рисуется один раз и замирает: сами лучи
+      // осмысленны, дышать им не обязательно.
+      draw(0);
+    } else {
+      /*
+        Не чаще 30 кадров в секунду. Свечение здесь — медленный дрейф фазы
+        синуса, разницы между 30 и 60 кадрами на нём не видно, а работы вдвое
+        меньше. Прокрутке это отдаёт половину бюджета обратно.
+      */
+      const MIN_FRAME_MS = 1000 / 30;
+      let lastDraw = 0;
+      const loop = () => {
+        frame = requestAnimationFrame(loop);
+        if (!visible || document.hidden) return;
+        const now = performance.now();
+        if (now - lastDraw < MIN_FRAME_MS) return;
+        lastDraw = now;
+        draw(now * 0.001);
+      };
+      // Пока герой не в кадре, считать нечего: шейдер крутится вхолостую и
+      // отъедает кадровый бюджет у прокрутки остальной страницы.
+      const io2 = new IntersectionObserver(
+        ([e]) => {
+          visible = e.isIntersecting;
+        },
+        { threshold: 0 }
+      );
+      io2.observe(canvas);
+      frame = requestAnimationFrame(loop);
+      return () => {
+        cancelAnimationFrame(frame);
+        io2.disconnect();
+        ro.disconnect();
+        gl.getExtension("WEBGL_lose_context")?.loseContext();
+      };
+    }
+
+    return () => {
+      ro.disconnect();
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
+    };
+  }, []);
+
   return (
     <div className={`light-rays pointer-events-none absolute ${className}`} aria-hidden>
-      <span className="light-source" />
-      {RAYS.map((r, i) => (
+      <canvas ref={canvasRef} className="light-rays-canvas" />
+      {/* Пылинки поверх лучей: они висят в свету, а не под ним. */}
+      {MOTES.map((m, i) => (
         <span
-          key={i}
-          className="ray"
+          key={`mote-${i}`}
+          className="mote"
           style={
             {
-              width: r.w,
-              "--rot": r.rot,
-              "--ro": r.op.toFixed(2),
-              "--bend": r.bend,
-              "--sw": r.sw,
+              top: m.top,
+              right: m.right,
+              width: m.s,
+              height: m.s,
+              "--mo": m.o.toFixed(2),
+              "--mx": m.dx,
+              "--my": m.dy,
+              animationDuration: m.dur,
+              animationDelay: m.delay,
             } as CSSProperties
           }
-        >
-          <span className="ray-a" />
-          <span
-            className="ray-b"
-            style={{ animationDuration: r.dur, animationDelay: r.delay } as CSSProperties}
-          />
-        </span>
+        />
       ))}
     </div>
   );

@@ -32,7 +32,7 @@ import {
 import mossLedge from "./assets/moss-ledge.png";
 import { SphagnumLogo, SphagnumMark } from "./sphagnum-logo";
 import { SphagnumStyles } from "./sphagnum-styles";
-import { CountUp, Fireflies, LightRays, MossButterfly, MossMoths, MossTexture, WaterBattery } from "./sphagnum-visuals";
+import { CountUp, Fireflies, LightRays, MossBackdrop, MossButterfly, MossMoths, MossTexture, WaterBattery } from "./sphagnum-visuals";
 import {
   ADVANTAGES,
   APPLICATIONS,
@@ -440,11 +440,25 @@ export default function SphagnumLanding() {
     <div className="sph scroll-smooth">
       <SphagnumStyles />
 
-      {/* ═══════════ ШАПКА (фиксированная) ═══════════ */}
+      {/*
+        ═══════════ ШАПКА (фиксированная) ═══════════
+        Пока шапка не «прилипла», под ней лежит первый экран, и с него в правый
+        верхний угол бьют лучи. Прозрачная шапка на этом свету теряет читаемость:
+        замер дал 2.99:1 у ссылки «Contact» — провал AA. Поэтому в непрокрученном
+        состоянии не bg-transparent, а мягкая тень-подложка сверху вниз: она
+        держит подписи и при этом не читается панелью. После прокрутки шапка
+        становится сплошь кремовой, и подложка не нужна.
+        Замер после правки — в комментарии к затемнению первого экрана ниже.
+      */}
       <header
         className={`fixed inset-x-0 top-0 z-40 transition-colors duration-300 ${
-          scrolled ? "border-b border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] backdrop-blur" : "bg-transparent"
+          scrolled ? "border-b border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] backdrop-blur" : ""
         }`}
+        style={
+          scrolled
+            ? undefined
+            : { background: "linear-gradient(180deg, rgba(20,24,22,.72) 0%, rgba(20,24,22,.42) 62%, rgba(20,24,22,0) 100%)" }
+        }
       >
         {/* Верхний служебный ярус — как у референса: второстепенные ссылки и язык
             уводятся из основного меню, чтобы оно не разрасталось. */}
@@ -589,23 +603,41 @@ export default function SphagnumLanding() {
           aria-hidden
         />
         {/*
+          Моховая стена, нарастающая броуновским движением, — ПОВЕРХ фотографии,
+          а не вместо неё. Фотография держит объём и глубину (ветви, дымку), а
+          холст добавляет живую фактуру и то самое медленное зарастание.
+          Один холст без фотографии даёт равномерный шум без плана.
+
+          Едет вместе с фотографией тем же параллаксом: разъедутся — и фактура
+          поплывёт по неподвижному кадру, как плёнка поверх стекла.
+        */}
+        <MossBackdrop
+          className="absolute -inset-y-[20%] inset-x-0 will-change-transform"
+          style={{ transform: `translate3d(0, ${heroShift}px, 0)` }}
+        />
+        {/*
           Затемнение под текст. Раньше был один диагональный градиент — на
           десктопе он работал, но на узком экране контент занимает ВСЮ ширину,
           и правый край текста оказывался на прозрачной части (34%), где
           контраст рушился. Поэтому подложек две: вертикальная для мобильного,
           диагональная с lg. Цвет — брендовый Ink, а не прежний rgb(8,20,14).
+
+          Ослаблены (было .94/.80/.38 и .90/.80): зелёная стена должна читаться
+          стеной, а не чёрным полем. Дальше ослаблять НЕЛЬЗЯ без пересчёта
+          контраста — здесь он держится на этих числах. Замер после правки:
+          Cream по фону под заголовком 13.7:1, ссылки шапки 6.5:1.
         */}
         <div
           className="absolute inset-0 lg:hidden"
           aria-hidden
-          style={{ background: "linear-gradient(180deg, rgba(20,24,22,.90) 0%, rgba(20,24,22,.80) 100%)" }}
+          style={{ background: "linear-gradient(180deg, rgba(20,24,22,.86) 0%, rgba(20,24,22,.74) 100%)" }}
         />
         <div
           className="absolute inset-0 hidden lg:block"
           aria-hidden
           style={{
             background:
-              "linear-gradient(100deg, rgba(20,24,22,.94) 0%, rgba(20,24,22,.80) 46%, rgba(20,24,22,.38) 100%)",
+              "linear-gradient(100deg, rgba(20,24,22,.88) 0%, rgba(20,24,22,.68) 46%, rgba(20,24,22,.24) 100%)",
           }}
         />
 
@@ -678,7 +710,7 @@ export default function SphagnumLanding() {
               */}
               <div className="absolute bottom-[36%] right-[42%] w-[28%]">
                 <SphagnumMark
-                  className="w-full text-[color:var(--brand-sage-45)]"
+                  className="w-full text-[color:var(--brand-gold-62)]"
                   draw={heroGrow * heroGrow * (3 - 2 * heroGrow)}
                 />
               </div>
