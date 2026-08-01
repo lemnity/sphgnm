@@ -283,9 +283,50 @@ export function MossMoths({
               } as CSSProperties
             }
           >
-            <MossButterfly className="w-full text-[color:var(--brand-cream)]" flapMs={m.flap} />
+            <MossButterfly className="w-full text-[color:var(--brand-lime)]" flapMs={m.flap} />
           </span>
         </span>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════ Лучи света ═══════════════ */
+
+/**
+ * Столбы света из правого верхнего угла на моховой уступ.
+ *
+ * Таблица, а не генератор: анимация бесконечная, случайные значения при
+ * гидрации разошлись бы с серверными. Углы 9–41° разведены неравномерно —
+ * равный шаг читается как веер жалюзи, а не как свет сквозь листву.
+ */
+const RAYS = [
+  { rot: "9deg", w: "3.4vw", op: 0.3, dur: "11s", delay: "0s" },
+  { rot: "15deg", w: "1.5vw", op: 0.2, dur: "8.6s", delay: "-3.1s" },
+  { rot: "22deg", w: "4.6vw", op: 0.26, dur: "13.4s", delay: "-6.2s" },
+  { rot: "27deg", w: "2.1vw", op: 0.15, dur: "10.2s", delay: "-1.4s" },
+  { rot: "34deg", w: "3.1vw", op: 0.22, dur: "12.1s", delay: "-8.3s" },
+  { rot: "41deg", w: "1.3vw", op: 0.13, dur: "9.1s", delay: "-4.7s" },
+];
+
+export function LightRays({ className = "" }: { className?: string }) {
+  return (
+    <div className={`light-rays pointer-events-none absolute ${className}`} aria-hidden>
+      <span className="light-source" />
+      {RAYS.map((r, i) => (
+        <span
+          key={i}
+          className="ray"
+          style={
+            {
+              width: r.w,
+              animationDuration: r.dur,
+              animationDelay: r.delay,
+              "--rot": r.rot,
+              "--ro": r.op.toFixed(2),
+            } as CSSProperties
+          }
+        />
       ))}
     </div>
   );
