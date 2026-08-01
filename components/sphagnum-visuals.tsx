@@ -454,6 +454,21 @@ function useProgress(durationMs: number) {
  * Цифры конкурентов (торф, обычный грунт) СОЗНАТЕЛЬНО не выдуманы: в ТЗ их нет,
  * а на коммерческом лендинге придуманное сравнение — фактическое заявление.
  */
+/**
+ * Пузырьки в колбе. Таблица, а не генератор: анимация бесконечная, и случайные
+ * значения при гидрации разошлись бы с серверными. Разные периоды и
+ * отрицательные задержки разводят фазы — синхронный подъём читался бы как
+ * механизм, а не как вода.
+ */
+const BUBBLES = [
+  { left: "22%", size: "5px", dur: "3.6s", delay: "-0.2s" },
+  { left: "58%", size: "4px", dur: "4.4s", delay: "-1.7s" },
+  { left: "38%", size: "3px", dur: "3.1s", delay: "-2.6s" },
+  { left: "74%", size: "5px", dur: "5.0s", delay: "-3.4s" },
+  { left: "12%", size: "3px", dur: "4.1s", delay: "-0.9s" },
+  { left: "64%", size: "3px", dur: "3.4s", delay: "-4.2s" },
+];
+
 export function WaterBattery() {
   const water = useProgress(1800);
   const dry = useProgress(1500);
@@ -465,22 +480,42 @@ export function WaterBattery() {
   const C = 2 * Math.PI * R;
 
   return (
-    <div className="grid overflow-hidden rounded-2xl border border-white/12 bg-[color:var(--brand-ink)]/85 backdrop-blur-sm lg:grid-cols-2">
+    <div className="grid overflow-hidden rounded-2xl border border-white/12 bg-[#101E17]/85 backdrop-blur-sm lg:grid-cols-2">
       {/* ── Водопоглощение ── */}
       <div ref={water.ref} className="flex items-center gap-6 border-b border-white/12 p-6 lg:border-b-0 lg:border-r lg:gap-8 lg:p-8">
         <div className="relative h-[150px] w-[64px] shrink-0 sm:h-[176px] sm:w-[76px] lg:h-[208px] lg:w-[88px]">
-          <div className="absolute inset-0 overflow-hidden rounded-[16px] border-2 border-[color:var(--brand-cream-15)] bg-[color:var(--brand-ink)]">
+          <div className="absolute inset-0 overflow-hidden rounded-[16px] border-2 border-white/25 bg-[#0A150F]">
             {/* Уровень воды */}
             <div
               className="absolute inset-x-0 bottom-0"
               style={{
                 height: `${water.t * 100}%`,
-                background: "linear-gradient(180deg, rgba(138,161,138,.95) 0%, rgba(62,80,66,.95) 100%)",
+                background: "linear-gradient(180deg, rgba(104,186,206,.95) 0%, rgba(42,120,148,.92) 100%)",
               }}
             >
-              <svg viewBox="0 0 120 12" preserveAspectRatio="none" className="absolute -top-[7px] left-0 h-[10px] w-full" aria-hidden>
-                <path d="M0 8 Q15 2 30 8 T60 8 T90 8 T120 8 V12 H0 Z" fill="rgba(138,161,138,.95)" />
+              {/* Волна едет влево ровно на один период (половину удвоенной
+                  ширины), поэтому склейка незаметна и петля бесшовная. */}
+              <svg
+                viewBox="0 0 240 12"
+                preserveAspectRatio="none"
+                className="wb-wave absolute -top-[7px] left-0 h-[10px] w-[200%]"
+                aria-hidden
+              >
+                <path
+                  d="M0 8 Q15 2 30 8 T60 8 T90 8 T120 8 T150 8 T180 8 T210 8 T240 8 V12 H0 Z"
+                  fill="rgba(104,186,206,.95)"
+                />
               </svg>
+
+              {/* Пузырьки лежат ВНУТРИ водяного слоя, поэтому поднимаются ровно до
+                  текущего уровня воды и не висят в пустой части колбы. */}
+              {BUBBLES.map((b, i) => (
+                <span
+                  key={i}
+                  className="wb-bubble"
+                  style={{ left: b.left, width: b.size, height: b.size, animationDuration: b.dur, animationDelay: b.delay }}
+                />
+              ))}
             </div>
 
             {/* Волокна мха: короткие штрихи пучками, а не россыпь точек —
@@ -497,7 +532,7 @@ export function WaterBattery() {
                   <path
                     key={i}
                     d={`M${x} ${y} Q${x + bend} ${y - len / 2} ${x + Math.sin(a) * len} ${y - len}`}
-                    style={{ stroke: "var(--brand-sage)" }}
+                    stroke="#C3D45F"
                     strokeWidth={1.3}
                     strokeLinecap="round"
                     fill="none"
@@ -507,17 +542,17 @@ export function WaterBattery() {
               })}
             </svg>
           </div>
-          <div className="absolute -top-[7px] left-1/2 h-[7px] w-7 -translate-x-1/2 rounded-t-md bg-[color:var(--brand-cream-15)]" />
+          <div className="absolute -top-[7px] left-1/2 h-[7px] w-7 -translate-x-1/2 rounded-t-md bg-white/25" />
         </div>
 
         <div className="min-w-0">
           {/* «×» тем же кеглем и цветом, что цифра: серый мелкий знак читался
               как чужой символ, а не как часть значения. */}
-          <p className="display whitespace-nowrap text-[34px] leading-none text-[color:var(--brand-sage)] sm:text-[42px] lg:text-[54px]">
+          <p className="display whitespace-nowrap text-[34px] leading-none text-[#C3D45F] sm:text-[42px] lg:text-[54px]">
             <span style={{ fontVariantNumeric: "tabular-nums" }}>{mult}</span>×
           </p>
-          <p className="mt-3 text-[15px] font-bold text-[color:var(--brand-cream)]">Natural water reservoir</p>
-          <p className="mt-1.5 text-[14px] leading-relaxed text-[color:var(--brand-cream)]/65">
+          <p className="mt-3 text-[15px] font-bold text-white">Natural water reservoir</p>
+          <p className="mt-1.5 text-[14px] leading-relaxed text-white/65">
             A single hummock holds up to 20–25× its own weight in water and releases it to the roots gradually.
           </p>
         </div>
@@ -527,15 +562,13 @@ export function WaterBattery() {
       <div ref={dry.ref} className="flex items-center gap-6 p-6 lg:gap-8 lg:p-8">
         <div className="relative size-[104px] shrink-0 sm:size-[132px] lg:size-[150px]">
           <svg viewBox="0 0 120 120" className="size-full -rotate-90" aria-hidden>
-            {/* Цвет через style, а не через атрибут stroke: var() в презентационных
-                атрибутах SVG поддержан не везде, а в style — везде. */}
-            <circle cx="60" cy="60" r={R} fill="none" style={{ stroke: "var(--brand-cream-15)" }} strokeWidth="10" />
+            <circle cx="60" cy="60" r={R} fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="10" />
             <circle
               cx="60"
               cy="60"
               r={R}
               fill="none"
-              style={{ stroke: "var(--brand-sage)" }}
+              stroke="#C3D45F"
               strokeWidth="10"
               strokeLinecap="round"
               strokeDasharray={C}
@@ -544,16 +577,16 @@ export function WaterBattery() {
           </svg>
           <span className="absolute inset-0 grid place-items-center">
             {/* Капля вместо числа: цифра дублировала заголовок «60–80%» */}
-            <svg viewBox="0 0 24 24" className="size-9 text-[color:var(--brand-sage)] lg:size-10" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden>
+            <svg viewBox="0 0 24 24" className="wb-drop size-9 text-[#C3D45F] lg:size-10" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden>
               <path d="M12 3s6 6.6 6 10.5a6 6 0 0 1-12 0C6 9.6 12 3 12 3z" strokeLinejoin="round" />
             </svg>
           </span>
         </div>
 
         <div className="min-w-0">
-          <p className="display whitespace-nowrap text-[34px] leading-none text-[color:var(--brand-sage)] sm:text-[42px] lg:text-[54px]">60–80%</p>
-          <p className="mt-3 text-[15px] font-bold text-[color:var(--brand-cream)]">Less irrigation</p>
-          <p className="mt-1.5 text-[14px] leading-relaxed text-[color:var(--brand-cream)]/65">
+          <p className="display whitespace-nowrap text-[34px] leading-none text-[#C3D45F] sm:text-[42px] lg:text-[54px]">60–80%</p>
+          <p className="mt-3 text-[15px] font-bold text-white">Less irrigation</p>
+          <p className="mt-1.5 text-[14px] leading-relaxed text-white/65">
             This is what makes the moss valuable in arid regions: water use and maintenance effort drop sharply.
           </p>
         </div>

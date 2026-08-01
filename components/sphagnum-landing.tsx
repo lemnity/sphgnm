@@ -242,7 +242,7 @@ function LeadForm({ id, compact }: { id: string; compact?: boolean }) {
       <select
         id={`${id}-${key}`}
         defaultValue=""
-        className="h-12 w-full rounded-none border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] px-3.5 text-[15px] outline-none focus-visible:border-[color:var(--brand-moss)] focus-visible:ring-2 focus-visible:ring-[color:var(--brand-moss)]/25"
+        className="h-12 w-full rounded-none border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] px-3.5 text-[15px] outline-none focus-visible:border-[color:var(--brand-moss)] focus-visible:ring-2 focus-visible:ring-[color:var(--brand-moss-40)]"
       >
         <option value="" disabled>
           {placeholder}
@@ -300,7 +300,7 @@ function LeadForm({ id, compact }: { id: string; compact?: boolean }) {
           <textarea
             id={`${id}-msg`}
             rows={3}
-            className="w-full resize-y rounded-none border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] px-3.5 py-2.5 text-[15px] outline-none focus-visible:border-[color:var(--brand-moss)] focus-visible:ring-2 focus-visible:ring-[color:var(--brand-moss)]/25"
+            className="w-full resize-y rounded-none border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] px-3.5 py-2.5 text-[15px] outline-none focus-visible:border-[color:var(--brand-moss)] focus-visible:ring-2 focus-visible:ring-[color:var(--brand-moss-40)]"
           />
         </div>
       )}
@@ -342,7 +342,7 @@ function Field({
         type={type}
         required={required}
         autoComplete={type === "email" ? "email" : type === "tel" ? "tel" : "on"}
-        className="h-12 w-full rounded-none border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] px-3.5 text-[15px] outline-none focus-visible:border-[color:var(--brand-moss)] focus-visible:ring-2 focus-visible:ring-[color:var(--brand-moss)]/25"
+        className="h-12 w-full rounded-none border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] px-3.5 text-[15px] outline-none focus-visible:border-[color:var(--brand-moss)] focus-visible:ring-2 focus-visible:ring-[color:var(--brand-moss-40)]"
       />
     </div>
   );
@@ -888,7 +888,7 @@ export default function SphagnumLanding() {
           <div className="mt-14 grid gap-7 lg:mt-20 lg:grid-cols-2 lg:gap-9">
             {SOLUTIONS.map((s, i) => (
               <Reveal key={s.title} anim={i === 0 ? "left" : "right"} delay={i * 0.1}>
-                <div className="flex h-full flex-col rounded-2xl border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] p-7 transition-all duration-300 hover:-translate-y-1 hover:border-[color:var(--brand-moss)]/40 hover:shadow-xl lg:p-9">
+                <div className="flex h-full flex-col rounded-2xl border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] p-7 transition-all duration-300 hover:-translate-y-1 hover:border-[color:var(--brand-moss-40)] hover:shadow-xl lg:p-9">
                   <span className="grid size-12 place-items-center rounded-xl bg-[color:var(--brand-moss)] text-[color:var(--brand-cream)]">
                     <Icon name={s.icon} className="size-6" />
                   </span>
@@ -923,7 +923,7 @@ export default function SphagnumLanding() {
             {CLIMATE_BENEFITS.map((b, i) => (
               <Reveal key={b.title} delay={i * 0.08}>
                 <div className="flex h-full items-start gap-3.5 rounded-xl border border-[color:var(--brand-line)] p-5">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-[color:var(--brand-moss)]/10 text-[color:var(--brand-moss)]">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-[color:var(--brand-moss-10)] text-[color:var(--brand-moss)]">
                     <Icon name={b.icon} />
                   </span>
                   <span>
@@ -951,7 +951,7 @@ export default function SphagnumLanding() {
               of pristine wetland — our raw-material base
             </p>
           </div>
-          <p className="text-[15.5px] leading-relaxed text-[color:var(--brand-ink)]/85 sm:text-base">
+          <p className="text-[15.5px] leading-relaxed text-[color:var(--brand-ink-85)] sm:text-base">
             The Vasyugan wetlands of Western Siberia form the world&rsquo;s largest wetland system. The moss is
             hand-harvested: only the upper 5–7 cm is cut, and the bog naturally regenerates within 5–7 years. It is a
             renewable resource — not peat, which takes thousands of years to form.
@@ -1020,7 +1020,7 @@ export default function SphagnumLanding() {
             {FUSCUM_METRICS.map((m, i) => (
               <Reveal key={m.value} anim="scale" delay={i * 0.08} className="h-full">
                 <div
-                  className={`h-full bg-[color:var(--brand-ink)]/90 p-6 backdrop-blur-sm lg:p-8 ${
+                  className={`h-full bg-[color:var(--brand-ink-90)] p-6 backdrop-blur-sm lg:p-8 ${
                     // Границы только между ячейками: у первой в ряду её быть не должно,
                     // иначе она удвоит внешнюю рамку контейнера.
                     i % 2 === 1 ? "sm:border-l sm:border-[color:var(--brand-cream-15)]" : ""
@@ -1028,7 +1028,7 @@ export default function SphagnumLanding() {
                     i >= 2 ? "sm:border-t sm:border-[color:var(--brand-cream-15)] lg:border-t-0" : ""
                   }`}
                 >
-                  <p className="display text-[34px] font-extrabold leading-none tracking-[-0.03em] text-[color:var(--brand-sage)] lg:text-[42px]">
+                  <p className="display text-[34px] font-extrabold leading-none tracking-[-0.03em] text-[#C3D45F] lg:text-[42px]">
                     <CountUp value={m.value} />
                   </p>
                   <p className="mt-3 text-[14px] leading-snug text-[color:var(--brand-cream-72)]">{m.label}</p>
@@ -1048,8 +1048,8 @@ export default function SphagnumLanding() {
           <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {FUSCUM_PROPERTIES.filter((p) => p.icon !== "battery").map((p, i) => (
               <Reveal key={p.title} delay={i * 0.08}>
-                <div className="flex h-full gap-4 rounded-2xl border border-[color:var(--brand-cream-15)] bg-[color:var(--brand-cream-04)] p-6 transition-colors duration-300 hover:border-[color:var(--brand-sage-40)] hover:bg-[color:var(--brand-cream-07)]">
-                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[color:var(--brand-sage-15)] text-[color:var(--brand-sage)]">
+                <div className="flex h-full gap-4 rounded-2xl border border-[color:var(--brand-cream-15)] bg-[color:var(--brand-cream-04)] p-6 transition-colors duration-300 hover:border-[#C3D45F]/40 hover:bg-[color:var(--brand-cream-07)]">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#C3D45F]/15 text-[#C3D45F]">
                     <Icon name={p.icon} />
                   </span>
                   <span>
@@ -1194,7 +1194,7 @@ export default function SphagnumLanding() {
           <div className="mt-14 grid gap-7 sm:grid-cols-2 lg:mt-20">
             {PROJECTS.map((p, i) => (
               <Reveal key={p.tag} anim="scale" delay={(i % 2) * 0.1}>
-                <article className="group h-full overflow-hidden rounded-2xl border border-[color:var(--brand-line)] transition-all duration-300 hover:-translate-y-1 hover:border-[color:var(--brand-moss)]/40 hover:shadow-xl">
+                <article className="group h-full overflow-hidden rounded-2xl border border-[color:var(--brand-line)] transition-all duration-300 hover:-translate-y-1 hover:border-[color:var(--brand-moss-40)] hover:shadow-xl">
                   <PhotoSlot
                     ratio="16/10"
                     shot={p.shot}
@@ -1203,7 +1203,7 @@ export default function SphagnumLanding() {
                     className="transition-transform duration-500 group-hover:scale-[1.03]"
                   />
                   <div className="p-6 lg:p-7">
-                    <span className="inline-block rounded-full bg-[color:var(--brand-moss)]/10 px-3 py-1 text-[12px] font-semibold text-[color:var(--brand-moss)]">
+                    <span className="inline-block rounded-full bg-[color:var(--brand-moss-10)] px-3 py-1 text-[12px] font-semibold text-[color:var(--brand-moss)]">
                       {p.tag}
                     </span>
                     <h3 className="mt-3 text-[19px] font-bold leading-tight tracking-[-0.01em]">{p.title}</h3>

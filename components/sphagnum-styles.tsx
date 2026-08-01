@@ -66,6 +66,9 @@ export function SphagnumStyles() {
   /* Готовые rgba под Sage — по той же причине, что и cream-* выше: запись
      bg-[color:var(--brand-sage)]/15 невалидна и роняет всю декларацию. */
   --brand-sage-40: rgba(138, 161, 138, .4);
+  --brand-moss-40: rgba(62, 80, 66, .4);
+  --brand-moss-10: rgba(62, 80, 66, .1);
+  --brand-ink-90: rgba(20, 24, 22, .9);
   --brand-sage-15: rgba(138, 161, 138, .15);
   --brand-cream-07: rgba(244, 241, 234, .07);
   --brand-cream-04: rgba(244, 241, 234, .04);
@@ -172,6 +175,34 @@ export function SphagnumStyles() {
   .sph .hero-pin { height: 200dvh; }
   .sph .hero-pin-inner { position: sticky; top: 0; height: 100dvh; }
 }
+/*
+  ── «ВОДЯНАЯ БАТАРЕЙКА» ──
+  Наполнение колбы идёт по прокрутке (useProgress), а эти три анимации живут
+  по часам и не прекращаются: без них заполнившаяся колба замирает и читается
+  картинкой, а не работающим накопителем.
+*/
+@keyframes sphWave { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.sph .wb-wave { animation: sphWave 3.4s linear infinite; }
+
+/* Пузырёк всплывает к поверхности. Анимируем bottom в ПРОЦЕНТАХ: колба меняет
+   высоту по брейкпойнтам, а слой воды — ещё и по прокрутке, поэтому фиксированный
+   translateY в px уносил бы пузырьки за уровень воды. */
+@keyframes sphBubble {
+  0%   { bottom: 0%;  opacity: 0; transform: scale(.4); }
+  15%  { opacity: .75; }
+  80%  { opacity: .5; }
+  100% { bottom: 94%; opacity: 0; transform: scale(1); }
+}
+.sph .wb-bubble {
+  position: absolute; bottom: 0; border-radius: 999px; opacity: 0;
+  background: radial-gradient(circle at 34% 32%, rgba(255,255,255,.9), rgba(255,255,255,.35) 62%, rgba(255,255,255,0) 70%);
+  animation-name: sphBubble; animation-timing-function: ease-in; animation-iteration-count: infinite;
+}
+
+/* Капля в кольце: медленный вдох-выдох, чтобы правая половина блока не была мёртвой. */
+@keyframes sphDrop { 0%, 100% { transform: scale(1); opacity: .9; } 50% { transform: scale(1.09); opacity: 1; } }
+.sph .wb-drop { animation: sphDrop 3.8s ease-in-out infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   .sph .hero-pin { height: auto; }
   .sph .hero-pin-inner { position: static; height: auto; min-height: 100dvh; }
@@ -294,6 +325,34 @@ export function SphagnumStyles() {
 .sph .d1{animation-delay:.1s} .sph .d2{animation-delay:.2s} .sph .d3{animation-delay:.3s}
 .sph .d4{animation-delay:.4s} .sph .d5{animation-delay:.5s} .sph .d6{animation-delay:.6s}
 .sph .d7{animation-delay:.7s} .sph .d8{animation-delay:.8s}
+
+/*
+  ── «ВОДЯНАЯ БАТАРЕЙКА» ──
+  Наполнение колбы идёт по прокрутке (useProgress), а эти три анимации живут
+  по часам и не прекращаются: без них заполнившаяся колба замирает и читается
+  картинкой, а не работающим накопителем.
+*/
+@keyframes sphWave { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.sph .wb-wave { animation: sphWave 3.4s linear infinite; }
+
+/* Пузырёк всплывает к поверхности. Анимируем bottom в ПРОЦЕНТАХ: колба меняет
+   высоту по брейкпойнтам, а слой воды — ещё и по прокрутке, поэтому фиксированный
+   translateY в px уносил бы пузырьки за уровень воды. */
+@keyframes sphBubble {
+  0%   { bottom: 0%;  opacity: 0; transform: scale(.4); }
+  15%  { opacity: .75; }
+  80%  { opacity: .5; }
+  100% { bottom: 94%; opacity: 0; transform: scale(1); }
+}
+.sph .wb-bubble {
+  position: absolute; bottom: 0; border-radius: 999px; opacity: 0;
+  background: radial-gradient(circle at 34% 32%, rgba(255,255,255,.9), rgba(255,255,255,.35) 62%, rgba(255,255,255,0) 70%);
+  animation-name: sphBubble; animation-timing-function: ease-in; animation-iteration-count: infinite;
+}
+
+/* Капля в кольце: медленный вдох-выдох, чтобы правая половина блока не была мёртвой. */
+@keyframes sphDrop { 0%, 100% { transform: scale(1); opacity: .9; } 50% { transform: scale(1.09); opacity: 1; } }
+.sph .wb-drop { animation: sphDrop 3.8s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   .sph .a-up, .sph .a-in, .sph .a-left, .sph .a-right, .sph .a-scale,
