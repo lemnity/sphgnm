@@ -227,11 +227,24 @@ export function SphagnumStyles() {
   /* Размытие маленькое НАМЕРЕННО: на 11px соседние столбы сливались в одно
      зарево, и вместо лучей получалось просто светлое пятно в углу. */
   filter: blur(6px);
-  animation-name: sphRay; animation-timing-function: ease-in-out; animation-iteration-count: infinite;
+  /* Сглаживание синусоидой, а не ease-in-out: у последнего заметны остановки
+     в крайних точках, и луч на них «клюёт». Здесь скорость меняется плавно,
+     петля читается непрерывной. */
+  animation-name: sphRay;
+  animation-timing-function: cubic-bezier(.37, 0, .63, 1);
+  animation-iteration-count: infinite;
 }
+/*
+  Кадры 0% и 100% одинаковые — иначе на стыке петли будет рывок.
+  Амплитуды намеренно маленькие: свет должен ЖИТЬ, а не мигать. Прозрачность
+  ходит 72–100% (было 50–100 и читалось пульсом), ширина ±6%, плюс лёгкий
+  разворот на ±--sw — он и даёт ощущение текучести, которого одна прозрачность
+  не давала.
+*/
 @keyframes sphRay {
-  0%, 100% { opacity: calc(var(--ro) * .5); transform: rotate(var(--rot)) scaleX(.88); }
-  50%      { opacity: var(--ro);            transform: rotate(var(--rot)) scaleX(1.1); }
+  0%   { opacity: calc(var(--ro) * .72); transform: rotate(calc(var(--rot) - var(--sw))) scaleX(.94); }
+  50%  { opacity: var(--ro);             transform: rotate(calc(var(--rot) + var(--sw))) scaleX(1.06); }
+  100% { opacity: calc(var(--ro) * .72); transform: rotate(calc(var(--rot) - var(--sw))) scaleX(.94); }
 }
 
 /* Источник: мягкое пятно у самого угла, иначе лучи начинаются ниоткуда. */
@@ -242,9 +255,11 @@ export function SphagnumStyles() {
      и заливало шапку жёлтым. */
   background: radial-gradient(circle, rgba(186,225,75,.13) 0%, rgba(186,225,75,.04) 45%, rgba(186,225,75,0) 70%);
   filter: blur(12px);
-  animation: sphGlow 9.5s ease-in-out infinite;
+  animation: sphGlow 26s cubic-bezier(.37, 0, .63, 1) infinite;
 }
-@keyframes sphGlow { 0%, 100% { opacity: .7; transform: scale(1); } 50% { opacity: 1; transform: scale(1.06); } }
+/* Исток дышит ВТРОЕ медленнее лучей и почти незаметно: совпади он с ними по
+   темпу — весь угол мигал бы разом, и вместо света получился бы маячок. */
+@keyframes sphGlow { 0%, 100% { opacity: .82; transform: scale(1); } 50% { opacity: 1; transform: scale(1.03); } }
 
 @media (prefers-reduced-motion: reduce) {
   .sph .hero-pin { height: auto; }
@@ -418,11 +433,24 @@ export function SphagnumStyles() {
   /* Размытие маленькое НАМЕРЕННО: на 11px соседние столбы сливались в одно
      зарево, и вместо лучей получалось просто светлое пятно в углу. */
   filter: blur(6px);
-  animation-name: sphRay; animation-timing-function: ease-in-out; animation-iteration-count: infinite;
+  /* Сглаживание синусоидой, а не ease-in-out: у последнего заметны остановки
+     в крайних точках, и луч на них «клюёт». Здесь скорость меняется плавно,
+     петля читается непрерывной. */
+  animation-name: sphRay;
+  animation-timing-function: cubic-bezier(.37, 0, .63, 1);
+  animation-iteration-count: infinite;
 }
+/*
+  Кадры 0% и 100% одинаковые — иначе на стыке петли будет рывок.
+  Амплитуды намеренно маленькие: свет должен ЖИТЬ, а не мигать. Прозрачность
+  ходит 72–100% (было 50–100 и читалось пульсом), ширина ±6%, плюс лёгкий
+  разворот на ±--sw — он и даёт ощущение текучести, которого одна прозрачность
+  не давала.
+*/
 @keyframes sphRay {
-  0%, 100% { opacity: calc(var(--ro) * .5); transform: rotate(var(--rot)) scaleX(.88); }
-  50%      { opacity: var(--ro);            transform: rotate(var(--rot)) scaleX(1.1); }
+  0%   { opacity: calc(var(--ro) * .72); transform: rotate(calc(var(--rot) - var(--sw))) scaleX(.94); }
+  50%  { opacity: var(--ro);             transform: rotate(calc(var(--rot) + var(--sw))) scaleX(1.06); }
+  100% { opacity: calc(var(--ro) * .72); transform: rotate(calc(var(--rot) - var(--sw))) scaleX(.94); }
 }
 
 /* Источник: мягкое пятно у самого угла, иначе лучи начинаются ниоткуда. */
@@ -433,9 +461,11 @@ export function SphagnumStyles() {
      и заливало шапку жёлтым. */
   background: radial-gradient(circle, rgba(186,225,75,.13) 0%, rgba(186,225,75,.04) 45%, rgba(186,225,75,0) 70%);
   filter: blur(12px);
-  animation: sphGlow 9.5s ease-in-out infinite;
+  animation: sphGlow 26s cubic-bezier(.37, 0, .63, 1) infinite;
 }
-@keyframes sphGlow { 0%, 100% { opacity: .7; transform: scale(1); } 50% { opacity: 1; transform: scale(1.06); } }
+/* Исток дышит ВТРОЕ медленнее лучей и почти незаметно: совпади он с ними по
+   темпу — весь угол мигал бы разом, и вместо света получился бы маячок. */
+@keyframes sphGlow { 0%, 100% { opacity: .82; transform: scale(1); } 50% { opacity: 1; transform: scale(1.03); } }
 
 @media (prefers-reduced-motion: reduce) {
   .sph .a-up, .sph .a-in, .sph .a-left, .sph .a-right, .sph .a-scale,
