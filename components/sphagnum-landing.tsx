@@ -31,7 +31,7 @@ import {
 // корень домена и вернул 404. Импорт отдаёт уже пре­фиксованный URL.
 import mossLedge from "./assets/moss-ledge.png";
 import { SphagnumLogo, SphagnumMark } from "./sphagnum-logo";
-import { CornerMark, SphagnumStyles } from "./sphagnum-styles";
+import { SphagnumStyles } from "./sphagnum-styles";
 import { CountUp, Fireflies, MossButterfly, MossMoths, MossTexture, WaterBattery } from "./sphagnum-visuals";
 import {
   ADVANTAGES,
@@ -121,10 +121,10 @@ function PhotoSlot({
       {/* Текстура мха вместо плоской заливки: слот перестаёт выглядеть «дырой» */}
       <MossTexture seed={seedFromCaption(shot)} className="absolute inset-0 h-full w-full" />
       <span className="relative flex max-w-[300px] flex-col items-center gap-2.5 px-6 text-center">
-        <span className="grid size-11 place-items-center rounded-full bg-white/75 backdrop-blur-sm">
-          <Leaf className="size-5 text-[color:var(--olive-ink)]" strokeWidth={1.6} aria-hidden />
+        <span className="grid size-11 place-items-center rounded-full bg-[color:var(--brand-cream-85)] backdrop-blur-sm">
+          <Leaf className="size-5 text-[color:var(--brand-moss)]" strokeWidth={1.6} aria-hidden />
         </span>
-        <span className="rounded-md bg-white/75 px-3 py-1.5 text-[12px] font-semibold leading-snug text-[color:var(--ink)] backdrop-blur-sm">
+        <span className="rounded-md bg-[color:var(--brand-cream-85)] px-3 py-1.5 text-[12px] font-semibold leading-snug text-[color:var(--brand-ink)] backdrop-blur-sm">
           {shot}
         </span>
       </span>
@@ -212,20 +212,18 @@ function SectionHead({
 }) {
   return (
     <div className="max-w-3xl">
-      {/* Угловая скобка — фирменный знак, как над заголовками у референса */}
-      <CornerMark className="mb-4 h-6 w-6" color={light ? "#C3D45F" : "var(--olive)"} />
       {kicker ? (
-        <p className={`mb-3 text-[13px] font-semibold uppercase tracking-[0.14em] ${light ? "text-[#C3D45F]" : "text-[color:var(--olive-ink)]"}`}>
+        <p className={`mb-3 text-[13px] font-semibold uppercase tracking-[0.14em] ${light ? "text-[color:var(--brand-sage)]" : "text-[color:var(--brand-moss)]"}`}>
           {kicker}
         </p>
       ) : null}
       <h2
-        className={`text-[28px] font-bold leading-[1.12] tracking-[-0.02em] sm:text-[38px] lg:text-[46px] ${light ? "text-white" : ""}`}
+        className={`text-[28px] font-bold leading-[1.12] tracking-[-0.02em] sm:text-[38px] lg:text-[46px] ${light ? "text-[color:var(--brand-cream)]" : ""}`}
       >
         {title}
       </h2>
       {lead ? (
-        <p className={`mt-4 text-base leading-relaxed sm:text-lg ${light ? "text-white/70" : "text-[color:var(--muted)]"}`}>
+        <p className={`mt-4 text-base leading-relaxed sm:text-lg ${light ? "text-[color:var(--brand-cream-72)]" : "text-[color:var(--brand-muted)]"}`}>
           {lead}
         </p>
       ) : null}
@@ -238,13 +236,13 @@ function LeadForm({ id, compact }: { id: string; compact?: boolean }) {
 
   const select = (key: string, label: string, options: readonly string[], placeholder: string) => (
     <div className="grid gap-1.5">
-      <label htmlFor={`${id}-${key}`} className="text-[13px] font-semibold text-[color:var(--ink)]">
+      <label htmlFor={`${id}-${key}`} className="text-[13px] font-semibold text-[color:var(--brand-ink)]">
         {label}
       </label>
       <select
         id={`${id}-${key}`}
         defaultValue=""
-        className="h-12 w-full rounded-none border border-[color:var(--line)] bg-white px-3.5 text-[15px] outline-none focus-visible:border-[color:var(--olive-ink)] focus-visible:ring-2 focus-visible:ring-[color:var(--olive-ink)]/25"
+        className="h-12 w-full rounded-none border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] px-3.5 text-[15px] outline-none focus-visible:border-[color:var(--brand-moss)] focus-visible:ring-2 focus-visible:ring-[color:var(--brand-moss)]/25"
       >
         <option value="" disabled>
           {placeholder}
@@ -296,13 +294,13 @@ function LeadForm({ id, compact }: { id: string; compact?: boolean }) {
 
       {compact ? null : (
         <div className="grid gap-1.5">
-          <label htmlFor={`${id}-msg`} className="text-[13px] font-semibold text-[color:var(--ink)]">
-            Message <span className="font-normal text-[color:var(--muted)]">— optional</span>
+          <label htmlFor={`${id}-msg`} className="text-[13px] font-semibold text-[color:var(--brand-ink)]">
+            Message <span className="font-normal text-[color:var(--brand-muted)]">— optional</span>
           </label>
           <textarea
             id={`${id}-msg`}
             rows={3}
-            className="w-full resize-y rounded-none border border-[color:var(--line)] bg-white px-3.5 py-2.5 text-[15px] outline-none focus-visible:border-[color:var(--olive-ink)] focus-visible:ring-2 focus-visible:ring-[color:var(--olive-ink)]/25"
+            className="w-full resize-y rounded-none border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] px-3.5 py-2.5 text-[15px] outline-none focus-visible:border-[color:var(--brand-moss)] focus-visible:ring-2 focus-visible:ring-[color:var(--brand-moss)]/25"
           />
         </div>
       )}
@@ -313,7 +311,7 @@ function LeadForm({ id, compact }: { id: string; compact?: boolean }) {
       </button>
 
       {/* aria-live: скринридер должен услышать результат, не теряя фокус */}
-      <p aria-live="polite" className="min-h-[20px] text-[13px] font-medium text-[color:var(--olive-ink)]">
+      <p aria-live="polite" className="min-h-[20px] text-[13px] font-medium text-[color:var(--brand-moss)]">
         {sent ? "Enquiry sent — we will respond within 24 hours." : ""}
       </p>
     </form>
@@ -333,18 +331,18 @@ function Field({
 }) {
   return (
     <div className="grid gap-1.5">
-      {/* Цвет НЕ наследуем: на тёмной секции (text-white) подпись внутри белой
+      {/* Цвет НЕ наследуем: на тёмной секции (text-[color:var(--brand-cream)]) подпись внутри белой
           карточки становилась белой по белому и пропадала. */}
-      <label htmlFor={id} className="text-[13px] font-semibold text-[color:var(--ink)]">
+      <label htmlFor={id} className="text-[13px] font-semibold text-[color:var(--brand-ink)]">
         {label}
-        {required ? <span className="ml-0.5 text-[color:var(--olive-ink)]">*</span> : null}
+        {required ? <span className="ml-0.5 text-[color:var(--brand-moss)]">*</span> : null}
       </label>
       <input
         id={id}
         type={type}
         required={required}
         autoComplete={type === "email" ? "email" : type === "tel" ? "tel" : "on"}
-        className="h-12 w-full rounded-none border border-[color:var(--line)] bg-white px-3.5 text-[15px] outline-none focus-visible:border-[color:var(--olive-ink)] focus-visible:ring-2 focus-visible:ring-[color:var(--olive-ink)]/25"
+        className="h-12 w-full rounded-none border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] px-3.5 text-[15px] outline-none focus-visible:border-[color:var(--brand-moss)] focus-visible:ring-2 focus-visible:ring-[color:var(--brand-moss)]/25"
       />
     </div>
   );
@@ -445,21 +443,21 @@ export default function SphagnumLanding() {
       {/* ═══════════ ШАПКА (фиксированная) ═══════════ */}
       <header
         className={`fixed inset-x-0 top-0 z-40 transition-colors duration-300 ${
-          scrolled ? "border-b border-[color:var(--line)] bg-white/95 backdrop-blur" : "bg-transparent"
+          scrolled ? "border-b border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] backdrop-blur" : "bg-transparent"
         }`}
       >
         {/* Верхний служебный ярус — как у референса: второстепенные ссылки и язык
             уводятся из основного меню, чтобы оно не разрасталось. */}
         <div
           className={`hidden border-b transition-colors lg:block ${
-            scrolled ? "border-[color:var(--line)] bg-[color:var(--sand)]" : "border-white/15 bg-black/25"
+            scrolled ? "border-[color:var(--brand-line)] bg-[color:var(--brand-cream)]" : "border-[color:var(--brand-cream-15)] bg-[color:var(--brand-ink-45)]"
           }`}
         >
           <div className="flex items-center justify-end gap-7 py-2.5 mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
             <a
               href={CONTACT.phoneHref}
               className={`text-[13px] font-medium transition-colors ${
-                scrolled ? "text-[color:var(--muted)] hover:text-[color:var(--ink)]" : "text-white/75 hover:text-white"
+                scrolled ? "text-[color:var(--brand-muted)] hover:text-[color:var(--brand-ink)]" : "text-[color:var(--brand-cream-72)] hover:text-[color:var(--brand-cream)]"
               }`}
             >
               {CONTACT.phone}
@@ -467,7 +465,7 @@ export default function SphagnumLanding() {
             <a
               href={`mailto:${CONTACT.email}`}
               className={`text-[13px] font-medium transition-colors ${
-                scrolled ? "text-[color:var(--muted)] hover:text-[color:var(--ink)]" : "text-white/75 hover:text-white"
+                scrolled ? "text-[color:var(--brand-muted)] hover:text-[color:var(--brand-ink)]" : "text-[color:var(--brand-cream-72)] hover:text-[color:var(--brand-cream)]"
               }`}
             >
               {CONTACT.email}
@@ -502,7 +500,7 @@ export default function SphagnumLanding() {
                 key={l.id}
                 href={`#${l.id}`}
                 className={`whitespace-nowrap text-[14px] font-medium transition-colors ${
-                  scrolled ? "text-[color:var(--muted)] hover:text-[color:var(--ink)]" : "text-white/85 hover:text-white"
+                  scrolled ? "text-[color:var(--brand-muted)] hover:text-[color:var(--brand-ink)]" : "text-[color:var(--brand-cream-85)] hover:text-[color:var(--brand-cream)]"
                 }`}
               >
                 {l.label}
@@ -557,7 +555,7 @@ export default function SphagnumLanding() {
                 key={l.id}
                 href={`#${l.id}`}
                 onClick={() => setMenuOpen(false)}
-                className="display text-2xl font-bold text-white"
+                className="display text-2xl font-bold text-[color:var(--brand-cream)]"
               >
                 {l.label}
               </a>
@@ -877,7 +875,7 @@ export default function SphagnumLanding() {
         </div>
       </section>
       {/* ═══════════ РАЗДЕЛ 2 — НАШИ РЕШЕНИЯ ═══════════ */}
-      <section id="product" className="bg-white py-24 lg:py-36">
+      <section id="product" className="bg-[color:var(--brand-cream)] py-24 lg:py-36">
         <div className="mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
           <Reveal>
             <SectionHead
@@ -890,25 +888,25 @@ export default function SphagnumLanding() {
           <div className="mt-14 grid gap-7 lg:mt-20 lg:grid-cols-2 lg:gap-9">
             {SOLUTIONS.map((s, i) => (
               <Reveal key={s.title} anim={i === 0 ? "left" : "right"} delay={i * 0.1}>
-                <div className="flex h-full flex-col rounded-2xl border border-[color:var(--line)] bg-[color:var(--sand)] p-7 transition-all duration-300 hover:-translate-y-1 hover:border-[color:var(--olive-ink)]/40 hover:shadow-xl lg:p-9">
-                  <span className="grid size-12 place-items-center rounded-xl bg-[color:var(--olive-ink)] text-white">
+                <div className="flex h-full flex-col rounded-2xl border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] p-7 transition-all duration-300 hover:-translate-y-1 hover:border-[color:var(--brand-moss)]/40 hover:shadow-xl lg:p-9">
+                  <span className="grid size-12 place-items-center rounded-xl bg-[color:var(--brand-moss)] text-[color:var(--brand-cream)]">
                     <Icon name={s.icon} className="size-6" />
                   </span>
-                  <p className="mt-5 text-[13px] font-semibold uppercase tracking-[0.1em] text-[color:var(--olive-ink)]">
+                  <p className="label mt-5 text-[13px] text-[color:var(--brand-moss)]">
                     {s.kicker}
                   </p>
                   <h3 className="mt-2 text-[22px] font-bold leading-tight tracking-[-0.02em] lg:text-[26px]">
                     {s.title}
                   </h3>
-                  <p className="mt-3 text-[15px] leading-relaxed text-[color:var(--muted)]">{s.lead}</p>
+                  <p className="mt-3 text-[15px] leading-relaxed text-[color:var(--brand-muted)]">{s.lead}</p>
 
-                  <p className="mt-6 text-[13px] font-semibold uppercase tracking-[0.1em] text-[color:var(--ink)]">
+                  <p className="label mt-6 text-[13px] text-[color:var(--brand-ink)]">
                     Key properties
                   </p>
                   <ul className="mt-3 grid gap-2.5">
                     {s.features.map((f) => (
                       <li key={f} className="flex gap-2.5 text-[14.5px] leading-snug">
-                        <Leaf className="mt-0.5 size-4 shrink-0 text-[color:var(--olive-ink)]" strokeWidth={1.8} aria-hidden />
+                        <Leaf className="mt-0.5 size-4 shrink-0 text-[color:var(--brand-moss)]" strokeWidth={1.8} aria-hidden />
                         {f}
                       </li>
                     ))}
@@ -924,13 +922,13 @@ export default function SphagnumLanding() {
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
             {CLIMATE_BENEFITS.map((b, i) => (
               <Reveal key={b.title} delay={i * 0.08}>
-                <div className="flex h-full items-start gap-3.5 rounded-xl border border-[color:var(--line)] p-5">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-[color:var(--olive-ink)]/10 text-[color:var(--olive-ink)]">
+                <div className="flex h-full items-start gap-3.5 rounded-xl border border-[color:var(--brand-line)] p-5">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-[color:var(--brand-moss)]/10 text-[color:var(--brand-moss)]">
                     <Icon name={b.icon} />
                   </span>
                   <span>
                     <span className="block text-[15px] font-bold">{b.title}</span>
-                    <span className="mt-0.5 block text-[13.5px] leading-snug text-[color:var(--muted)]">{b.text}</span>
+                    <span className="mt-0.5 block text-[13.5px] leading-snug text-[color:var(--brand-muted)]">{b.text}</span>
                   </span>
                 </div>
               </Reveal>
@@ -941,20 +939,19 @@ export default function SphagnumLanding() {
 
       {/* ═══════════ Полноширинный акцентный блок (приём референса:
            крупная цифра на сплошной оливе) ═══════════ */}
-      <section className="relative overflow-hidden bg-[color:var(--olive)] py-20 lg:py-32">
+      <section className="relative overflow-hidden bg-[color:var(--brand-moss)] py-20 lg:py-32">
         <MossTexture seed={13} density={260} className="absolute inset-0 h-full w-full opacity-25" />
         <div className="relative grid items-center gap-10 lg:grid-cols-[1fr_1fr] lg:gap-20 mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
           <div>
-            <CornerMark className="mb-5 h-7 w-7" color="var(--ink-deep)" />
-            {/* Крупный текст на оливе — тёмным: белый по #96A437 даёт 2.7:1 и не проходит контраст */}
-            <p className="display text-[42px] leading-[1.02] text-[color:var(--ink-deep)] sm:text-[56px] lg:text-[68px]">
+            {/* Крупный текст на оливе — тёмным: белый по var(--brand-sage) даёт 2.7:1 и не проходит контраст */}
+            <p className="display text-[42px] leading-[1.02] text-[color:var(--brand-ink)] sm:text-[56px] lg:text-[68px]">
               <CountUp value="53,000 km²" />
             </p>
-            <p className="display mt-2 text-[26px] leading-[1.08] text-[color:var(--ink-deep)] sm:text-[32px] lg:text-[38px]">
+            <p className="display mt-2 text-[26px] leading-[1.08] text-[color:var(--brand-ink)] sm:text-[32px] lg:text-[38px]">
               of pristine wetland — our raw-material base
             </p>
           </div>
-          <p className="text-[15.5px] leading-relaxed text-[color:var(--ink-deep)]/85 sm:text-base">
+          <p className="text-[15.5px] leading-relaxed text-[color:var(--brand-ink)]/85 sm:text-base">
             The Vasyugan wetlands of Western Siberia form the world&rsquo;s largest wetland system. The moss is
             hand-harvested: only the upper 5–7 cm is cut, and the bog naturally regenerates within 5–7 years. It is a
             renewable resource — not peat, which takes thousands of years to form.
@@ -963,24 +960,24 @@ export default function SphagnumLanding() {
       </section>
 
       {/* ═══════════ РАЗДЕЛ 3 — ПОЧЕМУ ЗЕЛЕНЬ ИМЕЕТ ЗНАЧЕНИЕ ═══════════ */}
-      <section className="bg-[color:var(--sand)] py-24 lg:py-36">
+      <section className="bg-[color:var(--brand-cream)] py-24 lg:py-36">
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20 mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
           <Reveal anim="left">
             <SectionHead kicker="Why greenery matters" title="Why conventional soils fail" />
-            <p className="mt-5 text-[15.5px] leading-relaxed text-[color:var(--muted)] sm:text-base">
+            <p className="mt-5 text-[15.5px] leading-relaxed text-[color:var(--brand-muted)] sm:text-base">
               Poor substrate selection is a leading cause of landscape failure. Inconsistent soil mixes stress plants,
               increase replacement costs and create handover risks. The result is a weaker appearance and lower
               perceived project quality.
             </p>
 
-            <blockquote className="my-7 border-l-[3px] border-[color:var(--olive-ink)] pl-5">
+            <blockquote className="my-7 border-l-[3px] border-[color:var(--brand-moss)] pl-5">
               <p className="display text-[19px] font-semibold leading-snug tracking-[-0.01em] sm:text-[22px]">
                 &ldquo;Landscape quality is visible quality. Residents and visitors judge a development by the condition
                 of its greenery.&rdquo;
               </p>
             </blockquote>
 
-            <p className="text-[15.5px] leading-relaxed text-[color:var(--muted)] sm:text-base">
+            <p className="text-[15.5px] leading-relaxed text-[color:var(--brand-muted)] sm:text-base">
               For developers, architects and asset managers, landscape performance affects reputation, rental appeal and
               resident satisfaction. Greenery survives only with the right substrate. Standard soils are not designed
               for hot climates, roof-load limits or water scarcity.
@@ -996,7 +993,7 @@ export default function SphagnumLanding() {
       </section>
 
       {/* ═══════════ РАЗДЕЛ 4 — SPHAGNUM FUSCUM ═══════════ */}
-      <section id="fuscum" className="relative overflow-hidden bg-[color:var(--ink)] py-20 text-white lg:py-28">
+      <section id="fuscum" className="relative overflow-hidden bg-[color:var(--brand-ink)] py-20 text-[color:var(--brand-cream)] lg:py-28">
         {/* Живая текстура мха фоном секции — генерируется, а не берётся из стока */}
         <MossTexture dark seed={41} density={320} className="absolute inset-0 h-full w-full opacity-40" />
         {/* Скрим поверх текстуры: зерно шло прямо под абзацами и мешало читать */}
@@ -1012,29 +1009,29 @@ export default function SphagnumLanding() {
               kicker="Flagship product"
               title="Sphagnum Fuscum — live moss that performs where soil cannot"
             />
-            <p className="mt-5 max-w-3xl text-[15.5px] leading-relaxed text-white/70 sm:text-base">
+            <p className="mt-5 max-w-3xl text-[15.5px] leading-relaxed text-[color:var(--brand-cream-72)] sm:text-base">
               Sphagnum fuscum grows in the pristine Vasyugan wetlands of Western Siberia, the world&rsquo;s largest
               wetland system, spanning 53,000 km². Unlike peat, it is harvested alive, retaining its natural structure,
               antimicrobial compounds and exceptional moisture-holding capacity.
             </p>
           </Reveal>
 
-          <div className="mt-14 grid overflow-hidden rounded-2xl border border-white/15 sm:grid-cols-2 lg:mt-20 lg:grid-cols-4">
+          <div className="mt-14 grid overflow-hidden rounded-2xl border border-[color:var(--brand-cream-15)] sm:grid-cols-2 lg:mt-20 lg:grid-cols-4">
             {FUSCUM_METRICS.map((m, i) => (
               <Reveal key={m.value} anim="scale" delay={i * 0.08} className="h-full">
                 <div
-                  className={`h-full bg-[color:var(--ink-deep)]/90 p-6 backdrop-blur-sm lg:p-8 ${
+                  className={`h-full bg-[color:var(--brand-ink)]/90 p-6 backdrop-blur-sm lg:p-8 ${
                     // Границы только между ячейками: у первой в ряду её быть не должно,
                     // иначе она удвоит внешнюю рамку контейнера.
-                    i % 2 === 1 ? "sm:border-l sm:border-white/15" : ""
-                  } ${i > 0 ? "border-t border-white/15 sm:border-t-0 lg:border-l lg:border-white/15" : ""} ${
-                    i >= 2 ? "sm:border-t sm:border-white/15 lg:border-t-0" : ""
+                    i % 2 === 1 ? "sm:border-l sm:border-[color:var(--brand-cream-15)]" : ""
+                  } ${i > 0 ? "border-t border-[color:var(--brand-cream-15)] sm:border-t-0 lg:border-l lg:border-[color:var(--brand-cream-15)]" : ""} ${
+                    i >= 2 ? "sm:border-t sm:border-[color:var(--brand-cream-15)] lg:border-t-0" : ""
                   }`}
                 >
-                  <p className="display text-[34px] font-extrabold leading-none tracking-[-0.03em] text-[#C3D45F] lg:text-[42px]">
+                  <p className="display text-[34px] font-extrabold leading-none tracking-[-0.03em] text-[color:var(--brand-sage)] lg:text-[42px]">
                     <CountUp value={m.value} />
                   </p>
-                  <p className="mt-3 text-[14px] leading-snug text-white/65">{m.label}</p>
+                  <p className="mt-3 text-[14px] leading-snug text-[color:var(--brand-cream-72)]">{m.label}</p>
                 </div>
               </Reveal>
             ))}
@@ -1051,13 +1048,13 @@ export default function SphagnumLanding() {
           <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {FUSCUM_PROPERTIES.filter((p) => p.icon !== "battery").map((p, i) => (
               <Reveal key={p.title} delay={i * 0.08}>
-                <div className="flex h-full gap-4 rounded-2xl border border-white/12 bg-white/[0.04] p-6 transition-colors duration-300 hover:border-[#C3D45F]/40 hover:bg-white/[0.07]">
-                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#C3D45F]/15 text-[#C3D45F]">
+                <div className="flex h-full gap-4 rounded-2xl border border-[color:var(--brand-cream-15)] bg-[color:var(--brand-cream-04)] p-6 transition-colors duration-300 hover:border-[color:var(--brand-sage-40)] hover:bg-[color:var(--brand-cream-07)]">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[color:var(--brand-sage-15)] text-[color:var(--brand-sage)]">
                     <Icon name={p.icon} />
                   </span>
                   <span>
                     <span className="block text-[16px] font-bold">{p.title}</span>
-                    <span className="mt-1.5 block text-[14px] leading-relaxed text-white/65">{p.text}</span>
+                    <span className="mt-1.5 block text-[14px] leading-relaxed text-[color:var(--brand-cream-72)]">{p.text}</span>
                   </span>
                 </div>
               </Reveal>
@@ -1077,7 +1074,7 @@ export default function SphagnumLanding() {
       </section>
 
       {/* ═══════════ РАЗДЕЛ 5 — SUBSTRATE PLATFORM ═══════════ */}
-      <section className="bg-white py-24 lg:py-36">
+      <section className="bg-[color:var(--brand-cream)] py-24 lg:py-36">
         <div className="mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
           <Reveal>
             <SectionHead
@@ -1089,12 +1086,12 @@ export default function SphagnumLanding() {
           <div className="mt-14 grid gap-7 lg:mt-20 lg:grid-cols-3">
             {PLATFORM_PILLARS.map((p, i) => (
               <Reveal key={p.title} anim="scale" delay={i * 0.1}>
-                <div className="h-full rounded-2xl bg-[color:var(--sand)] p-7 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg lg:p-8">
-                  <span className="grid size-12 place-items-center rounded-xl bg-white text-[color:var(--olive-ink)] shadow-sm">
+                <div className="h-full rounded-2xl bg-[color:var(--brand-cream)] p-7 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg lg:p-8">
+                  <span className="grid size-12 place-items-center rounded-xl bg-[color:var(--brand-cream)] text-[color:var(--brand-moss)] shadow-sm">
                     <Icon name={p.icon} className="size-6" />
                   </span>
                   <h3 className="mt-5 text-[19px] font-bold leading-tight tracking-[-0.01em]">{p.title}</h3>
-                  <p className="mt-2.5 text-[14.5px] leading-relaxed text-[color:var(--muted)]">{p.text}</p>
+                  <p className="mt-2.5 text-[14.5px] leading-relaxed text-[color:var(--brand-muted)]">{p.text}</p>
                 </div>
               </Reveal>
             ))}
@@ -1108,12 +1105,12 @@ export default function SphagnumLanding() {
           <div className="mt-6 grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
             {PLATFORM_BENEFITS.map((b, i) => (
               <Reveal key={b.title} delay={(i % 3) * 0.07}>
-                <div className="group border-t-2 border-[color:var(--line)] pt-5 transition-colors duration-300 hover:border-[color:var(--olive)]">
-                  <span className="display block text-[13px] font-extrabold tracking-[0.08em] text-[color:var(--olive-ink)]">
+                <div className="group border-t-2 border-[color:var(--brand-line)] pt-5 transition-colors duration-300 hover:border-[color:var(--brand-moss)]">
+                  <span className="display block text-[13px] font-extrabold tracking-[0.08em] text-[color:var(--brand-moss)]">
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   <h4 className="mt-2 text-[16px] font-bold">{b.title}</h4>
-                  <p className="mt-2 text-[14.5px] leading-relaxed text-[color:var(--muted)]">{b.text}</p>
+                  <p className="mt-2 text-[14.5px] leading-relaxed text-[color:var(--brand-muted)]">{b.text}</p>
                 </div>
               </Reveal>
             ))}
@@ -1125,11 +1122,11 @@ export default function SphagnumLanding() {
           <div className="mt-6 grid gap-4 lg:grid-cols-3">
             {PRODUCT_LINE.map((p, i) => (
               <Reveal key={p.name} delay={i * 0.08}>
-                <div className="flex h-full items-baseline gap-4 rounded-xl border border-[color:var(--line)] p-6">
-                  <span className="display shrink-0 text-[20px] font-extrabold tracking-[-0.02em] text-[color:var(--olive-ink)]">
+                <div className="flex h-full items-baseline gap-4 rounded-xl border border-[color:var(--brand-line)] p-6">
+                  <span className="display shrink-0 text-[20px] font-extrabold tracking-[-0.02em] text-[color:var(--brand-moss)]">
                     {p.name}
                   </span>
-                  <span className="text-[14.5px] leading-snug text-[color:var(--muted)]">{p.text}</span>
+                  <span className="text-[14.5px] leading-snug text-[color:var(--brand-muted)]">{p.text}</span>
                 </div>
               </Reveal>
             ))}
@@ -1148,7 +1145,7 @@ export default function SphagnumLanding() {
       </section>
 
       {/* ═══════════ РАЗДЕЛ 6 — ПРИМЕНЕНИЕ ═══════════ */}
-      <section id="applications" className="bg-[color:var(--sand)] py-24 lg:py-36">
+      <section id="applications" className="bg-[color:var(--brand-cream)] py-24 lg:py-36">
         <div className="mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
           <Reveal>
             <SectionHead kicker="Applications" title="Where our solutions perform" />
@@ -1158,7 +1155,7 @@ export default function SphagnumLanding() {
             {APPLICATIONS.map((a, i) => (
               <Reveal key={a.title} anim={i % 2 === 0 ? "left" : "right"} delay={0.05}>
                 <article
-                  className={`grid items-center gap-6 overflow-hidden rounded-2xl bg-white lg:grid-cols-2 lg:gap-0 ${
+                  className={`grid items-center gap-6 overflow-hidden rounded-2xl bg-[color:var(--brand-cream)] lg:grid-cols-2 lg:gap-0 ${
                     i % 2 === 1 ? "lg:[&>figure]:order-2" : ""
                   }`}
                 >
@@ -1172,13 +1169,13 @@ export default function SphagnumLanding() {
                     />
                   </figure>
                   <div className="p-6 sm:p-8 lg:p-12">
-                    <span className="display text-[13px] font-bold tracking-[0.1em] text-[color:var(--olive-ink)]">
+                    <span className="display text-[13px] font-bold tracking-[0.1em] text-[color:var(--brand-moss)]">
                       0{i + 1}
                     </span>
                     <h3 className="mt-2 text-[22px] font-bold leading-tight tracking-[-0.02em] lg:text-[28px]">
                       {a.title}
                     </h3>
-                    <p className="mt-3.5 text-[15px] leading-relaxed text-[color:var(--muted)]">{a.text}</p>
+                    <p className="mt-3.5 text-[15px] leading-relaxed text-[color:var(--brand-muted)]">{a.text}</p>
                   </div>
                 </article>
               </Reveal>
@@ -1188,7 +1185,7 @@ export default function SphagnumLanding() {
       </section>
 
       {/* ═══════════ РАЗДЕЛ 7 — ПРОЕКТЫ ═══════════ */}
-      <section id="projects" className="bg-white py-24 lg:py-36">
+      <section id="projects" className="bg-[color:var(--brand-cream)] py-24 lg:py-36">
         <div className="mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
           <Reveal>
             <SectionHead kicker="Completed projects" title="Sites where our solutions already perform" />
@@ -1197,7 +1194,7 @@ export default function SphagnumLanding() {
           <div className="mt-14 grid gap-7 sm:grid-cols-2 lg:mt-20">
             {PROJECTS.map((p, i) => (
               <Reveal key={p.tag} anim="scale" delay={(i % 2) * 0.1}>
-                <article className="group h-full overflow-hidden rounded-2xl border border-[color:var(--line)] transition-all duration-300 hover:-translate-y-1 hover:border-[color:var(--olive-ink)]/40 hover:shadow-xl">
+                <article className="group h-full overflow-hidden rounded-2xl border border-[color:var(--brand-line)] transition-all duration-300 hover:-translate-y-1 hover:border-[color:var(--brand-moss)]/40 hover:shadow-xl">
                   <PhotoSlot
                     ratio="16/10"
                     shot={p.shot}
@@ -1206,11 +1203,11 @@ export default function SphagnumLanding() {
                     className="transition-transform duration-500 group-hover:scale-[1.03]"
                   />
                   <div className="p-6 lg:p-7">
-                    <span className="inline-block rounded-full bg-[color:var(--olive-ink)]/10 px-3 py-1 text-[12px] font-semibold text-[color:var(--olive-ink)]">
+                    <span className="inline-block rounded-full bg-[color:var(--brand-moss)]/10 px-3 py-1 text-[12px] font-semibold text-[color:var(--brand-moss)]">
                       {p.tag}
                     </span>
                     <h3 className="mt-3 text-[19px] font-bold leading-tight tracking-[-0.01em]">{p.title}</h3>
-                    <p className="mt-2 text-[14.5px] leading-relaxed text-[color:var(--muted)]">{p.text}</p>
+                    <p className="mt-2 text-[14.5px] leading-relaxed text-[color:var(--brand-muted)]">{p.text}</p>
                   </div>
                 </article>
               </Reveal>
@@ -1230,7 +1227,7 @@ export default function SphagnumLanding() {
       </section>
 
       {/* ═══════════ РАЗДЕЛ 8 — ADVANTAGES ═══════════ */}
-      <section id="advantages" className="bg-[color:var(--ink-deep)] py-20 text-white lg:py-28">
+      <section id="advantages" className="bg-[color:var(--brand-ink)] py-20 text-[color:var(--brand-cream)] lg:py-28">
         <div className="mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
           <Reveal>
             <SectionHead light kicker="Why us" title="Sphagnum Eco — advantages" />
@@ -1239,12 +1236,12 @@ export default function SphagnumLanding() {
           <div className="mt-14 grid gap-x-14 gap-y-12 sm:grid-cols-2 lg:mt-20">
             {ADVANTAGES.map((a, i) => (
               <Reveal key={a.num} delay={(i % 2) * 0.1}>
-                <div className="border-t border-white/15 pt-6">
-                  <span className="display block text-[15px] font-extrabold tracking-[0.06em] text-[#C3D45F]">
+                <div className="border-t border-[color:var(--brand-cream-15)] pt-6">
+                  <span className="display block text-[15px] font-extrabold tracking-[0.06em] text-[color:var(--brand-sage)]">
                     {a.num}
                   </span>
                   <h3 className="mt-2.5 text-[20px] font-bold leading-tight tracking-[-0.01em]">{a.title}</h3>
-                  <p className="mt-2.5 text-[14.5px] leading-relaxed text-white/65">{a.text}</p>
+                  <p className="mt-2.5 text-[14.5px] leading-relaxed text-[color:var(--brand-cream-72)]">{a.text}</p>
                 </div>
               </Reveal>
             ))}
@@ -1255,7 +1252,7 @@ export default function SphagnumLanding() {
               {TAGS.map((t) => (
                 <span
                   key={t}
-                  className="rounded-full border border-white/20 px-4 py-2 text-[13px] font-medium text-white/80"
+                  className="rounded-full border border-[color:var(--brand-cream-15)] px-4 py-2 text-[13px] font-medium text-[color:var(--brand-cream-85)]"
                 >
                   {t}
                 </span>
@@ -1266,7 +1263,7 @@ export default function SphagnumLanding() {
       </section>
 
       {/* ═══════════ РАЗДЕЛ 11 — FAQ ═══════════ */}
-      <section id="faq" className="bg-white py-24 lg:py-36">
+      <section id="faq" className="bg-[color:var(--brand-cream)] py-24 lg:py-36">
         <div className="mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
           <Reveal>
             <SectionHead kicker="FAQ" title="Frequently asked questions" />
@@ -1279,7 +1276,7 @@ export default function SphagnumLanding() {
               const open = openFaq === i;
               return (
                 <Reveal key={f.q} delay={0.04}>
-                  <div className="border-b border-[color:var(--line)]">
+                  <div className="border-b border-[color:var(--brand-line)]">
                     <h3>
                       <button
                         type="button"
@@ -1289,7 +1286,7 @@ export default function SphagnumLanding() {
                         className="flex w-full items-start gap-4 py-5 text-left"
                       >
                         <span className="normal-case-h flex-1 text-[16px] font-bold leading-snug sm:text-[17px]">{f.q}</span>
-                        <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-[color:var(--sand)] text-[color:var(--olive-ink)]">
+                        <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-[color:var(--brand-cream)] text-[color:var(--brand-moss)]">
                           {open ? <Minus className="size-4" strokeWidth={2.2} /> : <Plus className="size-4" strokeWidth={2.2} />}
                         </span>
                       </button>
@@ -1302,7 +1299,7 @@ export default function SphagnumLanding() {
                       style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
                     >
                       <div className="overflow-hidden">
-                        <p className="pb-5 pr-11 text-[15px] leading-relaxed text-[color:var(--muted)]">{f.a}</p>
+                        <p className="pb-5 pr-11 text-[15px] leading-relaxed text-[color:var(--brand-muted)]">{f.a}</p>
                       </div>
                     </div>
                   </div>
@@ -1314,7 +1311,7 @@ export default function SphagnumLanding() {
       </section>
 
       {/* ═══════════ РАЗДЕЛ 12 — КОНТАКТЫ ═══════════ */}
-      <section id="contact" className="relative overflow-hidden bg-[color:var(--ink-deep)] py-24 text-white lg:py-36">
+      <section id="contact" className="relative overflow-hidden bg-[color:var(--brand-ink)] py-24 text-[color:var(--brand-cream)] lg:py-36">
         <MossTexture dark seed={77} density={280} className="absolute inset-0 h-full w-full opacity-30" />
         <div
           aria-hidden
@@ -1338,11 +1335,11 @@ export default function SphagnumLanding() {
             <Reveal anim="left" delay={0.08}>
               <ul className="mt-10 grid gap-5 lg:mt-12">
                 {CONTACT_DELIVERABLES.map((d) => (
-                  <li key={d.title} className="flex gap-4 border-t border-white/12 pt-5">
-                    <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-[#C3D45F]" strokeWidth={1.7} aria-hidden />
+                  <li key={d.title} className="flex gap-4 border-t border-[color:var(--brand-cream-15)] pt-5">
+                    <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-[color:var(--brand-sage)]" strokeWidth={1.7} aria-hidden />
                     <span>
                       <span className="block text-[15.5px] font-bold">{d.title}</span>
-                      <span className="mt-1 block text-[14px] leading-relaxed text-white/60">{d.text}</span>
+                      <span className="mt-1 block text-[14px] leading-relaxed text-[color:var(--brand-cream-72)]">{d.text}</span>
                     </span>
                   </li>
                 ))}
@@ -1350,23 +1347,23 @@ export default function SphagnumLanding() {
             </Reveal>
 
             <Reveal anim="left" delay={0.16}>
-              <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4 border-t border-white/12 pt-7">
+              <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4 border-t border-[color:var(--brand-cream-15)] pt-7">
                 <div>
                   <p className="display text-[16px] leading-none">{CONTACT.person}</p>
-                  <p className="mt-1.5 text-[13.5px] text-white/55">{CONTACT.role}</p>
+                  <p className="mt-1.5 text-[13.5px] text-[color:var(--brand-cream-72)]">{CONTACT.role}</p>
                 </div>
                 <a
                   href={CONTACT.phoneHref}
-                  className="flex items-center gap-2.5 text-[15px] font-semibold transition-colors hover:text-[#C3D45F]"
+                  className="flex items-center gap-2.5 text-[15px] font-semibold transition-colors hover:text-[color:var(--brand-sage)]"
                 >
-                  <Phone className="size-[18px] text-[#C3D45F]" strokeWidth={1.7} aria-hidden />
+                  <Phone className="size-[18px] text-[color:var(--brand-sage)]" strokeWidth={1.7} aria-hidden />
                   {CONTACT.phone}
                 </a>
                 <a
                   href={`mailto:${CONTACT.email}`}
-                  className="flex items-center gap-2.5 text-[15px] font-semibold transition-colors hover:text-[#C3D45F]"
+                  className="flex items-center gap-2.5 text-[15px] font-semibold transition-colors hover:text-[color:var(--brand-sage)]"
                 >
-                  <Mail className="size-[18px] text-[#C3D45F]" strokeWidth={1.7} aria-hidden />
+                  <Mail className="size-[18px] text-[color:var(--brand-sage)]" strokeWidth={1.7} aria-hidden />
                   {CONTACT.email}
                 </a>
               </div>
@@ -1374,13 +1371,13 @@ export default function SphagnumLanding() {
           </div>
 
           <Reveal anim="right" delay={0.12}>
-            <div className="bg-white p-7 text-[color:var(--ink)] shadow-2xl sm:p-9">
-              <p className="display text-[19px] leading-tight text-[color:var(--ink)]">Send an enquiry</p>
-              <p className="mb-6 mt-2 text-[13.5px] leading-snug text-[color:var(--muted)]">
+            <div className="bg-[color:var(--brand-cream)] p-7 text-[color:var(--brand-ink)] shadow-2xl sm:p-9">
+              <p className="display text-[19px] leading-tight text-[color:var(--brand-ink)]">Send an enquiry</p>
+              <p className="mb-6 mt-2 text-[13.5px] leading-snug text-[color:var(--brand-muted)]">
                 We reply within 24 hours with a commercial offer.
               </p>
               <LeadForm id="contact" />
-              <p className="mt-1 border-t border-[color:var(--line)] pt-4 text-[12.5px] leading-snug text-[color:var(--muted)]">
+              <p className="mt-1 border-t border-[color:var(--brand-line)] pt-4 text-[12.5px] leading-snug text-[color:var(--brand-muted)]">
                 By submitting this form you consent to the processing of your personal data. We never share your
                 contact details with third parties.
               </p>
@@ -1390,10 +1387,10 @@ export default function SphagnumLanding() {
       </section>
 
       {/* ═══════════ ПОДВАЛ ═══════════ */}
-      <footer className="bg-[color:var(--ink)] py-8 text-white/55">
+      <footer className="bg-[color:var(--brand-ink)] py-8 text-[color:var(--brand-cream-72)]">
         <div className="flex flex-col gap-2 text-[13px] sm:flex-row sm:items-center mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
           <p>© 2026 Sphagnum Eco · Natural Substrates · All rights reserved.</p>
-          <a href={`mailto:${CONTACT.email}`} className="hover:text-white sm:ml-auto">
+          <a href={`mailto:${CONTACT.email}`} className="hover:text-[color:var(--brand-cream)] sm:ml-auto">
             {CONTACT.email}
           </a>
         </div>

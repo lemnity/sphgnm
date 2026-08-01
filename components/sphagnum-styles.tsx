@@ -47,43 +47,65 @@ export function SphagnumStyles() {
   --brand-sage-45: rgba(138, 161, 138, .45);
 
   /*
-    ── ЛЕГАСИ-ПАЛИТРА ОСТАЛЬНЫХ СЕКЦИЙ ──
-    Олива снята с референса Sempergreen и в фирменный гайд НЕ входит.
-    Первый экран уже переведён на бренд; секции ниже ждут своей очереди,
-    до тех пор эти токены нужны — удалять их сейчас нельзя.
+    ── ПРОИЗВОДНЫЕ ПОД СВЕТЛЫЕ СЕКЦИИ ──
+    Легаси-палитры (олива с референса Sempergreen) больше нет: весь макет
+    переведён на четыре фирменных токена. Здесь только то, чего в гайде нет
+    физически, — текст пониженной важности и разделительная линия. Оба взяты
+    как затемнения Ink, а не как новые цвета, чтобы палитра осталась закрытой.
 
-    ВАЖНО про контраст: у Sempergreen белый текст лежит прямо на #96A437,
-    а это 2.7:1 — провал даже по смягчённому порогу 3:1. Поэтому яркая олива
-    осталась для заливок и КРУПНОГО текста, а под мелкий текст и кнопки
-    заведён затемнённый --olive-ink (#5F6B22, белым по нему 6.2:1).
+    ВАЖНО, откуда берётся акцент на светлом. Sage по Cream даёт 2.5:1 и для
+    мелкого текста НЕ годится — это провал AA. Поэтому на светлых секциях
+    акцент всегда Moss (8.7:1 по Cream), а Sage работает акцентом только по
+    Ink (6.6:1). Перепутать местами нельзя: проверено расчётом контраста.
+
+    --brand-muted по Cream: 7.4:1. Линия декоративная, порог к ней не применим.
   */
-  --ink: #22261E;
-  --ink-deep: #14180F;
-  --olive: #96A437;
-  --olive-ink: #5F6B22;
-  --olive-soft: #EDF1DC;
-  --sand: #F4F4EF;
-  --line: #E3E5DB;
-  --muted: #5A6154;
+  --brand-muted: #4A554E;
+  --brand-line: #DEDACF;
+
+  /* Готовые rgba под Sage — по той же причине, что и cream-* выше: запись
+     bg-[color:var(--brand-sage)]/15 невалидна и роняет всю декларацию. */
+  --brand-sage-40: rgba(138, 161, 138, .4);
+  --brand-sage-15: rgba(138, 161, 138, .15);
+  --brand-cream-07: rgba(244, 241, 234, .07);
+  --brand-cream-04: rgba(244, 241, 234, .04);
 
   font-family: 'Work Sans', system-ui, sans-serif;
   font-size: 16px;
-  color: var(--ink);
-  background: #fff;
+  color: var(--brand-ink);
+  background: var(--brand-cream);
   overflow-x: clip; /* clip, а НЕ hidden: hidden создал бы скролл-контейнер и сломал якоря */
 }
 
-/* Заголовки — Archivo вместо платного Apparat: та же плотная гротескная подача
-   в верхнем регистре, доступен в Google Fonts. */
+/*
+  ── ЗАГОЛОВКИ: ФИРМЕННАЯ АНТИКВА ──
+  Раньше здесь стоял Archivo в верхнем регистре — подача с референса
+  Sempergreen. Гайдбук описывает другую пару: антиква для заголовков,
+  гротеск для текста, регистр СТРОЧНЫЙ (в самом гайде все заголовки набраны
+  строчными). Первый экран уже был на антикве, секции ниже — нет, и страница
+  читалась как два разных сайта. Теперь правило одно на весь макет.
+
+  Archivo при этом остался — но только там, где он и уместен: мелкие капсовые
+  метки (кикеры, глазки) и кнопки. Это класс .label и .btn.
+*/
 .sph h1, .sph h2, .sph h3, .sph .display {
+  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  text-transform: none;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+/* Класс сохранён: разметка ссылается на него в местах, где капс мешал читать.
+   Теперь строчный регистр — поведение по умолчанию, и класс стал пустышкой,
+   но удалять его из десятка мест ради нуля визуальной разницы незачем. */
+.sph .normal-case-h { text-transform: none; letter-spacing: -0.015em; }
+
+/* Мелкая капсовая метка — единственное место, где остаётся гротеск. */
+.sph .label {
   font-family: 'Archivo', system-ui, sans-serif;
   text-transform: uppercase;
-  font-weight: 800;
-  letter-spacing: 0.005em;
+  font-weight: 600;
+  letter-spacing: 0.14em;
 }
-/* Точечное исключение: там, где верхний регистр мешает читать (длинные абзацы,
-   пункты FAQ), нормальный регистр возвращается классом .normal-case-h */
-.sph .normal-case-h { text-transform: none; letter-spacing: -0.01em; }
 
 /*
   ── ФИРМЕННАЯ АНТИКВА (гайд, раздел «Типографика») ──
@@ -126,10 +148,10 @@ export function SphagnumStyles() {
   padding: 14px 21px;
   transition: background-color .2s, color .2s, border-color .2s;
 }
-.sph .btn-primary { background: var(--olive-ink); color: #fff; }
-.sph .btn-primary:hover { background: var(--ink); }
-.sph .btn-accent { background: var(--olive); color: var(--ink-deep); }
-.sph .btn-accent:hover { background: #A8B845; }
+.sph .btn-primary { background: var(--brand-moss); color: var(--brand-cream); }
+.sph .btn-primary:hover { background: var(--brand-ink); }
+.sph .btn-accent { background: var(--brand-sage); color: var(--brand-ink); }
+.sph .btn-accent:hover { background: #9CB19C; }
 .sph .btn-ghost { border: 2px solid currentColor; }
 
 /* Якорная навигация из фиксированной шапки: без отступа заголовок уезжает под неё. */
@@ -288,15 +310,3 @@ export function SphagnumStyles() {
   );
 }
 
-/**
- * Фирменный знак Sempergreen — две угловые скобки. На референсе он стоит
- * над заголовками секций и внутри логотипа; здесь тот же приём.
- */
-export function CornerMark({ className = "", color = "currentColor" }: { className?: string; color?: string }) {
-  return (
-    <svg viewBox="0 0 34 34" className={className} aria-hidden focusable="false" fill="none">
-      <path d="M2 12V2h10" stroke={color} strokeWidth="4" />
-      <path d="M32 22v10H22" stroke={color} strokeWidth="4" />
-    </svg>
-  );
-}
