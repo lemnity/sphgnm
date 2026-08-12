@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 
 /**
  * Визуальные элементы SPHAGNUM ECO: живая текстура мха, счётчики цифр и
@@ -780,6 +780,494 @@ export function LightRays({ className = "" }: { className?: string }) {
           }
         />
       ))}
+    </div>
+  );
+}
+
+/* ═══════════════ Живая фитостена ═══════════════ */
+
+/*
+  ЖИВАЯ ФИТОСТЕНА — фотография первого экрана, у которой листва шевелится от
+  курсора.
+
+  Роль в кадре: это единственный броский элемент первого экрана, всё остальное
+  вокруг держится тихо. Возмущение идёт ОТ КУРСОРА, а не от прокрутки —
+  прокрутка уже двигает фон параллаксом, и мешать эти два движения нельзя.
+
+  Холст ложится ПОВЕРХ статического CSS-фона и рисует ту же картинку. Отсюда
+  вся деградация бесплатно: нет WebGL, не загрузилась текстура, включено
+  «меньше движения» — холст просто остаётся прозрачным, и виден статический
+  фон под ним. Пустого экрана не бывает ни в одном из случаев.
+
+  Каркас (getContext → compile → link → ResizeObserver → полная отписка) взят
+  из LightRays выше: в этом файле он канон, изобретать второй незачем.
+*/
+const WALL_VERTEX_SHADER = `
+precision mediump float;
+attribute vec2 a_position;
+varying vec2 vUv;
+void main() {
+  // y НЕ переворачивается (в отличие от лучей): текстура заливается с
+  // UNPACK_FLIP_Y_WEBGL, и у неё ноль тоже снизу.
+  vUv = a_position * 0.5 + 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}
+`;
+
+/*
+  Фрагментный шейдер.
+
+  Три вещи, на которых всё держится:
+
+  1. КАДРИРОВАНИЕ. Подложка под холстом — обычный background-size: cover +
+     background-position: center. Холст обязан кадрировать ровно так же, иначе
+     в момент его появления картинка заметно прыгнет. Поэтому cover считается
+     здесь честно из u_resolution и u_texSize, а не «на глаз».
+
+  2. МАСШТАБ ЛИСТА. Домен-варп идёт по шумовой сетке с ячейкой u_cell —
+     это десятки пикселей, размер листа. На пиксельной сетке получилось бы
+     дрожание плёнки, а не шелест.
+
+  3. МАСКА ЗЕЛЕНИ. На кадре есть мраморная стойка, деревянные панели, рамы
+     остекления, пол и золотой знак. Если они поплывут вместе с листьями,
+     эффект сразу читается как сломанный: камень не колышется. Поэтому
+     смещение умножается на «зелёность» пикселя — зелёный канал против
+     максимума из красного и синего, нормированный на саму зелень, чтобы
+     тёмный лист в тени считался таким же листом, как освещённый.
+
+  highp там, где он есть: hash на sin(dot(...)) в mediump на части мобильных
+  GPU вырождается в полосы.
+*/
+const WALL_FRAGMENT_SHADER = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+varying vec2 vUv;
+uniform sampler2D u_tex;
+uniform vec2 u_resolution;
+uniform vec2 u_texSize;
+uniform vec2 u_anchor;
+uniform vec2 u_pointer;
+uniform float u_energy;
+uniform float u_time;
+uniform float u_radius;
+uniform float u_amp;
+uniform float u_cell;
+
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+/* Обычный value-noise со сглаживанием — внешних текстур не требует. */
+float vnoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+    mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
+    u.y
+  );
+}
+
+/*
+  Множитель cover: во сколько раз ужимается видимая часть картинки по каждой
+  оси. Ровно то, что делает background-size: cover. Привязку к нужному краю
+  кадра даёт уже вызывающий код (см. base в main).
+*/
+vec2 coverScale() {
+  float rc = u_resolution.x / u_resolution.y;
+  float ri = u_texSize.x / u_texSize.y;
+  // Холст шире картинки — режем по высоте, иначе по ширине.
+  return rc > ri ? vec2(1.0, ri / rc) : vec2(rc / ri, 1.0);
+}
+
+/*
+  Насколько пиксель — листва. Числитель нормируется на сам зелёный канал, и
+  порог перестаёт зависеть от освещённости: лист в тени rgb(30,45,25) даёт то
+  же значение, что освещённый rgb(60,90,45). Мрамор и стекло дают ноль
+  (каналы равны), дерево и золото — отрицательное (красного больше зелёного).
+  Второй множитель гасит почти чёрные пиксели: там отношение шумит.
+*/
+float leafMask(vec2 uv) {
+  vec3 c = texture2D(u_tex, uv).rgb;
+  float g = c.g - max(c.r, c.b);
+  float gn = g / max(c.g, 0.12);
+  float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  return smoothstep(0.05, 0.20, gn) * smoothstep(0.03, 0.09, lum);
+}
+
+void main() {
+  vec2 scale = coverScale();
+  /*
+    Точка привязки кадра — та же, что background-position у подложки.
+    В точке vUv == u_anchor картинка «приколота»: там base совпадает с
+    anchor, а по сторонам расходится на scale. u_anchor = (1,1) — правый
+    верхний угол, (0,1) — левый верхний. У текстуры залит UNPACK_FLIP_Y_WEBGL,
+    поэтому её v=1 — это ВЕРХ картинки.
+  */
+  vec2 base = (vUv - u_anchor) * scale + u_anchor;
+  vec2 uvPerPx = scale / u_resolution;
+
+  // Спад по расстоянию до курсора: возмущение локальное, «под ладонью».
+  vec2 frag = vUv * u_resolution;
+  float d = distance(frag, u_pointer);
+  float drive = u_energy * exp(-(d * d) / (u_radius * u_radius));
+
+  // Ранний выход: вдали от курсора и в покое считать нечего — а это почти
+  // весь кадр.
+  if (drive < 0.004) {
+    gl_FragColor = vec4(texture2D(u_tex, base).rgb, 1.0);
+    return;
+  }
+
+  /*
+    Маска берётся крестом из пяти отсчётов в ~3 экранных пикселях друг от
+    друга. По одному отсчёту край листа рвался бы на границе с камнем, и
+    смещение отрезалось бы ступенькой.
+  */
+  float m = 0.2 * (
+    leafMask(base) +
+    leafMask(base + vec2(uvPerPx.x * 3.0, 0.0)) +
+    leafMask(base - vec2(uvPerPx.x * 3.0, 0.0)) +
+    leafMask(base + vec2(0.0, uvPerPx.y * 3.0)) +
+    leafMask(base - vec2(0.0, uvPerPx.y * 3.0))
+  );
+  if (m < 0.01) {
+    gl_FragColor = vec4(texture2D(u_tex, base).rgb, 1.0);
+    return;
+  }
+
+  /*
+    Домен-варп. Два шумовых поля задают НАПРАВЛЕНИЕ (клочок листвы едет
+    целиком, а не каждый пиксель врозь), а сумма двух синусов с разными
+    частотами по осям — знак и величину. Без синусов листва один раз уехала бы
+    вбок и застыла; с ними она качается, и качается не в такт по кадру.
+
+    Направление нормировано, поэтому |смещение| ≤ u_amp ровно, а не «в среднем
+    примерно»: потолок амплитуды тут важнее заметности.
+  */
+  vec2 p = frag / u_cell;
+  float n1 = vnoise(p + vec2(u_time * 0.33, u_time * 0.21));
+  float n2 = vnoise(p.yx * 1.19 + vec2(-u_time * 0.27, u_time * 0.17) + 31.4);
+  vec2 v = vec2(n1, n2) * 2.0 - 1.0;
+  vec2 dir = v / max(length(v), 0.15);
+  float wobble = 0.6 * sin(p.y * 1.7 + u_time * 2.3) + 0.4 * sin(p.x * 2.3 + u_time * 1.7);
+
+  vec2 uv = base + dir * (wobble * u_amp * drive * m) * uvPerPx;
+  gl_FragColor = vec4(texture2D(u_tex, uv).rgb, 1.0);
+}
+`;
+
+/**
+ * Потолок смещения в пикселях ИСХОДНОЙ картинки. На первом экране 1440×900
+ * кадр растянут в 1.175 раза, то есть это ровно 5.9 экранных пикселя.
+ *
+ * Именно потолок, а не «в среднем примерно»: направление в шейдере
+ * нормировано, а качание — сумма двух синусов с весами 0.6/0.4, по модулю не
+ * больше единицы. Потолок здесь важнее заметности: на десятке пикселей
+ * фотография начинает плыть резиной, и эффект мгновенно читается дешёвым.
+ */
+const WALL_AMP_IMAGE_PX = 5;
+/** Радиус спада — доля меньшей стороны холста. Возмущение локальное. */
+const WALL_RADIUS_RATIO = 0.2;
+/** Ячейка шума в пикселях ИСХОДНОЙ картинки: примерно один лист. */
+const WALL_CELL_IMAGE_PX = 34;
+/** Постоянная времени затухания энергии, с. */
+const WALL_DECAY_TAU = 0.6;
+/** Скорость курсора (CSS px/с), на которой накачка выходит на максимум. */
+const WALL_FULL_SPEED = 2600;
+/** Постоянная времени накачки на максимальной скорости, с. */
+const WALL_RISE_TAU = 0.14;
+
+export function LivingWall({
+  src,
+  pointerTargetRef,
+  className = "",
+  style,
+}: {
+  src: string;
+  /** Секция героя: движение курсора ловим над ней, а не над самим холстом. */
+  pointerTargetRef: RefObject<HTMLElement | null>;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // Холст показывается только после первого удачного кадра. Это единственный
+  // выключатель на все виды деградации сразу.
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // «Меньше движения» — холст не поднимаем вовсе: под ним корректный
+    // статический фон, и он же был единственным содержимым до этой правки.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    // alpha: false — холст непрозрачен, он рисует саму фотографию, а не
+    // подсветку поверх неё. depth/stencil не нужны: один прямоугольник.
+    const gl = canvas.getContext("webgl", {
+      alpha: false,
+      antialias: false,
+      depth: false,
+      stencil: false,
+      premultipliedAlpha: false,
+    });
+    // Без WebGL просто не рисуем — виден статический фон.
+    if (!gl || !(gl instanceof WebGLRenderingContext)) return;
+
+    const compile = (source: string, type: number) => {
+      const sh = gl.createShader(type);
+      if (!sh) return null;
+      gl.shaderSource(sh, source);
+      gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+        console.error("living wall: shader", gl.getShaderInfoLog(sh));
+        gl.deleteShader(sh);
+        return null;
+      }
+      return sh;
+    };
+
+    const vs = compile(WALL_VERTEX_SHADER, gl.VERTEX_SHADER);
+    const fs = compile(WALL_FRAGMENT_SHADER, gl.FRAGMENT_SHADER);
+    const program = gl.createProgram();
+    if (!vs || !fs || !program) return;
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      console.error("living wall: link", gl.getProgramInfoLog(program));
+      return;
+    }
+    gl.useProgram(program);
+
+    const uRes = gl.getUniformLocation(program, "u_resolution");
+    const uTexSize = gl.getUniformLocation(program, "u_texSize");
+    const uAnchor = gl.getUniformLocation(program, "u_anchor");
+    const uPointer = gl.getUniformLocation(program, "u_pointer");
+    const uEnergy = gl.getUniformLocation(program, "u_energy");
+    const uTime = gl.getUniformLocation(program, "u_time");
+    const uRadius = gl.getUniformLocation(program, "u_radius");
+    const uAmp = gl.getUniformLocation(program, "u_amp");
+    const uCell = gl.getUniformLocation(program, "u_cell");
+
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    const aPos = gl.getAttribLocation(program, "a_position");
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+    let texW = 0;
+    let texH = 0;
+    let texLoaded = false;
+
+    /*
+      Половинное разрешение, как у лучей, здесь НЕ годится: там сплошь плавные
+      градиенты, а тут фотография с мелкой деталью, и в половине она станет
+      мылом. Потолок 2 — выше глазу уже нечего забирать.
+    */
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = Math.max(1, Math.round(canvas.clientWidth * dpr));
+      const h = Math.max(1, Math.round(canvas.clientHeight * dpr));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+      gl.viewport(0, 0, w, h);
+      gl.uniform2f(uRes, w, h);
+      /*
+        Точка привязки кадра ОБЯЗАНА совпадать с background-position статической
+        подложки — иначе в момент появления холста картинка прыгнет. Порог 1024
+        px — это Tailwind-брейкпоинт lg, на котором подложка переключается с
+        bg-left-top на bg-right-top. Держать оба места в согласии: поменяли
+        класс — поменяйте и здесь.
+
+        Почему вообще два кадра. У кадра соотношение 1.79, и на узком экране
+        cover срезает по ширине почти всё: видно около 18% кадра. Справа это
+        тёмная стена с золотым знаком — на телефоне вместо стены получался бы
+        размытый логотип во весь экран. Слева там сплошная листва, поэтому на
+        узком экране кадр приколот к левому краю.
+      */
+      const wide = window.matchMedia("(min-width: 1024px)").matches;
+      gl.uniform2f(uAnchor, wide ? 1 : 0, 1);
+      gl.uniform1f(uRadius, WALL_RADIUS_RATIO * Math.min(w, h));
+      if (texLoaded) {
+        /*
+          И ячейка шума, и амплитуда заданы в пикселях ИСХОДНИКА, а на экран
+          переводятся тем же cover-множителем, каким растянута сама картинка.
+          Считать их от ширины окна было бы неверно: на широком экране кадр
+          растянут не сильнее (cover упирается в высоту), лист на экране того же
+          размера — значит и качаться он должен на столько же.
+        */
+        const cover = Math.max(w / texW, h / texH);
+        gl.uniform1f(uCell, WALL_CELL_IMAGE_PX * cover);
+        gl.uniform1f(uAmp, WALL_AMP_IMAGE_PX * cover);
+      }
+    };
+
+    // Энергия возмущения живёт здесь, а не в шейдере: шейдер не помнит кадров.
+    let energy = 0;
+    // Курсор в координатах окна; в пиксели холста переводим в момент отрисовки,
+    // потому что холст ещё и едет по вертикали от параллакса.
+    let clientX: number | null = null;
+    let clientY: number | null = null;
+
+    const draw = (timeSec: number) => {
+      if (!texLoaded) return;
+      if (clientX === null || clientY === null) {
+        gl.uniform2f(uPointer, -1e5, -1e5);
+      } else {
+        const rect = canvas.getBoundingClientRect();
+        const kx = canvas.width / Math.max(rect.width, 1);
+        const ky = canvas.height / Math.max(rect.height, 1);
+        // y переворачивается: в шейдере считаем в системе с нулём снизу.
+        gl.uniform2f(uPointer, (clientX - rect.left) * kx, (rect.bottom - clientY) * ky);
+      }
+      gl.uniform1f(uEnergy, energy);
+      gl.uniform1f(uTime, timeSec);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    };
+
+    let inView = true;
+    let frame = 0;
+    let running = false;
+    let last = 0;
+
+    /*
+      Крутить rAF при неподвижном курсоре незачем: стена в покое статична, и
+      кадр от кадра не меняется. Цикл живёт ровно столько, сколько догорает
+      энергия, и гасит её последним кадром ровно в ноль.
+    */
+    const loop = (now: number) => {
+      // Потолок 0.25 с, а не один кадр: затухание должно идти по РЕАЛЬНОМУ
+      // времени. Зажми dt покадрово — и на машине, где кадры редкие, стена
+      // успокаивалась бы в разы дольше, чем задумано.
+      const dt = Math.min((now - last) / 1000, 0.25);
+      last = now;
+      energy *= Math.exp(-dt / WALL_DECAY_TAU);
+      if (energy > 0.003 && inView && !document.hidden) {
+        draw(now * 0.001);
+        frame = requestAnimationFrame(loop);
+        return;
+      }
+      energy = 0;
+      running = false;
+      frame = 0;
+      draw(now * 0.001);
+    };
+
+    const kick = () => {
+      if (running || !inView || document.hidden || !texLoaded) return;
+      running = true;
+      last = performance.now();
+      frame = requestAnimationFrame(loop);
+    };
+
+    let lastMoveAt = 0;
+    const onMove = (e: PointerEvent) => {
+      // Секция героя выше экрана (залипание), и курсор может ходить над ней,
+      // когда холст уже уехал из кадра. Копить энергию в этот момент нельзя:
+      // при возврате прокруткой стена вздрогнула бы ни с того ни с сего.
+      if (!inView) return;
+      const now = performance.now();
+      const prevX = clientX;
+      const prevY = clientY;
+      clientX = e.clientX;
+      clientY = e.clientY;
+      if (prevX === null || prevY === null) {
+        lastMoveAt = now;
+        return;
+      }
+      // dt зажат: первый кадр после паузы иначе даёт скорость в единицы px/с,
+      // а слипшиеся события — бесконечную.
+      const dt = Math.min(Math.max((now - lastMoveAt) / 1000, 0.004), 0.1);
+      lastMoveAt = now;
+      const speed = Math.hypot(e.clientX - prevX, e.clientY - prevY) / dt;
+      // Накачка пропорциональна скорости: медленное ведение даёт равновесие
+      // где-то на половине шкалы, резкое — выводит на максимум.
+      energy = Math.min(1, energy + Math.min(speed / WALL_FULL_SPEED, 1) * (dt / WALL_RISE_TAU));
+      kick();
+    };
+
+    const target = pointerTargetRef.current;
+    target?.addEventListener("pointermove", onMove, { passive: true });
+    // pointerleave энергию НЕ обнуляет: рывок читался бы как баг. Стена
+    // успокаивается тем же затуханием, что и при остановке курсора.
+
+    const ro = new ResizeObserver(() => {
+      resize();
+      draw(performance.now() * 0.001);
+    });
+    ro.observe(canvas);
+
+    const io = new IntersectionObserver(
+      ([e]) => {
+        inView = e.isIntersecting;
+        if (inView) kick();
+      },
+      { threshold: 0 },
+    );
+    io.observe(canvas);
+
+    const image = new Image();
+    image.decoding = "async";
+    const onLoad = () => {
+      texW = image.naturalWidth;
+      texH = image.naturalHeight;
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      // Картинка не степень двойки, поэтому только CLAMP + LINEAR: с
+      // mipmap/REPEAT текстура вышла бы чёрной.
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+      gl.uniform2f(uTexSize, texW, texH);
+      texLoaded = true;
+      resize();
+      draw(performance.now() * 0.001);
+      // Только теперь холст можно показать: до этого кадра он пустой, и
+      // проявись он раньше — на месте фотографии была бы дыра.
+      setReady(true);
+    };
+    // Текстура не загрузилась — холст остаётся прозрачным, виден фон.
+    const onError = () => console.error("living wall: texture failed", src);
+    image.addEventListener("load", onLoad);
+    image.addEventListener("error", onError);
+    image.src = src;
+
+    resize();
+
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      image.removeEventListener("load", onLoad);
+      image.removeEventListener("error", onError);
+      target?.removeEventListener("pointermove", onMove);
+      ro.disconnect();
+      io.disconnect();
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
+      setReady(false);
+    };
+  }, [src, pointerTargetRef]);
+
+  return (
+    // Обёртка, а не голый canvas: холст — замещаемый элемент, и при width: auto
+    // он берёт СВОЙ размер (300×150), сколько ему ни ставь left/right/top/bottom.
+    // Коробку задаёт div, холст растягивается по ней.
+    <div
+      className={`pointer-events-none ${className}`}
+      style={{ ...style, opacity: ready ? 1 : 0, transition: "opacity 320ms ease-out" }}
+      aria-hidden
+    >
+      <canvas ref={canvasRef} className="living-wall-canvas block h-full w-full" />
     </div>
   );
 }
