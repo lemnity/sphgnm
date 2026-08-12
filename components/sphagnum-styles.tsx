@@ -154,6 +154,12 @@ export function SphagnumStyles() {
 .sph .btn-sage { background: var(--brand-sage); color: var(--brand-ink); }
 .sph .btn-sage:hover { background: #9CB19C; }
 
+/* Кнопка героя, золото: текст Ink — 8.82:1. Cream по золоту даёт 1.8:1,
+   нечитаемо, поэтому текст именно тёмный, не cream. Ховер #E2C078 светлее
+   базового (10.28:1) — та же логика, что у .btn-sage. */
+.sph .btn-gold { background: var(--brand-gold); color: var(--brand-ink); }
+.sph .btn-gold:hover { background: #E2C078; }
+
 /* Moss под кнопку в шапке: Cream по нему 7.6:1. */
 .sph .btn-moss { background: var(--brand-moss); color: var(--brand-cream); }
 .sph .btn-moss:hover { background: var(--brand-ink); }
