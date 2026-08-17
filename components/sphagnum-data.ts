@@ -156,6 +156,11 @@ export const PRODUCT_LINE = [
      photo — the URL. Empty string = not delivered yet, PhotoSlot falls back
              to the captioned placeholder. Filling it in is a one-line change. */
 
+/* Четвёртое поле — `diagram`. Пока в `photo` пусто, слот показывает не заглушку
+   «нужен такой кадр», а схему применения (ApplicationDiagram в sphagnum-visuals).
+   Значение выбирает, КАКУЮ схему рисовать; `diagramAlt` — что услышит
+   скринридер вместо картинки. Появится URL в `photo` — слот сам переключится на
+   фотографию, схема уйдёт, бриф на съёмку в `shot` при этом остаётся в силе. */
 export const APPLICATIONS = [
   {
     title: "Green roofs and podium decks",
@@ -163,6 +168,9 @@ export const APPLICATIONS = [
     shot: "accessible green roof terrace with lawn, shrubs and seating above a city",
     alt: "Accessible green roof terrace planted with lawn and shrubs above a city skyline",
     photo: "",
+    diagram: "roof",
+    diagramAlt:
+      "Cross-section of a green roof build-up: vegetation, sphagnum substrate, filter and drainage, waterproofing, structural deck",
   },
   {
     title: "Vertical gardens and green walls",
@@ -170,6 +178,8 @@ export const APPLICATIONS = [
     shot: "full-height interior living green wall in a bright lobby",
     alt: "Full-height interior living green wall in a bright office lobby",
     photo: "",
+    diagram: "wall",
+    diagramAlt: "A grid of green-wall modules with one module lifted out of the wall, showing that the system is demountable",
   },
   {
     title: "Parks, streetscapes and arid landscaping",
@@ -177,6 +187,8 @@ export const APPLICATIONS = [
     shot: "landscaped street planting with young trees in an arid desert city",
     alt: "Landscaped street planting with young trees in an arid desert city",
     photo: "",
+    diagram: "arid",
+    diagramAlt: "Cross-section of a tree planted in sandy soil with a moisture-retaining moss mat around the root zone",
   },
 ] as const;
 
@@ -225,6 +237,18 @@ export const WHY_PHOTO = {
   shot: "landscaped roof terrace of a residential development, wide shot",
   alt: "Landscaped roof terrace of a residential development",
   photo: "",
+} as const;
+
+/* Что стоит в разделе, ПОКА кадра террасы нет. Не заглушка и не сток: сам
+   материал — вырезанный уступ живого мха (components/assets/moss-ledge.webp).
+   Логика простая: про мох мы имеем право показать мох, а чужую террасу под
+   видом своего проекта — нет. Бриф на съёмку террасы выше при этом остаётся в
+   силе, WHY_PHOTO не трогали: как только там появится URL, раздел сам
+   переключится на фотографию, а этот блок уйдёт. */
+export const WHY_SPECIMEN = {
+  alt: "A cut ledge of living sphagnum moss showing the green upper layer and its root base",
+  caption:
+    "Sphagnum fuscum, cut as it grows: the living upper layer with its structure intact. This is the substrate — the part of a landscape nobody sees, and the part that decides whether the planting survives.",
 } as const;
 
 /* ───────────── Section 8 — Advantages ───────────── */
@@ -335,6 +359,19 @@ export const STRIP_PANEL_3 = {
   value: "53,000 km²",
   text: "The Vasyugan wetlands — the world’s largest wetland system and our raw-material base",
 } as const;
+
+/* ───────────── Золотая полоса «53,000 km²»: три факта под абзацем ─────────────
+   Ни одного нового обещания: всё это уже сказано на странице (абзац самой полосы
+   и раздел про заготовку живьём). Вынесены в скан-формат по двум причинам.
+   Во-первых, на широком экране правая колонка висела одиноким абзацем, и нижняя
+   треть полосы пустовала. Во-вторых, цифры внутри сплошного текста не читаются:
+   «5–7 cm» и «5–7 years» — главное доказательство возобновляемости, а они тонули
+   в строке. Абзац полосы после выноса переписан, чтобы не дублировать их дословно. */
+export const WETLAND_FACTS = [
+  { value: "5–7 cm", text: "Cut depth — only the living upper layer is taken" },
+  { value: "5–7 yrs", text: "Full natural regeneration of the same field" },
+  { value: "100%", text: "Hand-harvested, and the moss is taken alive" },
+] as const;
 
 /* ───────────── Section 12: what the client receives after enquiring ─────────────
    Answers the unspoken «what happens next?» right before the submit button.
