@@ -1575,3 +1575,365 @@ export function WaterBattery() {
     </div>
   );
 }
+
+/* ═══════════════════ СХЕМЫ ПРИМЕНЕНИЯ ═══════════════════
+   Раздел «Where our solutions perform» состоял из трёх пустых слотов под фото:
+   больше половины его площади занимали серо-зелёные прямоугольники с подписью
+   «какой кадр нужен». Фотографий объектов у нас нет и взять их неоткуда — сток
+   в продающий блок здесь запрещён осознанно (см. шапку sphagnum-landing.tsx).
+
+   Поэтому вместо кадра — СХЕМА. Она честна по определению: схему нельзя принять
+   за чужой объект, выданный за свой, а инженеру-заказчику разрез сборки говорит
+   больше, чем красивая терраса из стока. Плюс схема — это ровно тот язык, на
+   котором лендинг уже обещает «технический паспорт».
+
+   Сделаны на HTML/CSS, а не в SVG, и это не вкусовщина: подписи внутри SVG
+   масштабируются вместе с картинкой, и на 390px «Sphagnum substrate» ужалось бы
+   до 8px. В разметке текст остаётся текстом — читается, доступен скринридеру,
+   ищется поиском по странице. SVG остался только там, где нужна форма: пучки
+   растительности, дерево, корни.
+
+   Как только приедут настоящие кадры, схемы уйдут сами: слот показывает фото,
+   если в APPLICATIONS[].photo лежит URL. */
+
+/** Сборка зелёной кровли снизу вверх. Порядок слоёв — отраслевой стандарт
+    (озеленение → субстрат → фильтр и дренаж → гидроизоляция → плита), нашего
+    в нём только один слой, он и подсвечен. */
+const ROOF_BUILDUP = [
+  // Слой растительности БЕЗ подписи, и это не пропуск. Подпись пересекалась с
+  // пучками травы и становилась нечитаемой в обоих направлениях: и текст, и
+  // рисунок. А называть траву травой незачем — она узнаётся с первого взгляда.
+  // Подписываем только то, что без подписи не читается. Ключ строки поэтому
+  // kind, а не label: пустых label может стать больше одного.
+  { label: "", grow: 20, kind: "veg" },
+  { label: "Sphagnum substrate", grow: 27, kind: "substrate" },
+  { label: "Filter and drainage", grow: 17, kind: "drain" },
+  { label: "Waterproofing", grow: 10, kind: "proof" },
+  { label: "Structural deck", grow: 22, kind: "deck" },
+] as const;
+
+/** Подпись слоя. Вынесена, чтобы кегль и трекинг не разъехались между слоями. */
+function LayerLabel({ children, onDark = false }: { children: string; onDark?: boolean }) {
+  return (
+    <span
+      className={`label relative z-10 text-[10px] leading-none sm:text-[11px] ${
+        onDark ? "text-[color:var(--brand-cream)]" : "text-[color:var(--brand-ink)]"
+      }`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function RoofBuildUp() {
+  const { ref, on, reduced } = useEnter<HTMLDivElement>();
+  const N = ROOF_BUILDUP.length;
+  return (
+    <div ref={ref} className="flex h-full flex-col overflow-hidden rounded-xl">
+      {ROOF_BUILDUP.map((l, i) => (
+        <div
+          key={l.kind}
+          style={{
+            flexGrow: l.grow,
+            flexBasis: 0,
+            // Слои появляются СНИЗУ ВВЕРХ — в том порядке, в котором кровлю
+            // собирают на объекте: плита, гидроизоляция, дренаж, субстрат,
+            // растительность. Поэтому задержка считается от конца массива, а не
+            // от начала: сверху вниз получилась бы сборка вверх ногами.
+            opacity: on ? 1 : 0,
+            transform: on ? "none" : "translateY(14px)",
+            transition: reduced
+              ? "none"
+              : `opacity .5s ease-out ${(N - 1 - i) * 0.09}s, transform .5s cubic-bezier(.16,1,.3,1) ${(N - 1 - i) * 0.09}s`,
+          }}
+          className={`relative flex items-center px-4 sm:px-6 ${
+            l.kind === "substrate"
+              ? "bg-[color:var(--brand-moss)]"
+              : l.kind === "proof"
+                ? "bg-[color:var(--brand-ink)]"
+                : "bg-[color:var(--brand-cream)]"
+          }`}
+        >
+          {/* Растительность: ряд пучков по верхней кромке субстрата. Прорастает
+              последней и из нуля по высоте (transformOrigin снизу) — то есть
+              буквально всходит на уже собранной кровле. */}
+          {l.kind === "veg" && (
+            <svg
+              viewBox="0 0 300 40"
+              preserveAspectRatio="none"
+              className="absolute inset-x-0 bottom-0 h-full w-full"
+              style={{
+                transformOrigin: "bottom",
+                transform: on ? "scaleY(1)" : "scaleY(0)",
+                transition: reduced ? "none" : "transform .85s cubic-bezier(.16,1,.3,1) .5s",
+              }}
+              aria-hidden
+            >
+              {Array.from({ length: 24 }, (_, i) => {
+                const x = 6 + i * 12.2;
+                const h = 12 + ((i * 7) % 16); // детерминированно, без Math.random
+                return (
+                  <g key={i} stroke="var(--brand-moss)" strokeWidth={1.6} strokeLinecap="round" fill="none">
+                    <path d={`M${x} 40 C ${x - 1} ${40 - h / 2}, ${x - 3} ${40 - h}, ${x - 4} ${40 - h - 3}`} />
+                    <path d={`M${x} 40 C ${x + 1} ${40 - h / 2}, ${x + 3} ${40 - h + 2}, ${x + 5} ${40 - h - 1}`} />
+                  </g>
+                );
+              })}
+            </svg>
+          )}
+          {/* Дренаж: гранулы. repeating-radial-gradient, а не 40 узлов в разметке.
+              Зерно мельче и бледнее, чем просилось на глаз: крупные тёмные точки
+              шли прямо сквозь буквы подписи и рвали её на части. */}
+          {l.kind === "drain" && (
+            <span
+              aria-hidden
+              className="absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(circle at 50% 50%, var(--brand-sage) 0 1.9px, transparent 2px) 0 0/16px 16px",
+                opacity: 0.5,
+              }}
+            />
+          )}
+          {/* Плита: штриховка под углом — узнаваемое обозначение бетона в разрезе. */}
+          {l.kind === "deck" && (
+            <span
+              aria-hidden
+              className="absolute inset-0"
+              style={{
+                background:
+                  "repeating-linear-gradient(45deg, var(--brand-line) 0 1.5px, transparent 1.5px 11px)",
+              }}
+            />
+          )}
+          <LayerLabel onDark={l.kind === "substrate" || l.kind === "proof"}>{l.label}</LayerLabel>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Вход схемы в кадр одним значением.
+ *
+ * `on` — «показывать конечное состояние». Обрати внимание, что при включённом
+ * «меньше движения» он true СРАЗУ, ещё до попадания в кадр: схема обязана быть
+ * видна, даже если IntersectionObserver почему-то не сработал. Анимации при этом
+ * гасятся отдельно, через `reduced` — то есть выключается движение, а не контент.
+ * Обратный порядок (гасить через opacity) оставил бы часть схем невидимыми.
+ */
+function useEnter<T extends HTMLElement>() {
+  const reduced = useReducedMotion();
+  const { ref, seen } = useInView<T>();
+  return { ref, on: reduced || seen, reduced };
+}
+
+/** Ячейка стены, из которой вынут модуль (0-based: 3-й ряд, 2-й столбец). */
+const WALL_SOCKET = 9;
+
+function WallPanels() {
+  // 4×4 стена модулей. Тон панели детерминирован её индексом: одинаковые
+  // квадраты читались бы плиткой санузла, а не живой стеной.
+  const TONES = ["var(--brand-moss)", "var(--brand-sage)", "#6E8570", "#9DB29C"];
+  const { ref, on, reduced } = useEnter<HTMLDivElement>();
+  // Стена набирается по ДИАГОНАЛИ (столбец + ряд), а не построчно: построчно
+  // читается как загрузка таблицы, по диагонали — как кладка.
+  const cellDelay = (i: number) => ((i % 4) + Math.floor(i / 4)) * 0.045;
+  // Модуль выезжает ПОСЛЕ того, как сложилась вся стена: сначала объект целый,
+  // потом из него достают деталь. Наоборот — и приём не читается.
+  const PULL_DELAY = 0.62;
+  const cellStyle = (i: number) => ({
+    opacity: on ? 1 : 0,
+    transform: on ? "none" : "scale(.86)",
+    transition: reduced
+      ? "none"
+      : `opacity .4s ease-out ${cellDelay(i)}s, transform .45s cubic-bezier(.16,1,.3,1) ${cellDelay(i)}s`,
+  });
+  return (
+    <div className="relative h-full w-full p-5 sm:p-7">
+      <div ref={ref} className="relative grid h-full grid-cols-4 grid-rows-4 gap-1.5 sm:gap-2">
+        {Array.from({ length: 16 }, (_, i) =>
+          i === WALL_SOCKET ? (
+            // Гнездо: модуль отсюда вынут. Внутренняя тень, а не просто светлый
+            // прямоугольник, — иначе пустая ячейка читается «ещё одной панелью
+            // другого оттенка», и приём с вынутым модулем не прочитывается.
+            // z-10, чтобы вынутый модуль внутри лёг ПОВЕРХ соседних ячеек: они
+            // идут дальше по разметке и иначе перекрыли бы его.
+            <span
+              key={i}
+              aria-hidden
+              className="relative z-10 rounded-[3px]"
+              style={{
+                background: "var(--brand-cream)",
+                boxShadow: "inset 0 3px 7px rgba(20,24,22,.28)",
+                ...cellStyle(i),
+              }}
+            >
+              {/* Вынутый модуль — РЕБЁНОК гнезда (absolute inset-0), а не ещё
+                  один элемент сетки. Так он получает ровно геометрию ячейки без
+                  единого вычисления. Прошлый заход ставил ему gridColumn/gridRow:
+                  элемент с явной позицией размещается ПЕРВЫМ и сдвигает все
+                  автоматически размещённые ячейки на одну, из-за чего гнездо
+                  уезжало в соседний столбец, а снизу отрастал пятый ряд. */}
+              <span
+                className="absolute inset-0 rounded-[4px] border-2 border-[color:var(--brand-cream)]"
+                style={{
+                  background: "var(--brand-moss)",
+                  // В покое модуль СИДИТ В ГНЕЗДЕ (нулевой сдвиг, без тени) и
+                  // выглядит обычной панелью стены. Потом выезжает и обзаводится
+                  // тенью — тень появляется вместе с отрывом, а не заранее, иначе
+                  // модуль с самого начала висел бы над плоскостью.
+                  transform: on ? "translate(34%, -34%)" : "translate(0, 0)",
+                  boxShadow: on ? "0 16px 26px -8px rgba(20,24,22,.5)" : "0 0 0 rgba(20,24,22,0)",
+                  transition: reduced
+                    ? "none"
+                    : `transform .85s cubic-bezier(.16,1,.3,1) ${PULL_DELAY}s, box-shadow .85s ease-out ${PULL_DELAY}s`,
+                }}
+              />
+            </span>
+          ) : (
+            <span
+              key={i}
+              className="rounded-[3px]"
+              style={{
+                background: TONES[(i * 5 + Math.floor(i / 4)) % 4],
+                ...cellStyle(i),
+                // opacity перебивает то, что положил cellStyle: у панели она 0.92,
+                // а не 1. Порядок ключей здесь значим — спред идёт ВЫШЕ.
+                opacity: on ? 0.92 : 0,
+              }}
+              aria-hidden
+            />
+          ),
+        )}
+
+        {/* Зерно мха поверх всей стены: без него сетка выглядит выкраской
+            палитры, а не растительной поверхностью. multiply — чтобы тёмные
+            модули не выцветали, а светлые получили фактуру. */}
+        <MossTexture
+          seed={17}
+          density={220}
+          className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.28] mix-blend-multiply"
+        />
+      </div>
+    </div>
+  );
+}
+
+function AridRootZone() {
+  const { ref, on, reduced } = useEnter<HTMLDivElement>();
+  // Порядок кадров рассказывает историю схемы: сначала дерево, потом корни идут
+  // в песок, и только затем в корневую зону ложится мат. То есть «вот задача —
+  // вот что мы туда кладём», а не набор фигур, возникших одновременно.
+  const ease = "cubic-bezier(.16,1,.3,1)";
+  return (
+    <div ref={ref} className="relative h-full w-full overflow-hidden rounded-xl bg-[color:var(--brand-cream)]">
+      {/* Песок ниже уровня земли. Тон тёплый, но в пределах палитры: это
+          затемнение крема, а не новый цвет. */}
+      <span aria-hidden className="absolute inset-x-0 bottom-0 h-[62%]" style={{ background: "#E6E0D2" }} />
+      <span aria-hidden className="absolute inset-x-0 bottom-[62%] h-px" style={{ background: "var(--brand-ink-20)" }} />
+      {/* Зерно песка */}
+      <span
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 h-[62%]"
+        style={{
+          background: "radial-gradient(circle at 50% 50%, rgba(20,24,22,.22) 0 1.1px, transparent 1.2px) 0 0/9px 9px",
+        }}
+      />
+      {/* Дерево над землёй. Растёт из линии земли — transformOrigin по низу. */}
+      <svg
+        viewBox="0 0 200 120"
+        preserveAspectRatio="xMidYMax meet"
+        className="absolute inset-x-0 top-[4%] h-[36%] w-full"
+        style={{
+          transformOrigin: "bottom center",
+          opacity: on ? 1 : 0,
+          transform: on ? "scale(1)" : "scale(.86)",
+          transition: reduced ? "none" : `opacity .5s ease-out .05s, transform .7s ${ease} .05s`,
+        }}
+        aria-hidden
+      >
+        <path d="M100 120 V64" stroke="var(--brand-ink)" strokeWidth={3.4} strokeLinecap="round" />
+        <path d="M100 84 L84 70 M100 76 L116 62" stroke="var(--brand-ink)" strokeWidth={2.2} strokeLinecap="round" />
+        <circle cx="100" cy="44" r="27" fill="var(--brand-moss)" />
+        <circle cx="78" cy="56" r="16" fill="var(--brand-moss)" opacity=".85" />
+        <circle cx="122" cy="55" r="14" fill="var(--brand-moss)" opacity=".85" />
+      </svg>
+      {/* Корни уходят сквозь мат в песок. Рисуются ДО мата, чтобы мат лёг
+          поверх них: иначе корни проступали через подпись.
+          Прорастают штриховкой: pathLength={1} нормирует длину контура к единице,
+          поэтому dasharray/dashoffset задаются числом 1 и не зависят от реальной
+          длины кривой — иначе под каждую пришлось бы мерить getTotalLength(). */}
+      <svg viewBox="0 0 200 100" preserveAspectRatio="none" className="absolute inset-x-0 top-[52%] h-[42%] w-full" aria-hidden>
+        <g stroke="var(--brand-muted)" strokeWidth={1.5} fill="none" strokeLinecap="round" opacity=".7">
+          {[
+            "M100 0 C 100 26, 84 40, 72 64",
+            "M100 0 C 100 30, 116 44, 130 70",
+            "M100 0 V 52 M100 30 C 92 42, 88 52, 86 70 M100 34 C 110 46, 112 58, 114 76",
+          ].map((d, i) => (
+            <path
+              key={d}
+              d={d}
+              pathLength={1}
+              strokeDasharray={1}
+              strokeDashoffset={on ? 0 : 1}
+              style={{
+                transition: reduced ? "none" : `stroke-dashoffset .9s ease-out ${0.32 + i * 0.08}s`,
+              }}
+            />
+          ))}
+        </g>
+      </svg>
+      {/* Мат в корневой зоне — единственный подписанный элемент схемы, и подпись
+          лежит ПРЯМО НА нём кремом. Раньше она стояла под матом и пересекалась с
+          корнями. Заодно это тот же приём, что у подписи субстрата в схеме
+          кровли: две соседние схемы подписаны одинаково. */}
+      <span
+        className="absolute left-[12%] right-[12%] top-[45%] flex h-[14%] items-center justify-center rounded-full px-3"
+        style={{
+          background: "var(--brand-moss)",
+          // Мат ЛОЖИТСЯ на корневую зону: раскрывается от центра по горизонтали,
+          // уже после того, как корни дорисовались. Растёт по X, а не всплывает
+          // по Y, — так читается «уложили полосу», а не «прилетел прямоугольник».
+          transformOrigin: "center",
+          opacity: on ? 1 : 0,
+          transform: on ? "scaleX(1)" : "scaleX(.55)",
+          transition: reduced ? "none" : `opacity .4s ease-out 1.05s, transform .6s ${ease} 1.05s`,
+        }}
+      >
+        <span className="label text-[10px] leading-none text-[color:var(--brand-cream)] sm:text-[11px]">
+          Moisture-retaining mat
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Схема применения. Держит пропорцию слота под фото (16/10), чтобы при подмене
+ * на настоящий кадр раскладка раздела не дрогнула.
+ */
+export function ApplicationDiagram({ kind, label }: { kind: "roof" | "wall" | "arid"; label: string }) {
+  return (
+    <div
+      role="img"
+      aria-label={label}
+      style={{ aspectRatio: "16/10" }}
+      className="relative w-full overflow-hidden rounded-2xl border border-[color:var(--brand-line)]"
+      // Та же светлая подложка, что у витрины материала в разделе «Why»: два
+      // соседних раздела не должны выглядеть сделанными разными руками.
+    >
+      <span
+        aria-hidden
+        className="absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(90% 70% at 50% 14%, #FBFAF6 0%, rgba(251,250,246,0) 68%), linear-gradient(180deg, var(--brand-cream) 0%, var(--brand-sage-15) 100%)",
+        }}
+      />
+      <div className="relative h-full w-full p-4 sm:p-6">
+        {kind === "roof" ? <RoofBuildUp /> : kind === "wall" ? <WallPanels /> : <AridRootZone />}
+      </div>
+    </div>
+  );
+}

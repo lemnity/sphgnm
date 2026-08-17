@@ -30,9 +30,13 @@ import {
 // Pages сайт живёт в подпапке (basePath /sphgnm), и абсолютный путь к public
 // улетел бы в корень домена и вернул 404. Импорт отдаёт уже пре­фиксованный URL.
 import receptionWall from "./assets/plants-wall-reception.webp";
+// Вырез уступа мха с альфой. Рядом лежит исходный moss-ledge.png на 1.73 МБ —
+// он оставлен как мастер-файл, но НА СТРАНИЦУ идёт webp на 222 КБ: это восьмая
+// часть веса при неразличимой на глаз разнице. Прозрачность webp держит.
+import mossLedge from "./assets/moss-ledge.webp";
 import { SphagnumLogo } from "./sphagnum-logo";
 import { SphagnumStyles } from "./sphagnum-styles";
-import { CountUp, LightRays, LivingWall, MossTexture, WaterBattery } from "./sphagnum-visuals";
+import { ApplicationDiagram, CountUp, LightRays, LivingWall, MossTexture, WaterBattery } from "./sphagnum-visuals";
 import {
   ADVANTAGES,
   APPLICATIONS,
@@ -58,7 +62,9 @@ import {
   STRIP_PANEL_3,
   TAGS,
   VOLUME_RANGES,
+  WETLAND_FACTS,
   WHY_PHOTO,
+  WHY_SPECIMEN,
 } from "./sphagnum-data";
 
 /**
@@ -133,6 +139,81 @@ function PhotoSlot({
         </span>
       </span>
     </div>
+  );
+}
+
+/**
+ * Витрина материала для раздела «Почему обычные грунты не работают».
+ *
+ * Почему не PhotoSlot с заглушкой. Кадра террасы у нас нет и взять его неоткуда:
+ * подставлять сток в продающий блок здесь запрещено осознанно (см. шапку файла —
+ * сток однажды выдал Статую Свободы в кейс «Бизнес-центр»). Но раздел спорит
+ * ровно про субстрат, а субстрат у нас СВОЙ и снят: вырезанный уступ живого мха.
+ * Показать материал честнее, чем показать чужую террасу или серый прямоугольник.
+ *
+ * Когда настоящий кадр приедет, менять здесь ничего не нужно: секция сама
+ * переключится на фотографию, как только в WHY_PHOTO.photo ляжет URL.
+ *
+ * Композиция — «предметная съёмка», а не картинка в рамке: светлое поле,
+ * объект висит над собственной тенью. Поэтому картинка ОБЯЗАНА быть с альфой
+ * (moss-ledge.webp, вырез без фона). Подставите сюда обычный прямоугольный
+ * кадр — тень окажется под белым прямоугольником и приём развалится.
+ */
+function MossLedgeFigure({ alt, caption }: { alt: string; caption: string }) {
+  return (
+    <figure>
+      <div
+        className="relative overflow-hidden rounded-2xl border border-[color:var(--brand-line)]"
+        style={{ aspectRatio: "4/3" }}
+      >
+        {/* Поле-подложка. Светлее прежней заглушки: объект зелёный, и на зелёном
+            же фоне он сливался — уступ читался пятном текстуры, а не предметом. */}
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(90% 70% at 50% 18%, #FBFAF6 0%, rgba(251,250,246,0) 68%), linear-gradient(180deg, var(--brand-cream) 0%, var(--brand-sage-15) 100%)",
+          }}
+        />
+        {/* То же зерно мха, что и в остальных секциях, — но вполсилы: здесь оно
+            фактура поля, а не самостоятельная картинка. */}
+        <MossTexture seed={29} density={150} className="absolute inset-0 h-full w-full opacity-[0.22]" />
+        {/* Тень-опора. Отдельным слоем ПОД картинкой, а не box-shadow: тень нужна
+            от силуэта мха, а не от прямоугольника <img>. Радиальный градиент, а
+            не blur(): фильтр на пол-панели заметно дороже при прокрутке.
+            Класс ledge-shade — вторая половина парения: тень сжимается и бледнеет
+            в противофазе к подъёму объекта (keyframes в sphagnum-styles.tsx). */}
+        <div
+          aria-hidden
+          className="ledge-shade absolute left-1/2 top-[69%] h-[18%] w-[80%] -translate-x-1/2"
+          style={{
+            background: "radial-gradient(50% 50% at 50% 50%, rgba(62,80,66,.44) 0%, rgba(62,80,66,0) 72%)",
+          }}
+        />
+        {/* Позиционирование и парение РАЗВЕДЕНЫ по двум элементам, и это не
+            лишняя обёртка: у обёртки на transform висят -translate-x-1/2 и
+            -translate-y-[52%], а бесконечная анимация перебивает transform
+            целиком. Будь они на одном узле, на время парения картинка потеряла бы
+            центровку и прыгнула бы в угол панели.
+            -52% по вертикали, а не -50%: у выреза снизу пустая альфа, и по
+            геометрическому центру уступ садился слишком низко, наезжая на тень. */}
+        <div className="absolute left-1/2 top-1/2 w-[92%] -translate-x-1/2 -translate-y-[52%]">
+          <img
+            src={mossLedge.src}
+            alt={alt}
+            width={1400}
+            height={933}
+            loading="lazy"
+            decoding="async"
+            className="ledge-float block w-full"
+          />
+        </div>
+      </div>
+      <figcaption className="mt-4 max-w-[52ch] text-[13.5px] leading-relaxed text-[color:var(--brand-muted)]">
+        {caption}
+      </figcaption>
+    </figure>
   );
 }
 
@@ -922,25 +1003,77 @@ export default function SphagnumLanding() {
         </div>
       </section>
 
-      {/* ═══════════ Полноширинный акцентный блок (приём референса:
-           крупная цифра на сплошной оливе) ═══════════ */}
-      <section className="relative overflow-hidden bg-[color:var(--brand-moss)] py-20 lg:py-32">
-        <MossTexture seed={13} density={260} className="absolute inset-0 h-full w-full opacity-25" />
-        <div className="relative grid items-center gap-10 lg:grid-cols-[1fr_1fr] lg:gap-20 mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
-          <div>
-            {/* Крупный текст на оливе — тёмным: белый по var(--brand-sage) даёт 2.7:1 и не проходит контраст */}
-            <p className="display text-[42px] leading-[1.02] text-[color:var(--brand-ink)] sm:text-[56px] lg:text-[68px]">
+      {/* ═══════════ Полноширинный акцентный блок «53,000 km²» ═══════════
+           Приём с референса: крупная цифра на сплошной заливке во всю ширину.
+           Заливка ЗОЛОТАЯ (была олива) — по прямой просьбе. Что важно знать:
+
+           1. Текст по золоту только тёмный. Ink 8.8:1, ink-85 6.6:1 — оба
+              проходят AA. Cream по золоту дал бы 1.8:1, то есть светлого текста
+              здесь быть не может ни в заголовке, ни в подписи.
+           2. Полоса стоит между двумя кремовыми секциями, поэтому у неё есть
+              собственная волосяная граница сверху и снизу: золото по крему —
+              переход мягче, чем прежняя олива, и без линии полоса «растекалась».
+           3. Раскладка выровнена по ВЕРХУ (items-start), а не по центру и не по
+              низу. Столбы разной высоты: слева цифра, справа абзац со списком.
+              По центру они висели вразнобой; по нижнему краю над цифрой
+              открывалась дыра в четверть полосы — на широком экране левая
+              колонка просто уезжала вниз. По верху кикер и первая строка абзаца
+              встают на одну линию, и полоса читается как разворот.
+           4. Текстура мха идёт через mix-blend-multiply: зелёные пятна по золоту
+              дают тёплое оливковое зерно. Отдельного «золотого» набора тонов ей
+              не понадобилось — множением получается ровно нужный оттенок. */}
+      <section className="band-gold relative overflow-hidden border-y border-[color:var(--brand-gold-line)] py-20 lg:py-28">
+        <MossTexture
+          seed={13}
+          density={260}
+          className="absolute inset-0 h-full w-full opacity-[0.16] mix-blend-multiply"
+        />
+        <div className="relative mx-auto grid w-full max-w-[1460px] gap-12 px-5 sm:px-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-start lg:gap-20 lg:px-14">
+          <Reveal anim="left">
+            <p className="label text-[12px] text-[color:var(--brand-ink-85)]">Raw-material base</p>
+            <span className="mt-4 block h-px w-14 bg-[color:var(--brand-ink)]" aria-hidden />
+            {/* Цифра крупнее прежних 68px, и продолжает расти до xl. Две причины.
+                На золоте она единственный носитель контраста — мелкая тонет в
+                заливке. И она уравновешивает правую колонку: там абзац плюс три
+                строки фактов, слева всего две строки, и на 1700+ левая половина
+                полосы пустовала, пока цифра не набрала массу.
+                Перенос по словам запрещён (nowrap): «53,000 km²» ломалось после
+                запятой и читалось как два разных числа. */}
+            <p className="display mt-7 whitespace-nowrap text-[44px] leading-[0.95] text-[color:var(--brand-ink)] sm:text-[64px] lg:text-[84px] xl:text-[104px]">
               <CountUp value="53,000 km²" />
             </p>
-            <p className="display mt-2 text-[26px] leading-[1.08] text-[color:var(--brand-ink)] sm:text-[32px] lg:text-[38px]">
-              of pristine wetland — our raw-material base
+            <p className="display mt-3 text-[24px] leading-[1.1] text-[color:var(--brand-ink-85)] sm:text-[30px] lg:text-[34px] xl:text-[40px]">
+              of pristine wetland
             </p>
-          </div>
-          <p className="text-[15.5px] leading-relaxed text-[color:var(--brand-ink-85)] sm:text-base">
-            The Vasyugan wetlands of Western Siberia form the world&rsquo;s largest wetland system. The moss is
-            hand-harvested: only the upper 5–7 cm is cut, and the bog naturally regenerates within 5–7 years. It is a
-            renewable resource — not peat, which takes thousands of years to form.
-          </p>
+          </Reveal>
+
+          <Reveal anim="right" delay={0.1}>
+            <p className="max-w-[56ch] text-[15.5px] leading-relaxed text-[color:var(--brand-ink-85)] sm:text-base">
+              The Vasyugan wetlands of Western Siberia form the world&rsquo;s largest wetland system and the base of our
+              raw material. Harvesting is deliberately shallow: the bog closes over and the same field is cut again a few
+              years later. That is what makes it renewable, unlike peat, which takes thousands of years to form.
+            </p>
+
+            {/* dl, а не набор div: это буквально пары «значение — расшифровка»,
+                и скринридер должен объявить их связанными.
+                stagger — строки выезжают по очереди ПОСЛЕ раскрытия колонки, а не
+                вместе с ней (правило живёт в sphagnum-styles.tsx и заведено от
+                родительского .reveal.in — иначе лесенка отыграла бы на монтировании,
+                пока полоса ещё за экраном). */}
+            <dl className="stagger mt-9 border-t border-[color:var(--brand-gold-line)]">
+              {WETLAND_FACTS.map((f) => (
+                <div
+                  key={f.value}
+                  className="flex items-baseline gap-5 border-b border-[color:var(--brand-gold-line)] py-3.5 sm:gap-7"
+                >
+                  <dt className="display w-[86px] shrink-0 text-[19px] leading-none text-[color:var(--brand-ink)] sm:w-[104px] sm:text-[22px]">
+                    {f.value}
+                  </dt>
+                  <dd className="text-[14px] leading-snug text-[color:var(--brand-ink-85)] sm:text-[15px]">{f.text}</dd>
+                </div>
+              ))}
+            </dl>
+          </Reveal>
         </div>
       </section>
 
@@ -949,20 +1082,27 @@ export default function SphagnumLanding() {
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20 mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
           <Reveal anim="left">
             <SectionHead kicker="Why greenery matters" title="Why conventional soils fail" />
-            <p className="mt-5 text-[15.5px] leading-relaxed text-[color:var(--brand-muted)] sm:text-base">
+            {/* max-w по символам, а не по пикселям. Колонка тут ровно половина
+                контейнера, и на 1440+ строка разгонялась до ~78 знаков — выше
+                читаемого диапазона 65–75. Ограничение в ch держит длину строки
+                постоянной на любой ширине и не зависит от кегля. */}
+            <p className="mt-5 max-w-[64ch] text-[15.5px] leading-relaxed text-[color:var(--brand-muted)] sm:text-base">
               Poor substrate selection is a leading cause of landscape failure. Inconsistent soil mixes stress plants,
               increase replacement costs and create handover risks. The result is a weaker appearance and lower
               perceived project quality.
             </p>
 
-            <blockquote className="my-7 border-l-[3px] border-[color:var(--brand-moss)] pl-5">
-              <p className="display text-[19px] font-semibold leading-snug tracking-[-0.01em] sm:text-[22px]">
+            {/* Цитата набрана крупнее текста вокруг и держит собственную ширину:
+                это смысловая вершина раздела, а не ещё один абзац. Линейка стала
+                тоньше и длиннее по вертикали — толстая в 3px спорила с антиквой. */}
+            <blockquote className="my-8 border-l-2 border-[color:var(--brand-moss)] pl-6">
+              <p className="display max-w-[42ch] text-[21px] font-semibold leading-[1.35] tracking-[-0.01em] text-[color:var(--brand-ink)] sm:text-[24px]">
                 &ldquo;Landscape quality is visible quality. Residents and visitors judge a development by the condition
                 of its greenery.&rdquo;
               </p>
             </blockquote>
 
-            <p className="text-[15.5px] leading-relaxed text-[color:var(--brand-muted)] sm:text-base">
+            <p className="max-w-[64ch] text-[15.5px] leading-relaxed text-[color:var(--brand-muted)] sm:text-base">
               For developers, architects and asset managers, landscape performance affects reputation, rental appeal and
               resident satisfaction. Greenery survives only with the right substrate. Standard soils are not designed
               for hot climates, roof-load limits or water scarcity.
@@ -970,9 +1110,16 @@ export default function SphagnumLanding() {
           </Reveal>
 
           <Reveal anim="right" delay={0.12}>
-            <figure className="overflow-hidden rounded-2xl">
-              <PhotoSlot ratio="4/3" shot={WHY_PHOTO.shot} alt={WHY_PHOTO.alt} src={WHY_PHOTO.photo || undefined} />
-            </figure>
+            {/* Пока кадра террасы нет — витрина материала (см. MossLedgeFigure).
+                Появится URL в WHY_PHOTO.photo — ветка сама уйдёт на фотографию,
+                правки кода не потребуется. */}
+            {WHY_PHOTO.photo ? (
+              <figure className="overflow-hidden rounded-2xl">
+                <PhotoSlot ratio="4/3" shot={WHY_PHOTO.shot} alt={WHY_PHOTO.alt} src={WHY_PHOTO.photo} />
+              </figure>
+            ) : (
+              <MossLedgeFigure alt={WHY_SPECIMEN.alt} caption={WHY_SPECIMEN.caption} />
+            )}
           </Reveal>
         </div>
       </section>
@@ -1144,23 +1291,38 @@ export default function SphagnumLanding() {
                     i % 2 === 1 ? "lg:[&>figure]:order-2" : ""
                   }`}
                 >
+                  {/* Пока кадра нет — схема применения вместо заглушки, см.
+                      комментарий у APPLICATIONS. Зум по наведению остаётся
+                      только у фотографии: схему увеличивать незачем, а её
+                      подписи при scale замылились бы. */}
                   <figure className="m-0 overflow-hidden">
-                    <PhotoSlot
-                      ratio="16/10"
-                      shot={a.shot}
-                      alt={a.alt}
-                      src={a.photo || undefined}
-                      className="h-full transition-transform duration-700 ease-out hover:scale-[1.03]"
-                    />
+                    {a.photo ? (
+                      <PhotoSlot
+                        ratio="16/10"
+                        shot={a.shot}
+                        alt={a.alt}
+                        src={a.photo}
+                        className="h-full transition-transform duration-700 ease-out hover:scale-[1.03]"
+                      />
+                    ) : (
+                      <ApplicationDiagram kind={a.diagram} label={a.diagramAlt} />
+                    )}
                   </figure>
                   <div className="p-6 sm:p-8 lg:p-12">
-                    <span className="display text-[13px] font-bold tracking-[0.1em] text-[color:var(--brand-moss)]">
-                      0{i + 1}
+                    {/* Номер был Playfair 13px мохом — в макете он читался
+                        случайной пылинкой. Теперь тот же капсовый гротеск, что у
+                        кикеров разделов, и с линейкой: получается «пункт 01 из
+                        трёх», а не декоративная цифра. */}
+                    <span className="flex items-center gap-3">
+                      <span className="label text-[11px] leading-none text-[color:var(--brand-moss)]">0{i + 1}</span>
+                      <span className="h-px w-8 bg-[color:var(--brand-line)]" aria-hidden />
                     </span>
-                    <h3 className="mt-2 text-[22px] font-bold leading-tight tracking-[-0.02em] lg:text-[28px]">
+                    <h3 className="mt-4 text-[22px] font-bold leading-tight tracking-[-0.02em] lg:text-[28px]">
                       {a.title}
                     </h3>
-                    <p className="mt-3.5 text-[15px] leading-relaxed text-[color:var(--brand-muted)]">{a.text}</p>
+                    <p className="mt-3.5 max-w-[58ch] text-[15px] leading-relaxed text-[color:var(--brand-muted)]">
+                      {a.text}
+                    </p>
                   </div>
                 </article>
               </Reveal>
