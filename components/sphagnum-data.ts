@@ -171,6 +171,11 @@ export const APPLICATIONS = [
     diagram: "roof",
     diagramAlt:
       "Cross-section of a green roof build-up: vegetation, sphagnum substrate, filter and drainage, waterproofing, structural deck",
+    benefits: [
+      { icon: "temperature", title: "Lower roof-surface temperatures" },
+      { icon: "moss", title: "Reduced cooling demand" },
+      { icon: "shield", title: "Extended waterproofing life" },
+    ],
   },
   {
     title: "Vertical gardens and green walls",
@@ -180,6 +185,11 @@ export const APPLICATIONS = [
     photo: "",
     diagram: "wall",
     diagramAlt: "A grid of green-wall modules with one module lifted out of the wall, showing that the system is demountable",
+    benefits: [
+      { icon: "wind", title: "Air filtration", text: "Improves indoor air quality" },
+      { icon: "droplet", title: "Humidity control", text: "Maintains optimal moisture levels" },
+      { icon: "temperature", title: "Cooling effect", text: "Reduces ambient temperature" },
+    ],
   },
   {
     title: "Parks, streetscapes and arid landscaping",
@@ -189,6 +199,12 @@ export const APPLICATIONS = [
     photo: "",
     diagram: "arid",
     diagramAlt: "Cross-section of a tree planted in sandy soil with a moisture-retaining moss mat around the root zone",
+    benefits: [
+      { icon: "waves", title: "Water retention", text: "Higher survival in sandy soils" },
+      { icon: "thermometerSun", title: "Less irrigation", text: "Up to 50–80% reduction" },
+      { icon: "flower", title: "Erosion control", text: "Protects and stabilizes soil" },
+      { icon: "layers3", title: "Wide use", text: "From deserts to urban projects" },
+    ],
   },
 ] as const;
 
@@ -198,35 +214,30 @@ export const APPLICATIONS = [
 
 export const PROJECTS = [
   {
-    tag: "Industrial park",
-    title: "A garden on the third level",
-    text: "A complete garden was created on the third level of an industrial park. Evergreen trees and bright planting formed a natural transition between nature and the urban setting, despite challenging high-level conditions.",
-    shot: "rooftop garden with evergreen trees on an industrial park building",
-    alt: "Rooftop garden with evergreen trees on the upper level of an industrial park",
+    icon: "moss",
+    tag: "Global portfolio",
+    title: "The Oasis Resort",
+    text: "Stunning vertical living gardens integrated seamlessly into the luxury facade, designed for optimal thermal cooling in extreme heat.",
+    alt: "Luxury resort facade with an integrated geometric living wall",
+    shot: "luxury resort facade with an integrated geometric living wall",
     photo: "",
   },
   {
-    tag: "Residential development",
-    title: "A courtyard that stays attractive year-round",
-    text: "A durable, welcoming courtyard landscape designed to remain attractive year-round and meet handover quality standards without rework.",
-    shot: "landscaped residential courtyard with mature planting and walkways",
-    alt: "Landscaped residential courtyard with mature planting and walkways",
+    icon: "roof",
+    tag: "Global portfolio",
+    title: "Skyline Business Centre",
+    text: "Ultra-lightweight extensive green roof covering over 12,000 sq. m., reducing urban heat island effect.",
+    alt: "Landscaped rooftop terraces overlooking a modern city skyline",
+    shot: "landscaped rooftop terraces overlooking a modern city skyline",
     photo: "",
   },
   {
-    tag: "Global IT company office",
-    title: "Internal courtyards and rooftop areas",
-    text: "Greening of internal courtyards and rooftop areas created a more vibrant workplace, supporting employee wellbeing and employer branding.",
-    shot: "planted internal office courtyard with greenery and workplace seating",
-    alt: "Planted internal office courtyard with greenery and seating for employees",
-    photo: "",
-  },
-  {
-    tag: "Business centre",
-    title: "Entrance areas and an accessible roof",
-    text: "Representative planting for entrance areas and an accessible roof, delivering lasting visual impact without costly remediation.",
-    shot: "representative planting at the entrance of a modern business centre",
-    alt: "Representative planting at the glazed entrance of a modern business centre",
+    icon: "sprout",
+    tag: "Global portfolio",
+    title: "Valkyrie Residential Park",
+    text: "Interior atrium moss walls that purify air, neutralize sound waves, and regulate relative humidity.",
+    alt: "Dark residential lounge with a sculptural illuminated moss wall",
+    shot: "dark residential lounge with a sculptural illuminated moss wall",
     photo: "",
   },
 ] as const;
@@ -256,21 +267,25 @@ export const WHY_SPECIMEN = {
 export const ADVANTAGES = [
   {
     num: "01",
+    icon: "factory",
     title: "End-to-end production",
     text: "In-house production using advanced Premier Tech equipment, with capacity up to 80 m³/hour. We control every stage, from natural raw materials to finished substrate.",
   },
   {
     num: "02",
+    icon: "shield",
     title: "Laboratory quality control",
     text: "Every production batch is tested for composition and performance. All products are supplied with quality certificates and contain only natural components.",
   },
   {
     num: "03",
+    icon: "flask",
     title: "Custom formulations",
     text: "We develop blends for your climate, structure, plant palette and maintenance strategy. Technical consultation is included.",
   },
   {
     num: "04",
+    icon: "headset",
     title: "Reliable supply and support",
     text: "We meet delivery timelines and provide technical passports, laboratory reports and structural calculation data. Substrate-selection advice is included.",
   },

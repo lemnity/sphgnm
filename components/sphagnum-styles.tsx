@@ -7,9 +7,8 @@
 export function SphagnumStyles() {
   return (
     <style>{`
-@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Playfair+Display:wght@400;500;600;700&family=Work+Sans:wght@400;500;600&display=swap');
-
 .sph {
+  --font-reference: Arial, Helvetica, sans-serif;
   /*
     ── ФИРМЕННАЯ ПАЛИТРА (Brand Identity Guidebook v1.0, раздел «Цвет») ──
     Пропорция по гайду: Cream 65% · Ink 25% · Moss 10% · Sage только акцент.
@@ -19,8 +18,8 @@ export function SphagnumStyles() {
     Контраст проверен (WCAG): Cream на Ink 16.2:1 · Sage на Ink 6.6:1 ·
     Cream на Moss 7.6:1 — все проходят AA даже для мелкого текста.
   */
-  --brand-ink: #141816;
-  --brand-cream: #F4F1EA;
+  --brand-ink: #102b20;
+  --brand-cream: #F5F4F0;
   --brand-moss: #3E5042;
   --brand-sage: #8AA18A;
   /* Лайм — акцент из присланной палитры. Живёт на ТЁМНОМ: по Ink это 11.4:1,
@@ -106,57 +105,37 @@ export function SphagnumStyles() {
   --brand-cream-07: rgba(244, 241, 234, .07);
   --brand-cream-04: rgba(244, 241, 234, .04);
 
-  font-family: 'Work Sans', system-ui, sans-serif;
+  font-family: var(--font-reference);
   font-size: 16px;
   color: var(--brand-ink);
   background: var(--brand-cream);
   overflow-x: clip; /* clip, а НЕ hidden: hidden создал бы скролл-контейнер и сломал якоря */
 }
 
-/*
-  ── ЗАГОЛОВКИ: ФИРМЕННАЯ АНТИКВА ──
-  Раньше здесь стоял Archivo в верхнем регистре — подача с референса
-  Sempergreen. Гайдбук описывает другую пару: антиква для заголовков,
-  гротеск для текста, регистр СТРОЧНЫЙ (в самом гайде все заголовки набраны
-  строчными). Первый экран уже был на антикве, секции ниже — нет, и страница
-  читалась как два разных сайта. Теперь правило одно на весь макет.
-
-  Archivo при этом остался — но только там, где он и уместен: мелкие капсовые
-  метки (кикеры, глазки) и кнопки. Это класс .label и .btn.
-*/
-.sph h1, .sph h2, .sph h3, .sph .display {
-  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+/* Общий шрифт PDF-референса; иерархия задаётся размером и насыщенностью. */
+.sph h2, .sph h3, .sph h4, .sph .display {
+  font-family: var(--font-reference);
   text-transform: none;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: -0.015em;
 }
+.sph h2.portfolio-title { font-weight: 400; }
 /* Класс сохранён: разметка ссылается на него в местах, где капс мешал читать.
    Теперь строчный регистр — поведение по умолчанию, и класс стал пустышкой,
    но удалять его из десятка мест ради нуля визуальной разницы незачем. */
 .sph .normal-case-h { text-transform: none; letter-spacing: -0.015em; }
 
-/* Мелкая капсовая метка — единственное место, где остаётся гротеск. */
+/* Общий шрифт PDF-референса; иерархия задаётся размером и насыщенностью. */
 .sph .label {
-  font-family: 'Archivo', system-ui, sans-serif;
+  font-family: var(--font-reference);
   text-transform: uppercase;
   font-weight: 600;
   letter-spacing: 0.14em;
 }
 
-/*
-  ── ФИРМЕННАЯ АНТИКВА (гайд, раздел «Типографика») ──
-  Гайд называет Georgia: «высокий контраст, классическая антиква». Georgia —
-  системный шрифт Microsoft: на macOS и Windows он есть, а на Android НЕТ, и
-  половина трафика получила бы произвольную подстановку. Поэтому берём Playfair
-  Display — та же конструкция и заметно более выраженный контраст штриха,
-  одинаково на всех платформах. Откатить на Georgia = заменить одну строку.
-
-  Регистр НОРМАЛЬНЫЙ, а не верхний: в самом гайдбуке все заголовки набраны
-  строчными («Мох, который держит воду»), и антиква в капсе с плотным трекингом
-  теряет читаемость. Поэтому класс перебивает общее правило .sph h1/h2/h3.
-*/
+/* Общий шрифт PDF-референса; иерархия задаётся размером и насыщенностью. */
 .sph .brand-serif {
-  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  font-family: var(--font-reference);
   text-transform: none;
   font-weight: 500;
   letter-spacing: -0.015em;
@@ -210,7 +189,7 @@ export function SphagnumStyles() {
      вылезали на мобильном. Раскладку даёт класс inline-flex на кнопке.
      ВНИМАНИЕ: это внутри template literal — обратные кавычки тут запрещены. */
   align-items: center; justify-content: center; gap: .6rem;
-  font-family: 'Archivo', system-ui, sans-serif;
+  font-family: var(--font-reference);
   font-weight: 700; text-transform: uppercase; letter-spacing: .02em;
   border-radius: 0;
   padding: 14px 21px;
@@ -224,6 +203,114 @@ export function SphagnumStyles() {
 
 /* Якорная навигация из фиксированной шапки: без отступа заголовок уезжает под неё. */
 .sph section[id] { scroll-margin-top: 116px; }
+.sph [data-reference-visual="portfolio-botanical"],
+.sph [data-reference-visual="portfolio-dots"] { filter: contrast(1.2); }
+
+/* Единая контентная сетка макета: 1550px на референсной ширине 1685px,
+   безопасные поля на tablet/mobile. Фоны секций при этом остаются full-bleed. */
+.sph .pdf-grid,
+.sph .solutions-reference-grid {
+  width: 100%;
+  max-width: 1550px;
+  margin-inline: auto;
+  padding-inline: 20px;
+}
+
+.sph .solution-frame:first-child article { background: #f5f4f0; }
+.sph .living-wall-frame { overflow: visible; }
+.sph .living-wall-frame img {
+  /* Only the empty margin below the leaves fades into the section background. */
+  mask-image: linear-gradient(to bottom, #000 94%, transparent 100%);
+}
+@media (min-width: 1024px) {
+  .sph .living-wall-frame img {
+    width: min(108%, calc(100vw - 24px));
+    max-width: none;
+    margin-left: 50%;
+    transform: translateX(-50%);
+  }
+}
+.sph .solution-frame:nth-child(2) article { background: #f1f2ed; }
+.sph .solution-frame [data-solution-image] { mix-blend-mode: normal; }
+.sph .solution-frame article { color: var(--brand-ink); }
+.sph .solution-frame [data-solution-copy] h3,
+.sph .solution-frame .label { font-family: inherit; }
+.sph .solution-frame [data-solution-copy] li { color: #4e5350; }
+
+/* Scale the reference composition with the card, including type and spacing.
+   The illustration occupies its own right-hand area, outside the copy. */
+@media (min-width: 1280px) {
+  .sph .solution-frame { container-type: inline-size; }
+  .sph .solution-frame article {
+    min-height: 74.17cqw;
+    padding: 4.24cqw;
+    padding-top: 3.45cqw;
+    border-color: #eeede5;
+    box-shadow: 0 10px 22px rgba(20,24,22,.07);
+  }
+  .sph [data-solution-copy] > div { max-width: 100%; gap: 3cqw; }
+  .sph [data-solution-icon] { width: 8.48cqw; height: 8.48cqw; }
+  .sph [data-solution-icon] svg { width: 4.24cqw; height: 4.24cqw; }
+  .sph [data-solution-kicker] {
+    font-size: 2.12cqw;
+    letter-spacing: 0;
+    white-space: nowrap;
+  }
+  .sph [data-solution-copy] h3 {
+    font-size: 4.5cqw;
+    line-height: 1.14;
+    max-width: 64%;
+    white-space: nowrap;
+    margin-top: 2.65cqw;
+  }
+  .sph [data-solution-copy] > span { margin-top: 3.18cqw; }
+  .sph [data-solution-copy] > p:not(.label) {
+    font-size: 2.12cqw;
+    max-width: 51%;
+    margin-top: 3.18cqw;
+  }
+  .sph [data-solution-copy] > p.label {
+    font-size: 2.12cqw;
+    letter-spacing: 0;
+    margin-top: 4.5cqw;
+  }
+  .sph [data-solution-copy] ul { max-width: 64%; gap: 1.85cqw; margin-top: 2.12cqw; }
+  .sph [data-solution-copy] li { font-size: 2.12cqw; gap: 2.12cqw; }
+  .sph [data-solution-copy] li svg { width: 2.38cqw; height: 2.38cqw; }
+  .sph .solution-frame [data-solution-image] {
+    width: 47%;
+    height: auto;
+    bottom: 2.65cqw;
+    object-fit: contain;
+    transform: none;
+  }
+  .sph [data-solution-copy] > span { background: #8bab44; }
+  .sph .solution-frame:nth-child(2) [data-solution-image] { bottom: 4.5cqw; }
+  .sph .solution-frame:nth-child(2) [data-solution-copy] > p:not(.label) { max-width: 55%; }
+}
+
+.sph [data-vine-branch] {
+  transform: translate3d(var(--vine-x, 0px), var(--vine-y, 0px), 0) rotate(var(--vine-rotate, 0deg));
+  transition: transform var(--vine-duration, 520ms) cubic-bezier(.2, .75, .25, 1);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce), (hover: none), (pointer: coarse) {
+  .sph [data-vine-branch] {
+    transform: none !important;
+    transition: none;
+    will-change: auto;
+  }
+}
+@media (min-width: 640px) {
+  .sph .pdf-grid, .sph .solutions-reference-grid { padding-inline: 32px; }
+}
+@media (min-width: 1024px) {
+  .sph .pdf-grid, .sph .solutions-reference-grid {
+    width: calc(100% - 80px);
+    padding-inline: 0;
+  }
+}
 
 /*
   ── ЗАЛИПАНИЕ ПЕРВОГО ЭКРАНА ──
@@ -236,10 +323,10 @@ export function SphagnumStyles() {
   просил меньше анимации, не должен упираться в экран, который «не скроллится».
   Кто-то воспримет это как зависшую страницу, а не как приём.
 */
-@media (min-width: 1024px) {
-  .sph .hero-pin { height: 200dvh; }
-  .sph .hero-pin-inner { position: sticky; top: 0; height: 100dvh; }
-}
+.sph .hero-pin { height: auto; }
+.sph .hero-pin-inner { position: relative; min-height: 100dvh; }
+.sph .hide-scrollbar { scrollbar-width: none; }
+.sph .hide-scrollbar::-webkit-scrollbar { display: none; }
 /*
   ── «ВОДЯНАЯ БАТАРЕЙКА» ──
   Наполнение колбы идёт по прокрутке (useProgress), а эти три анимации живут
@@ -530,4 +617,3 @@ export function SphagnumStyles() {
 `}</style>
   );
 }
-
