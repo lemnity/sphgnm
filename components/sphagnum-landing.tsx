@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   ArrowRight,
+  ArrowLeft,
   ArrowUpRight,
   CheckCircle2,
   Droplets,
@@ -24,27 +25,48 @@ import {
   Grid2x2,
   Plus,
   Minus,
+  Factory,
+  FlaskConical,
+  Headphones,
+  Thermometer,
+  CircleOff,
+  Flower2,
+  Globe2,
+  HandHeart,
+  Layers3,
+  RefreshCcw,
+  Shovel,
+  Star,
+  ThermometerSun,
+  Waves,
 } from "lucide-react";
 
 // Статический импорт, а не путь /plants-wall-reception.webp из public: на GitHub
 // Pages сайт живёт в подпапке (basePath /sphgnm), и абсолютный путь к public
 // улетел бы в корень домена и вернул 404. Импорт отдаёт уже пре­фиксованный URL.
 import receptionWall from "./assets/plants-wall-reception.webp";
-// Вырез уступа мха с альфой. Рядом лежит исходный moss-ledge.png на 1.73 МБ —
-// он оставлен как мастер-файл, но НА СТРАНИЦУ идёт webp на 222 КБ: это восьмая
-// часть веса при неразличимой на глаз разнице. Прозрачность webp держит.
-import mossLedge from "./assets/moss-ledge.webp";
+import solutionMoss from "./assets/reference/crops/solution-moss-original.webp";
+import solutionSoil from "./assets/reference/crops/solution-soil-original.webp";
+import wetlandLandscape from "./assets/reference/crops/wetland-landscape.webp";
+import livingWallWide from "./assets/reference/crops/living-wall-wide.jpg";
+import rootZoneStrip from "./assets/reference/crops/root-zone-soil-strip.webp";
+import portfolioBotanical from "./assets/reference/crops/portfolio-botanical-original.webp";
+import portfolioDots from "./assets/reference/crops/portfolio-dots-original.webp";
+import projectOasis from "./assets/reference/crops/portfolio-oasis-resort.webp";
+import projectSkyline from "./assets/reference/crops/portfolio-skyline-business-centre.webp";
+import projectValkyrie from "./assets/reference/crops/portfolio-valkyrie-residential-park.webp";
+import applicationRoof from "./assets/reference/crops/application-green-roof-layers.webp";
+import applicationWall from "./assets/reference/crops/application-vertical-garden.webp";
+import applicationArid from "./assets/reference/crops/application-moisture-retaining-mat.webp";
+import solutionsHangingVines from "./assets/reference/crops/solutions-hanging-vines-transparent.png";
 import { SphagnumLogo } from "./sphagnum-logo";
 import { SphagnumStyles } from "./sphagnum-styles";
-import { ApplicationDiagram, CountUp, LightRays, LivingWall, MossTexture, WaterBattery } from "./sphagnum-visuals";
+import { MossTexture } from "./sphagnum-visuals";
 import {
   ADVANTAGES,
   APPLICATIONS,
-  CLIMATE_BENEFITS,
   CONTACT,
   FAQ,
-  FUSCUM_METRICS,
-  FUSCUM_PROPERTIES,
   HERO_BULLETS,
   // HERO_DESIGNED_FOR больше не выводится: ряд чипов дублировал HERO_BULLETS.
   // Данные оставлены в sphagnum-data.ts — пригодятся в секции ниже.
@@ -63,8 +85,6 @@ import {
   TAGS,
   VOLUME_RANGES,
   WETLAND_FACTS,
-  WHY_PHOTO,
-  WHY_SPECIMEN,
 } from "./sphagnum-data";
 
 /**
@@ -72,10 +92,8 @@ import {
  * «Struktura-saita_EN_shortened». Весь пользовательский текст — английский
  * (целевой рынок ОАЭ/КСА); комментарии в коде остаются русскими.
  *
- * Фото задаются в sphagnum-data.ts полем `photo`. Пока его нет, PhotoSlot рисует
- * подписанную заглушку с текстурой мха — НЕ случайный сток: сток подсовывал
- * Статую Свободы в кейс «Бизнес-центр», а ложная иллюстрация в продающем блоке
- * хуже честной заглушки.
+ * Визуальный ряд собран из оптимизированных локальных assets, извлечённых из
+ * согласованного макета; статические imports сохраняют basePath GitHub Pages.
  */
 
 /**
@@ -94,138 +112,6 @@ import {
 */
 const HERO_BG_FILTER = "brightness(1) saturate(1.20) contrast(1.08)";
 
-/** Один и тот же слот всегда рисует одну текстуру — seed из описания кадра. */
-function seedFromCaption(c: string) {
-  let h = 0;
-  for (let i = 0; i < c.length; i++) h = (h * 31 + c.charCodeAt(i)) >>> 0;
-  return h % 997;
-}
-
-/**
- * Фото секции. Есть `src` — рисуем <img> с осмысленным alt (он же уходит в SEO).
- * Нет — подписанная заглушка: видно, какой кадр нужен и в каком соотношении.
- */
-function PhotoSlot({
-  shot,
-  alt,
-  ratio = "16/10",
-  src,
-  className = "",
-}: {
-  shot: string;
-  alt: string;
-  ratio?: string;
-  src?: string;
-  className?: string;
-}) {
-  if (src) {
-    return (
-      <img
-        src={src}
-        alt={alt}
-        style={{ aspectRatio: ratio }}
-        className={`w-full object-cover ${className}`}
-        loading="lazy"
-        decoding="async"
-      />
-    );
-  }
-  return (
-    <div
-      role="img"
-      aria-label={alt}
-      style={{ aspectRatio: ratio }}
-      className={`relative grid w-full place-items-center overflow-hidden ${className}`}
-    >
-      {/* Текстура мха вместо плоской заливки: слот перестаёт выглядеть «дырой» */}
-      <MossTexture seed={seedFromCaption(shot)} className="absolute inset-0 h-full w-full" />
-      <span className="relative flex max-w-[300px] flex-col items-center gap-2.5 px-6 text-center">
-        <span className="grid size-11 place-items-center rounded-full bg-[color:var(--brand-cream-85)] backdrop-blur-sm">
-          <Leaf className="size-5 text-[color:var(--brand-moss)]" strokeWidth={1.6} aria-hidden />
-        </span>
-        <span className="rounded-md bg-[color:var(--brand-cream-85)] px-3 py-1.5 text-[12px] font-semibold leading-snug text-[color:var(--brand-ink)] backdrop-blur-sm">
-          {shot}
-        </span>
-      </span>
-    </div>
-  );
-}
-
-/**
- * Витрина материала для раздела «Почему обычные грунты не работают».
- *
- * Почему не PhotoSlot с заглушкой. Кадра террасы у нас нет и взять его неоткуда:
- * подставлять сток в продающий блок здесь запрещено осознанно (см. шапку файла —
- * сток однажды выдал Статую Свободы в кейс «Бизнес-центр»). Но раздел спорит
- * ровно про субстрат, а субстрат у нас СВОЙ и снят: вырезанный уступ живого мха.
- * Показать материал честнее, чем показать чужую террасу или серый прямоугольник.
- *
- * Когда настоящий кадр приедет, менять здесь ничего не нужно: секция сама
- * переключится на фотографию, как только в WHY_PHOTO.photo ляжет URL.
- *
- * Композиция — «предметная съёмка», а не картинка в рамке: светлое поле,
- * объект висит над собственной тенью. Поэтому картинка ОБЯЗАНА быть с альфой
- * (moss-ledge.webp, вырез без фона). Подставите сюда обычный прямоугольный
- * кадр — тень окажется под белым прямоугольником и приём развалится.
- */
-function MossLedgeFigure({ alt, caption }: { alt: string; caption: string }) {
-  return (
-    <figure>
-      <div
-        className="relative overflow-hidden rounded-2xl border border-[color:var(--brand-line)]"
-        style={{ aspectRatio: "4/3" }}
-      >
-        {/* Поле-подложка. Светлее прежней заглушки: объект зелёный, и на зелёном
-            же фоне он сливался — уступ читался пятном текстуры, а не предметом. */}
-        <div
-          aria-hidden
-          className="absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(90% 70% at 50% 18%, #FBFAF6 0%, rgba(251,250,246,0) 68%), linear-gradient(180deg, var(--brand-cream) 0%, var(--brand-sage-15) 100%)",
-          }}
-        />
-        {/* То же зерно мха, что и в остальных секциях, — но вполсилы: здесь оно
-            фактура поля, а не самостоятельная картинка. */}
-        <MossTexture seed={29} density={150} className="absolute inset-0 h-full w-full opacity-[0.22]" />
-        {/* Тень-опора. Отдельным слоем ПОД картинкой, а не box-shadow: тень нужна
-            от силуэта мха, а не от прямоугольника <img>. Радиальный градиент, а
-            не blur(): фильтр на пол-панели заметно дороже при прокрутке.
-            Класс ledge-shade — вторая половина парения: тень сжимается и бледнеет
-            в противофазе к подъёму объекта (keyframes в sphagnum-styles.tsx). */}
-        <div
-          aria-hidden
-          className="ledge-shade absolute left-1/2 top-[69%] h-[18%] w-[80%] -translate-x-1/2"
-          style={{
-            background: "radial-gradient(50% 50% at 50% 50%, rgba(62,80,66,.44) 0%, rgba(62,80,66,0) 72%)",
-          }}
-        />
-        {/* Позиционирование и парение РАЗВЕДЕНЫ по двум элементам, и это не
-            лишняя обёртка: у обёртки на transform висят -translate-x-1/2 и
-            -translate-y-[52%], а бесконечная анимация перебивает transform
-            целиком. Будь они на одном узле, на время парения картинка потеряла бы
-            центровку и прыгнула бы в угол панели.
-            -52% по вертикали, а не -50%: у выреза снизу пустая альфа, и по
-            геометрическому центру уступ садился слишком низко, наезжая на тень. */}
-        <div className="absolute left-1/2 top-1/2 w-[92%] -translate-x-1/2 -translate-y-[52%]">
-          <img
-            src={mossLedge.src}
-            alt={alt}
-            width={1400}
-            height={933}
-            loading="lazy"
-            decoding="async"
-            className="ledge-float block w-full"
-          />
-        </div>
-      </div>
-      <figcaption className="mt-4 max-w-[52ch] text-[13.5px] leading-relaxed text-[color:var(--brand-muted)]">
-        {caption}
-      </figcaption>
-    </figure>
-  );
-}
-
 const ICONS = {
   droplet: Droplets,
   wind: Wind,
@@ -240,7 +126,39 @@ const ICONS = {
   layers: Layers,
   porosity: Grid2x2,
   stable: Ruler,
+  temperature: Thermometer,
+  factory: Factory,
+  flask: FlaskConical,
+  headset: Headphones,
+  circleOff: CircleOff,
+  flower: Flower2,
+  globe: Globe2,
+  hand: HandHeart,
+  layers3: Layers3,
+  refresh: RefreshCcw,
+  shovel: Shovel,
+  star: Star,
+  thermometerSun: ThermometerSun,
+  waves: Waves,
 } as const;
+
+const SOLUTION_IMAGES = [solutionMoss, solutionSoil] as const;
+const PROJECT_IMAGES = [projectOasis, projectSkyline, projectValkyrie] as const;
+const APPLICATION_IMAGES = [applicationRoof, applicationWall, applicationArid] as const;
+const TAG_ICONS = ["moss", "refresh", "circleOff", "flask", "hand", "globe"] as const;
+
+const VINE_BRANCHES = [
+  { clipPath: "inset(0 87% 72% 5%)", anchor: 0.09, x: 0.62, y: 0.82, rotate: 0.72, duration: 430 },
+  { clipPath: "inset(0 76% 30% 12%)", anchor: 0.18, x: 0.78, y: 0.68, rotate: -0.86, duration: 520 },
+  { clipPath: "inset(0 64% 9% 23%)", anchor: 0.295, x: 0.94, y: 0.76, rotate: 1.08, duration: 610 },
+  { clipPath: "inset(0 53% 63% 38%)", anchor: 0.425, x: 0.7, y: 0.9, rotate: -0.74, duration: 470 },
+  { clipPath: "inset(0 45% 23% 44%)", anchor: 0.495, x: 1.04, y: 0.72, rotate: 1.2, duration: 660 },
+  { clipPath: "inset(0 37% 1% 51%)", anchor: 0.57, x: 1.14, y: 0.62, rotate: -1.28, duration: 720 },
+  { clipPath: "inset(0 30% 33% 59%)", anchor: 0.645, x: 0.86, y: 0.84, rotate: 0.96, duration: 560 },
+  { clipPath: "inset(0 21% 0 65%)", anchor: 0.72, x: 1.2, y: 0.66, rotate: -1.34, duration: 760 },
+  { clipPath: "inset(0 7% 12% 78%)", anchor: 0.855, x: 0.9, y: 0.8, rotate: 1.04, duration: 620 },
+  { clipPath: "inset(0 0 0 87%)", anchor: 0.935, x: 1.08, y: 0.7, rotate: -1.16, duration: 700 },
+] as const;
 
 function Icon({ name, className = "size-5" }: { name: string; className?: string }) {
   const C = ICONS[name as keyof typeof ICONS] ?? Leaf;
@@ -304,11 +222,12 @@ function SectionHead({
   lead?: string;
   light?: boolean;
 }) {
+  const hasLeafMark = kicker === "Our solutions" || kicker === "Substrate platform for outdoors";
   return (
     <div className="max-w-3xl">
       {kicker ? (
-        <p className={`mb-3 text-[13px] font-semibold uppercase tracking-[0.14em] ${light ? "text-[color:var(--brand-sage)]" : "text-[color:var(--brand-moss)]"}`}>
-          {kicker}
+        <p className={`mb-3 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.14em] ${light ? "text-[color:var(--brand-sage)]" : "text-[color:var(--brand-moss)]"}`}>
+          {kicker}{hasLeafMark ? <Leaf className="size-4" strokeWidth={1.8} aria-hidden /> : null}
         </p>
       ) : null}
       <h2
@@ -442,12 +361,328 @@ function Field({
   );
 }
 
+function PdfAlignedSections({
+  projectsRef,
+  onScrollProjects,
+}: {
+  projectsRef: React.RefObject<HTMLDivElement | null>;
+  onScrollProjects: (direction: -1 | 1) => void;
+}) {
+  const productSectionRef = useRef<HTMLElement | null>(null);
+  const vinesRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const section = productSectionRef.current;
+    const vines = vinesRef.current;
+    if (!section || !vines) return;
+    const branches = [...vines.querySelectorAll<HTMLElement>("[data-vine-branch]")];
+
+    const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let animationFrame = 0;
+    let previousPointer: { x: number; y: number; time: number } | null = null;
+    let gustTimers: number[] = [];
+
+    const clearGustTimers = () => {
+      gustTimers.forEach((timer) => window.clearTimeout(timer));
+      gustTimers = [];
+    };
+    const setBranchPosition = (branch: HTMLElement, x: number, y: number, rotation: number) => {
+      branch.style.setProperty("--vine-x", `${x.toFixed(2)}px`);
+      branch.style.setProperty("--vine-y", `${y.toFixed(2)}px`);
+      branch.style.setProperty("--vine-rotate", `${rotation.toFixed(2)}deg`);
+    };
+    const reset = () => {
+      cancelAnimationFrame(animationFrame);
+      clearGustTimers();
+      previousPointer = null;
+      branches.forEach((branch) => {
+        branch.style.setProperty("--vine-x", "0px");
+        branch.style.setProperty("--vine-y", "0px");
+        branch.style.setProperty("--vine-rotate", "0deg");
+      });
+    };
+    const move = (event: PointerEvent) => {
+      if (!finePointer.matches || reducedMotion.matches) {
+        reset();
+        return;
+      }
+      const bounds = section.getBoundingClientRect();
+      const x = Math.max(-1, Math.min(1, ((event.clientX - bounds.left) / bounds.width - 0.5) * 2));
+      const y = Math.max(-1, Math.min(1, ((event.clientY - bounds.top) / bounds.height - 0.5) * 2));
+      const now = performance.now();
+      const elapsed = previousPointer ? Math.max(12, Math.min(180, now - previousPointer.time)) : 0;
+      const velocityX = previousPointer && elapsed ? (event.clientX - previousPointer.x) / elapsed : 0;
+      const velocityY = previousPointer && elapsed ? (event.clientY - previousPointer.y) / elapsed : 0;
+      previousPointer = { x: event.clientX, y: event.clientY, time: now };
+      const pointerX = event.clientX;
+      const vineBounds = vines.getBoundingClientRect();
+      const baseX = x * 7;
+      const baseY = y * 4;
+      const baseRotation = x * 0.7;
+      const windX = Math.max(-18, Math.min(18, velocityX * 9));
+      const windY = Math.max(-7, Math.min(7, velocityY * 5));
+
+      cancelAnimationFrame(animationFrame);
+      clearGustTimers();
+      animationFrame = requestAnimationFrame(() => {
+        branches.forEach((branch, index) => {
+          const response = VINE_BRANCHES[index];
+          const anchorX = vineBounds.left + vineBounds.width * response.anchor;
+          const distance = Math.abs(pointerX - anchorX);
+          const proximity = 0.28 + Math.max(0, 1 - distance / (vineBounds.width * 0.72)) * 0.72;
+          const delay = Math.min(110, distance * 0.14);
+          const restingX = baseX * response.x;
+          const restingY = baseY * response.y;
+          const restingRotation = baseRotation * response.rotate;
+          const gustX = windX * proximity * response.x;
+          const gustY = (windY - Math.abs(windX) * 0.08) * proximity * response.y;
+          const gustRotation = windX * 0.13 * response.rotate * proximity;
+
+          setBranchPosition(branch, restingX, restingY, restingRotation);
+          gustTimers.push(window.setTimeout(() => {
+            setBranchPosition(branch, restingX + gustX, restingY + gustY, restingRotation + gustRotation);
+          }, delay));
+          gustTimers.push(window.setTimeout(() => {
+            setBranchPosition(branch, restingX - gustX * 0.24, restingY - gustY * 0.18, restingRotation - gustRotation * 0.28);
+          }, delay + 190));
+          gustTimers.push(window.setTimeout(() => {
+            setBranchPosition(branch, restingX, restingY, restingRotation);
+          }, delay + 480));
+        });
+      });
+    };
+
+    section.addEventListener("pointermove", move, { passive: true });
+    section.addEventListener("pointerleave", reset);
+    reducedMotion.addEventListener("change", reset);
+    finePointer.addEventListener("change", reset);
+    reset();
+
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      clearGustTimers();
+      section.removeEventListener("pointermove", move);
+      section.removeEventListener("pointerleave", reset);
+      reducedMotion.removeEventListener("change", reset);
+      finePointer.removeEventListener("change", reset);
+    };
+  }, []);
+
+  return (
+    <>
+      <section ref={productSectionRef} id="product" className="relative overflow-hidden bg-[#f8f7f2] py-20 lg:py-28">
+        <div
+          ref={vinesRef}
+          aria-hidden
+          data-vines-interactive
+          className="pointer-events-none absolute right-0 top-0 hidden aspect-[1761/893] w-[min(39vw,650px)] lg:block"
+        >
+          <img
+            src={solutionsHangingVines.src}
+            alt=""
+            data-reference-visual="solutions-vines"
+            className="absolute inset-0 size-full object-contain object-right-top [clip-path:polygon(0_0,100%_0,100%_28%,92%_25%,83%_29%,72%_25%,60%_29%,48%_23%,36%_28%,24%_25%,12%_30%,0_24%)]"
+          />
+          {VINE_BRANCHES.map((branch, index) => (
+            <img
+              key={branch.clipPath}
+              src={solutionsHangingVines.src}
+              alt=""
+              data-vine-branch={index}
+              className="absolute inset-0 size-full object-contain object-right-top"
+              style={{
+                clipPath: branch.clipPath,
+                transformOrigin: `${(index === 0 ? 9 : (index + 0.5) * 10)}% 2%`,
+                "--vine-duration": `${branch.duration}ms`,
+              } as CSSProperties}
+            />
+          ))}
+        </div>
+        <div className="pdf-grid relative">
+          <Reveal>
+            <SectionHead kicker="Our solutions" title="Two solutions for urban greening at every scale" lead="Two product lines for roofs and urban landscapes." />
+          </Reveal>
+        </div>
+        <div data-solution-grid className="solutions-reference-grid relative mt-12 grid gap-6 xl:grid-cols-2 xl:gap-10">
+          {SOLUTIONS.map((solution, index) => (
+            <Reveal key={solution.title} delay={index * 0.08} className="solution-frame h-full">
+              <article className="group relative h-full overflow-hidden rounded-[22px] border border-[color:var(--brand-line)] bg-[#fbfaf6] p-7 shadow-[0_18px_55px_rgba(20,24,22,.07)] sm:p-8 xl:min-h-[560px]">
+                <div data-solution-copy className="relative z-10">
+                  <div className="flex items-center gap-7 xl:max-w-[74%]">
+                    <span data-solution-icon className="grid size-16 shrink-0 place-items-center rounded-[14px] bg-[color:var(--brand-moss)] text-white"><Icon name={solution.icon} className="size-8" /></span>
+                    <p data-solution-kicker className="label text-[13px] leading-relaxed text-[color:var(--brand-moss)]">{solution.kicker}</p>
+                  </div>
+                  <h3 className="mt-5 text-[30px] font-bold leading-[1.08] xl:max-w-[58%] xl:text-[34px]">
+                    {index === 0 ? <>Live Sphagnum<br />Fuscum</> : <>Substrate platform<br />for roofs and landscape</>}
+                  </h3>
+                  <span className="mt-6 block h-0.5 w-10 bg-[color:var(--brand-lime)]" aria-hidden />
+                  <p className="mt-6 text-[15px] leading-[1.55] text-[color:var(--brand-muted)] xl:max-w-[62%] xl:text-[16px]">{solution.lead}</p>
+                  <p className="label mt-9 text-[13px] text-[color:var(--brand-moss)] xl:max-w-[62%]">Key properties</p>
+                  <ul className="mt-4 grid gap-3 xl:max-w-[62%]">
+                    {solution.features.map((feature) => (
+                      <li key={feature} className="flex gap-3 text-[14px] leading-snug xl:text-[15px]">
+                        <Leaf className="mt-0.5 size-[18px] shrink-0 text-[color:var(--brand-moss)]" strokeWidth={1.7} aria-hidden />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <img
+                  src={SOLUTION_IMAGES[index].src}
+                  alt=""
+                  aria-hidden
+                  data-solution-image
+                  className="relative -mr-7 ml-auto mt-8 h-[280px] w-full object-contain object-bottom object-right mix-blend-multiply transition-transform duration-700 group-hover:scale-[1.03] sm:-mr-8 xl:absolute xl:bottom-0 xl:right-0 xl:mr-0 xl:mt-0 xl:h-[80%] xl:w-[58%]"
+                />
+              </article>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      <section id="fuscum" className="bg-[#f8f7f3] pb-16 lg:pb-24">
+        <div className="pdf-grid grid overflow-hidden rounded-[24px] border border-[color:var(--brand-line)] bg-[#faf9f7] lg:min-h-[608px] lg:grid-cols-[1.08fr_.92fr]">
+          <div className="relative min-h-[470px] overflow-hidden p-8 sm:p-12 lg:min-h-[608px]">
+            <h2 className="label flex items-center gap-2 text-[12px] text-[color:var(--brand-moss)]"><Leaf className="size-5" strokeWidth={1.8} aria-hidden />Raw-material base</h2>
+            <span className="mt-5 block h-0.5 w-12 bg-[color:var(--brand-moss)]" aria-hidden />
+            <p className="mt-12 whitespace-nowrap text-[52px] font-bold leading-none tracking-[-.055em] sm:text-[76px] lg:text-[88px]">53,000 <span className="text-[.42em] tracking-normal text-[#5f792a]">km²</span></p>
+            <p className="mt-3 text-[28px] font-bold leading-none sm:text-[34px]">of pristine wetland</p>
+            <img src={wetlandLandscape.src} alt="Living sphagnum wetlands in Western Siberia" className="absolute inset-x-0 bottom-0 h-[44%] w-full object-cover" />
+          </div>
+          <div className="p-8 sm:p-12 lg:pt-16">
+            <p className="text-[16px] leading-relaxed text-[color:var(--brand-ink-85)]">The Vasyugan wetlands of Western Siberia form the world&rsquo;s largest wetland system and the base of our raw material. Harvesting is deliberately shallow: the bog closes over and the same field is cut again a few years later. That is what makes it renewable, unlike peat, which takes thousands of years to form.</p>
+            <dl className="mt-8">
+              {WETLAND_FACTS.map((fact, index) => (
+                <div key={fact.value} className="grid grid-cols-[48px_82px_1fr] items-center gap-3 border-b border-[color:var(--brand-line)] py-4 last:border-b-0 sm:grid-cols-[54px_100px_1fr] sm:gap-4">
+                  <span className="grid size-12 place-items-center rounded-xl bg-[#f1f4e9] text-[color:var(--brand-moss)]"><Icon name={index === 0 ? "shovel" : index === 1 ? "refresh" : "hand"} /></span>
+                  <dt className="text-[19px] font-bold text-[#5f792a] sm:text-[21px]">{fact.value}</dt>
+                  <dd className="border-l border-[color:var(--brand-line)] pl-3 text-[13px] leading-snug text-[color:var(--brand-muted)] sm:pl-4 sm:text-[14px]">{fact.text}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#fafafa] pb-20 lg:pb-[143px]">
+        <figure className="pdf-grid living-wall-frame">
+          <img src={livingWallWide.src} alt="Wide framed living wall composed of mosses, ferns and trailing plants" className="block h-auto w-full object-contain" />
+        </figure>
+      </section>
+
+      <section
+        className="relative overflow-hidden pt-20 lg:pt-28"
+        style={{
+          background:
+            "radial-gradient(ellipse at 8% 82%, rgba(118,148,72,.24), transparent 32%), radial-gradient(ellipse at 92% 76%, rgba(151,175,91,.18), transparent 28%), #f8f9f4",
+        }}
+      >
+        <div className="pdf-grid relative z-10 pb-40 lg:pb-[373px]">
+          <Reveal><SectionHead kicker="Substrate platform for outdoors" title="Engineered root-zone performance" lead="Science-backed substrate technology for healthy plants and lasting green spaces." /></Reveal>
+          <div className="mt-12 grid gap-5 lg:grid-cols-3">
+            {PLATFORM_PILLARS.map((pillar, index) => (
+              <Reveal key={pillar.title} delay={index * 0.08}>
+                <article className="h-full rounded-[18px] border border-[color:var(--brand-line)] bg-white/90 p-7 shadow-[0_14px_38px_rgba(20,24,22,.06)] backdrop-blur">
+                  <div className="flex items-start justify-between"><span className="grid size-12 place-items-center rounded-xl bg-[#edf3e6] text-[color:var(--brand-moss)]"><Icon name={pillar.icon} className="size-6" /></span><span className="text-[13px] font-semibold text-[color:var(--brand-line)]">0{index + 1}</span></div>
+                  <h3 className="mt-5 text-[20px] font-bold">{pillar.title}</h3>
+                  <p className="mt-3 text-[14px] leading-relaxed text-[color:var(--brand-muted)]">{pillar.text}</p>
+                </article>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+        <img data-reference-visual="root-zone-scene" src={rootZoneStrip.src} alt="Moss, seedlings and mineral substrate forming a healthy root-zone layer" className="absolute inset-x-0 bottom-0 h-auto w-full object-contain object-bottom [mask-image:linear-gradient(to_bottom,transparent_0%,#000_32%,#000_100%)]" />
+      </section>
+
+      <section data-reference-surface="benefits" className="w-full bg-[#fbfaf8]">
+        <div className="pdf-grid py-14 lg:py-40">
+          <h3 className="text-[28px] font-bold">Benefits</h3><span className="mt-4 block h-0.5 w-12 bg-[color:var(--brand-moss)]" aria-hidden />
+          <div className="mt-7 grid sm:grid-cols-2 lg:grid-cols-3">
+            {PLATFORM_BENEFITS.map((benefit, index) => (
+              <article key={benefit.title} className="grid grid-cols-[48px_1fr] gap-4 border-b border-[color:var(--brand-line)] py-7 sm:px-5 lg:border-r lg:[&:nth-child(3n)]:border-r-0">
+                <span className="grid size-11 place-items-center rounded-lg bg-[#f1f3ec] text-[color:var(--brand-moss)]"><Icon name={["shield", "droplet", "moss", "weight", "flask", "moss"][index]} /></span>
+                <div><span className="text-[12px] font-semibold text-[color:var(--brand-moss)]">0{index + 1}</span><h4 className="mt-1 text-[16px] font-bold">{benefit.title}</h4><p className="mt-2 text-[13.5px] leading-relaxed text-[color:var(--brand-muted)]">{benefit.text}</p></div>
+              </article>
+            ))}
+          </div>
+          <h3 className="mt-12 text-[28px] font-bold">Product range</h3><span className="mt-4 block h-0.5 w-12 bg-[color:var(--brand-moss)]" aria-hidden />
+          <div className="mt-7 grid gap-4 lg:grid-cols-3">
+            {PRODUCT_LINE.map((product, index) => (
+              <article key={product.name} className="flex gap-5 rounded-xl border border-[color:var(--brand-line)] p-6"><span className="grid size-14 shrink-0 place-items-center rounded-full bg-[#f1f3ec] text-[color:var(--brand-moss)]"><Icon name={["moss", "shield", "star"][index]} /></span><div><h4 className="text-[17px] font-bold">{product.name}</h4><p className="mt-2 text-[13.5px] leading-relaxed text-[color:var(--brand-muted)]">{product.text}</p><ArrowRight className="mt-4 size-4 text-[color:var(--brand-moss)]" aria-hidden /></div></article>
+            ))}
+          </div>
+          <a href="#contact" className="btn btn-primary mt-7 inline-flex text-[13px]">Request Technical Details <ArrowUpRight className="size-4" /></a>
+        </div>
+      </section>
+
+      <section id="projects" className="relative overflow-hidden bg-[#000b07] py-20 text-[color:var(--brand-cream)] lg:py-28">
+        <img data-reference-visual="portfolio-botanical" src={portfolioBotanical.src} alt="" aria-hidden className="pointer-events-none absolute bottom-2 left-0 hidden h-auto w-[191.25px] mix-blend-lighten lg:block" />
+        <img data-reference-visual="portfolio-dots" src={portfolioDots.src} alt="" aria-hidden className="pointer-events-none absolute bottom-2 left-[191.25px] hidden h-auto w-[212.5px] mix-blend-lighten lg:block" />
+        <div data-reference-visual="portfolio-baseline" aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-2 bg-[linear-gradient(to_bottom,#8d782d_0%,#c4a239_45%,#c4a239_100%)]" />
+        <div className="pdf-grid relative grid gap-10 lg:grid-cols-[320px_minmax(0,1fr)]">
+          <div><p className="label inline-block border border-[color:var(--brand-gold)] px-3 py-2 text-[10px] text-[color:var(--brand-gold)]">Global portfolios</p><h2 className="portfolio-title mt-8 text-[42px] leading-[1.02] sm:text-[54px]">Flagship <span className="block text-[color:var(--brand-gold)]">Installations</span></h2><span className="mt-8 block h-px w-16 bg-[color:var(--brand-gold)]" /><p className="mt-8 text-[15px] leading-relaxed text-[color:var(--brand-cream-72)]">Stunning green installations designed for reliable performance, visual impact and demanding climates.</p></div>
+          <div className="min-w-0">
+            <div ref={projectsRef} className="hide-scrollbar flex snap-x snap-mandatory gap-5 overflow-x-auto pb-4">
+              {PROJECTS.map((project, index) => (
+                <article key={project.title} className="group flex w-[82vw] max-w-[360px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-[rgba(215,177,94,.28)] bg-[#082117] first:border-[color:var(--brand-gold)] sm:w-[330px]">
+                  <img src={PROJECT_IMAGES[index].src} alt={project.alt} className="h-[300px] w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]" />
+                  <div className="flex flex-1 flex-col p-6"><span className="grid size-10 place-items-center rounded-lg border border-[rgba(215,177,94,.55)] text-[color:var(--brand-gold)]"><Icon name={project.icon} /></span><h3 className="mt-5 text-[23px] leading-tight text-[color:var(--brand-gold)]">{project.title}</h3><span className="mt-4 h-px w-9 bg-[color:var(--brand-gold)]" /><p className="mt-4 flex-1 text-[13.5px] leading-relaxed text-[color:var(--brand-cream-72)]">{project.text}</p><a href="#contact" className="label mt-6 flex items-center gap-2 text-[10px] text-[color:var(--brand-gold)]">Discuss project <ArrowRight className="size-4" /></a></div>
+                </article>
+              ))}
+            </div>
+            <div className="mt-5 flex justify-end gap-3"><button type="button" onClick={() => onScrollProjects(-1)} aria-label="Previous projects" className="grid size-12 place-items-center border border-[color:var(--brand-gold)] text-[color:var(--brand-gold)] transition-colors hover:bg-[color:var(--brand-gold)] hover:text-[color:var(--brand-ink)]"><ArrowLeft /></button><button type="button" onClick={() => onScrollProjects(1)} aria-label="Next projects" className="grid size-12 place-items-center bg-[color:var(--brand-gold)] text-[color:var(--brand-ink)]"><ArrowRight /></button></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="applications" className="bg-[#f7f4ef] py-20 lg:pb-[136px] lg:pt-28">
+        <div className="pdf-grid">
+          <Reveal><SectionHead kicker="Applications" title="Where our solutions perform" /></Reveal>
+          <div className="mt-14 grid gap-20 lg:gap-28">
+            {APPLICATIONS.map((application, index) => (
+              <Reveal key={application.title} anim={index % 2 ? "right" : "left"}>
+                <article className={`grid items-center gap-10 lg:gap-16 ${index === 0 ? "lg:min-h-[700px] lg:grid-cols-[1.08fr_.92fr]" : index === 1 ? "lg:min-h-[760px] lg:grid-cols-[.88fr_1.12fr]" : "lg:min-h-[780px] lg:grid-cols-[.96fr_1.04fr]"}`}>
+                  <figure className={`overflow-hidden rounded-[18px] bg-white shadow-[0_18px_50px_rgba(20,24,22,.07)] ${index > 0 ? "lg:order-2" : ""}`}><img src={APPLICATION_IMAGES[index].src} alt={application.diagramAlt} className="h-auto w-full object-contain" /></figure>
+                  <div><p className="label text-[11px] text-[color:var(--brand-moss)]">Applications</p><span className="mt-4 block h-px w-10 bg-[color:var(--brand-moss)]" /><span className="mt-8 block text-[13px] font-bold text-[#5f792a]">0{index + 1}</span><h3 className="mt-3 text-[33px] font-bold leading-[1.08] lg:text-[40px]">{application.title}</h3><p className="mt-5 text-[15px] leading-relaxed text-[color:var(--brand-muted)]">{application.text}</p>
+                    <ul className={`mt-8 grid gap-4 ${application.benefits.length === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
+                      {application.benefits.map((benefit) => <li key={benefit.title} className="min-w-0"><span className="grid size-12 place-items-center rounded-xl bg-[#edf3e6] text-[color:var(--brand-moss)]"><Icon name={benefit.icon} /></span><span className="mt-3 block text-[13px] font-bold leading-tight">{benefit.title}</span>{"text" in benefit ? <span className="mt-1 block text-[12px] leading-snug text-[color:var(--brand-muted)]">{benefit.text}</span> : null}</li>)}
+                    </ul>
+                  </div>
+                </article>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="advantages" className="bg-[#0f1314] py-20 text-[color:var(--brand-cream)] lg:py-28">
+        <div className="pdf-grid">
+          <div className="grid gap-8 border-b border-[rgba(215,177,94,.55)] pb-8 lg:grid-cols-[1.2fr_.8fr] lg:items-end"><div><p className="label text-[11px] text-[color:var(--brand-gold)]">Why us</p><span className="mt-3 block h-px w-12 bg-[color:var(--brand-gold)]" aria-hidden /><h2 className="mt-5 text-[38px] font-bold leading-[1.03] sm:text-[52px]">Sphagnum Eco — <span className="block text-[color:var(--brand-gold)]">advantages</span></h2></div><p className="max-w-[42ch] text-[15px] leading-relaxed text-[color:var(--brand-cream-72)]">From raw material to finished substrate, we ensure quality, consistency, and support you can rely on for every project.</p></div>
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
+            {ADVANTAGES.map((advantage) => <article key={advantage.num} className="grid gap-5 rounded-xl border border-[color:var(--brand-cream-15)] p-6 sm:grid-cols-[84px_1fr]"><span className="grid size-20 place-items-center rounded-full border border-[rgba(215,177,94,.45)] text-[color:var(--brand-gold)]"><Icon name={advantage.icon} className="size-9" /></span><div><span className="text-[13px] font-semibold text-[color:var(--brand-gold)]">{advantage.num}</span><h3 className="mt-1 text-[20px] font-bold">{advantage.title}</h3><span className="mt-3 block h-px w-10 bg-[color:var(--brand-gold)]" /><p className="mt-3 text-[13.5px] leading-relaxed text-[color:var(--brand-cream-72)]">{advantage.text}</p></div></article>)}
+          </div>
+          <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">{TAGS.map((tag, index) => <span key={tag} data-advantage-tag className="flex items-center justify-center gap-3 rounded-full border border-[rgba(215,177,94,.42)] px-4 py-2.5 text-[13px] text-[color:var(--brand-cream-85)]"><Icon name={TAG_ICONS[index]} className="size-5 shrink-0 text-[color:var(--brand-gold)]" />{tag}</span>)}</div>
+        </div>
+      </section>
+    </>
+  );
+}
+
 export default function SphagnumLanding() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [stripCard, setStripCard] = useState(0);
   const heroRef = useRef<HTMLElement | null>(null);
+  const projectsRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollProjects = (direction: -1 | 1) => {
+    projectsRef.current?.scrollBy({
+      left: direction * Math.min(projectsRef.current.clientWidth * 0.82, 430),
+      behavior: "smooth",
+    });
+  };
 
   // Автокарусель нижней полосы героя — 3500 мс, как в референсе.
   useEffect(() => {
@@ -458,12 +693,8 @@ export default function SphagnumLanding() {
   useEffect(() => {
     const onScroll = () => {
       const el = heroRef.current;
-      // Пока первый экран залип, страница визуально стоит на месте. Перекрашивать
-      // шапку в белое в этот момент — значит сообщать о прокрутке, которой не
-      // видно. Поэтому порог сдвинут за конец залипания; там, где залипания нет
-      // (мобильный, reduced-motion), pinned = 0 и порог прежний — 24 px.
-      const pinned = el ? Math.max(el.offsetHeight - window.innerHeight, 0) : 0;
-      setScrolled(window.scrollY > pinned + 24);
+      const threshold = el ? Math.min(el.offsetHeight * 0.12, 96) : 24;
+      setScrolled(window.scrollY > threshold);
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -517,7 +748,7 @@ export default function SphagnumLanding() {
             scrolled ? "border-[color:var(--brand-line)] bg-[color:var(--brand-cream)]" : "border-[color:var(--brand-cream-15)] bg-[color:var(--brand-ink-45)]"
           }`}
         >
-          <div className="flex items-center justify-end gap-7 py-2.5 mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
+          <div className="flex items-center justify-end gap-7 py-2.5 pdf-grid">
             <a
               href={CONTACT.phoneHref}
               className={`text-[13px] font-medium transition-colors ${
@@ -540,7 +771,7 @@ export default function SphagnumLanding() {
           </div>
         </div>
 
-        <div className="a-in flex items-center gap-6 py-4 mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
+        <div className="a-in flex items-center gap-6 py-4 pdf-grid">
           {/*
             Фирменный логотип заказчика. Дескриптор «NATURAL SUBSTRATES» убран:
             логотип уже содержит знак и словесную часть, а охранное поле вокруг
@@ -688,14 +919,6 @@ export default function SphagnumLanding() {
           Слушатель курсора живёт на секции героя (heroRef), а не на холсте: холст
           pointer-events:none, да и ловить надо движение над всем первым экраном.
         */}
-        <LivingWall
-          src={receptionWall.src}
-          pointerTargetRef={heroRef}
-          className="absolute inset-0"
-          style={{
-            filter: HERO_BG_FILTER,
-          }}
-        />
         {/*
           Затемнение под текст. Раньше был один диагональный градиент — на
           десктопе он работал, но на узком экране контент занимает ВСЮ ширину,
@@ -757,9 +980,7 @@ export default function SphagnumLanding() {
             Лучи идут ДО текста намеренно: после текста они засветили бы
             заголовок. Отсчёт нужен от угла кадра, поэтому inset-0 по всей сцене.
           */}
-          <LightRays className="inset-0" />
-
-          <div className="relative mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
+          <div className="relative pdf-grid">
             <div className="max-w-[560px] lg:max-w-[760px]">
               {/*
                 Антиква в нормальном регистре. Прежний вариант был в капсе, и
@@ -916,478 +1137,12 @@ export default function SphagnumLanding() {
         </div>
         </div>
       </section>
-      {/* ═══════════ РАЗДЕЛ 2 — НАШИ РЕШЕНИЯ ═══════════ */}
-      <section id="product" className="bg-[color:var(--brand-cream)] py-24 lg:py-36">
-        <div className="mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
-          <Reveal>
-            <SectionHead
-              kicker="Our solutions"
-              title="Two solutions for urban greening at every scale"
-              lead="Two product lines for roofs and urban landscapes."
-            />
-          </Reveal>
+      <PdfAlignedSections projectsRef={projectsRef} onScrollProjects={scrollProjects} />
 
-          <div className="mt-14 grid gap-7 lg:mt-20 lg:grid-cols-2 lg:gap-9">
-            {SOLUTIONS.map((s, i) => (
-              <Reveal key={s.title} anim={i === 0 ? "left" : "right"} delay={i * 0.1}>
-                <div className="flex h-full flex-col rounded-2xl border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] p-7 transition-all duration-300 hover:-translate-y-1 hover:border-[color:var(--brand-moss-40)] hover:shadow-xl lg:p-9">
-                  <span className="grid size-12 place-items-center rounded-xl bg-[color:var(--brand-moss)] text-[color:var(--brand-cream)]">
-                    <Icon name={s.icon} className="size-6" />
-                  </span>
-                  <p className="label mt-5 text-[13px] text-[color:var(--brand-moss)]">
-                    {s.kicker}
-                  </p>
-                  <h3 className="mt-2 text-[22px] font-bold leading-tight tracking-[-0.02em] lg:text-[26px]">
-                    {s.title}
-                  </h3>
-                  <p className="mt-3 text-[15px] leading-relaxed text-[color:var(--brand-muted)]">{s.lead}</p>
-
-                  <p className="label mt-6 text-[13px] text-[color:var(--brand-ink)]">
-                    Key properties
-                  </p>
-                  <ul className="mt-3 grid gap-2.5">
-                    {s.features.map((f) => (
-                      <li key={f} className="flex gap-2.5 text-[14.5px] leading-snug">
-                        <Leaf className="mt-0.5 size-4 shrink-0 text-[color:var(--brand-moss)]" strokeWidth={1.8} aria-hidden />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-
-          <Reveal>
-            <h3 className="mt-14 text-[22px] font-bold tracking-[-0.02em] lg:mt-16 lg:text-[26px]">Benefits</h3>
-          </Reveal>
-          <div className="mt-6 grid gap-4 sm:grid-cols-3">
-            {CLIMATE_BENEFITS.map((b, i) => (
-              <Reveal key={b.title} delay={i * 0.08}>
-                <div className="flex h-full items-start gap-3.5 rounded-xl border border-[color:var(--brand-line)] p-5">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-[color:var(--brand-moss-10)] text-[color:var(--brand-moss)]">
-                    <Icon name={b.icon} />
-                  </span>
-                  <span>
-                    <span className="block text-[15px] font-bold">{b.title}</span>
-                    <span className="mt-0.5 block text-[13.5px] leading-snug text-[color:var(--brand-muted)]">{b.text}</span>
-                  </span>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════ Полноширинный акцентный блок «53,000 km²» ═══════════
-           Приём с референса: крупная цифра на сплошной заливке во всю ширину.
-           Заливка ЗОЛОТАЯ (была олива) — по прямой просьбе. Что важно знать:
-
-           1. Текст по золоту только тёмный. Ink 8.8:1, ink-85 6.6:1 — оба
-              проходят AA. Cream по золоту дал бы 1.8:1, то есть светлого текста
-              здесь быть не может ни в заголовке, ни в подписи.
-           2. Полоса стоит между двумя кремовыми секциями, поэтому у неё есть
-              собственная волосяная граница сверху и снизу: золото по крему —
-              переход мягче, чем прежняя олива, и без линии полоса «растекалась».
-           3. Раскладка выровнена по ВЕРХУ (items-start), а не по центру и не по
-              низу. Столбы разной высоты: слева цифра, справа абзац со списком.
-              По центру они висели вразнобой; по нижнему краю над цифрой
-              открывалась дыра в четверть полосы — на широком экране левая
-              колонка просто уезжала вниз. По верху кикер и первая строка абзаца
-              встают на одну линию, и полоса читается как разворот.
-           4. Текстура мха идёт через mix-blend-multiply: зелёные пятна по золоту
-              дают тёплое оливковое зерно. Отдельного «золотого» набора тонов ей
-              не понадобилось — множением получается ровно нужный оттенок. */}
-      <section className="band-gold relative overflow-hidden border-y border-[color:var(--brand-gold-line)] py-20 lg:py-28">
-        <MossTexture
-          seed={13}
-          density={260}
-          className="absolute inset-0 h-full w-full opacity-[0.16] mix-blend-multiply"
-        />
-        <div className="relative mx-auto grid w-full max-w-[1460px] gap-12 px-5 sm:px-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-start lg:gap-20 lg:px-14">
-          <Reveal anim="left">
-            <p className="label text-[12px] text-[color:var(--brand-ink-85)]">Raw-material base</p>
-            <span className="mt-4 block h-px w-14 bg-[color:var(--brand-ink)]" aria-hidden />
-            {/* Цифра крупнее прежних 68px, и продолжает расти до xl. Две причины.
-                На золоте она единственный носитель контраста — мелкая тонет в
-                заливке. И она уравновешивает правую колонку: там абзац плюс три
-                строки фактов, слева всего две строки, и на 1700+ левая половина
-                полосы пустовала, пока цифра не набрала массу.
-                Перенос по словам запрещён (nowrap): «53,000 km²» ломалось после
-                запятой и читалось как два разных числа. */}
-            <p className="display mt-7 whitespace-nowrap text-[44px] leading-[0.95] text-[color:var(--brand-ink)] sm:text-[64px] lg:text-[84px] xl:text-[104px]">
-              <CountUp value="53,000 km²" />
-            </p>
-            <p className="display mt-3 text-[24px] leading-[1.1] text-[color:var(--brand-ink-85)] sm:text-[30px] lg:text-[34px] xl:text-[40px]">
-              of pristine wetland
-            </p>
-          </Reveal>
-
-          <Reveal anim="right" delay={0.1}>
-            <p className="max-w-[56ch] text-[15.5px] leading-relaxed text-[color:var(--brand-ink-85)] sm:text-base">
-              The Vasyugan wetlands of Western Siberia form the world&rsquo;s largest wetland system and the base of our
-              raw material. Harvesting is deliberately shallow: the bog closes over and the same field is cut again a few
-              years later. That is what makes it renewable, unlike peat, which takes thousands of years to form.
-            </p>
-
-            {/* dl, а не набор div: это буквально пары «значение — расшифровка»,
-                и скринридер должен объявить их связанными.
-                stagger — строки выезжают по очереди ПОСЛЕ раскрытия колонки, а не
-                вместе с ней (правило живёт в sphagnum-styles.tsx и заведено от
-                родительского .reveal.in — иначе лесенка отыграла бы на монтировании,
-                пока полоса ещё за экраном). */}
-            <dl className="stagger mt-9 border-t border-[color:var(--brand-gold-line)]">
-              {WETLAND_FACTS.map((f) => (
-                <div
-                  key={f.value}
-                  className="flex items-baseline gap-5 border-b border-[color:var(--brand-gold-line)] py-3.5 sm:gap-7"
-                >
-                  <dt className="display w-[86px] shrink-0 text-[19px] leading-none text-[color:var(--brand-ink)] sm:w-[104px] sm:text-[22px]">
-                    {f.value}
-                  </dt>
-                  <dd className="text-[14px] leading-snug text-[color:var(--brand-ink-85)] sm:text-[15px]">{f.text}</dd>
-                </div>
-              ))}
-            </dl>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ═══════════ РАЗДЕЛ 3 — ПОЧЕМУ ЗЕЛЕНЬ ИМЕЕТ ЗНАЧЕНИЕ ═══════════ */}
-      <section className="bg-[color:var(--brand-cream)] py-24 lg:py-36">
-        <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20 mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
-          <Reveal anim="left">
-            <SectionHead kicker="Why greenery matters" title="Why conventional soils fail" />
-            {/* max-w по символам, а не по пикселям. Колонка тут ровно половина
-                контейнера, и на 1440+ строка разгонялась до ~78 знаков — выше
-                читаемого диапазона 65–75. Ограничение в ch держит длину строки
-                постоянной на любой ширине и не зависит от кегля. */}
-            <p className="mt-5 max-w-[64ch] text-[15.5px] leading-relaxed text-[color:var(--brand-muted)] sm:text-base">
-              Poor substrate selection is a leading cause of landscape failure. Inconsistent soil mixes stress plants,
-              increase replacement costs and create handover risks. The result is a weaker appearance and lower
-              perceived project quality.
-            </p>
-
-            {/* Цитата набрана крупнее текста вокруг и держит собственную ширину:
-                это смысловая вершина раздела, а не ещё один абзац. Линейка стала
-                тоньше и длиннее по вертикали — толстая в 3px спорила с антиквой. */}
-            <blockquote className="my-8 border-l-2 border-[color:var(--brand-moss)] pl-6">
-              <p className="display max-w-[42ch] text-[21px] font-semibold leading-[1.35] tracking-[-0.01em] text-[color:var(--brand-ink)] sm:text-[24px]">
-                &ldquo;Landscape quality is visible quality. Residents and visitors judge a development by the condition
-                of its greenery.&rdquo;
-              </p>
-            </blockquote>
-
-            <p className="max-w-[64ch] text-[15.5px] leading-relaxed text-[color:var(--brand-muted)] sm:text-base">
-              For developers, architects and asset managers, landscape performance affects reputation, rental appeal and
-              resident satisfaction. Greenery survives only with the right substrate. Standard soils are not designed
-              for hot climates, roof-load limits or water scarcity.
-            </p>
-          </Reveal>
-
-          <Reveal anim="right" delay={0.12}>
-            {/* Пока кадра террасы нет — витрина материала (см. MossLedgeFigure).
-                Появится URL в WHY_PHOTO.photo — ветка сама уйдёт на фотографию,
-                правки кода не потребуется. */}
-            {WHY_PHOTO.photo ? (
-              <figure className="overflow-hidden rounded-2xl">
-                <PhotoSlot ratio="4/3" shot={WHY_PHOTO.shot} alt={WHY_PHOTO.alt} src={WHY_PHOTO.photo} />
-              </figure>
-            ) : (
-              <MossLedgeFigure alt={WHY_SPECIMEN.alt} caption={WHY_SPECIMEN.caption} />
-            )}
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ═══════════ РАЗДЕЛ 4 — SPHAGNUM FUSCUM ═══════════ */}
-      <section id="fuscum" className="relative overflow-hidden bg-[color:var(--brand-ink)] py-20 text-[color:var(--brand-cream)] lg:py-28">
-        {/* Живая текстура мха фоном секции — генерируется, а не берётся из стока */}
-        <MossTexture dark seed={41} density={320} className="absolute inset-0 h-full w-full opacity-40" />
-        {/* Скрим поверх текстуры: зерно шло прямо под абзацами и мешало читать */}
-        <div
-          aria-hidden
-          className="absolute inset-0"
-          style={{ background: "linear-gradient(180deg, rgba(14,28,21,.72) 0%, rgba(14,28,21,.55) 45%, rgba(14,28,21,.78) 100%)" }}
-        />
-        <div className="relative mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
-          <Reveal>
-            <SectionHead
-              light
-              kicker="Flagship product"
-              title="Sphagnum Fuscum — live moss that performs where soil cannot"
-            />
-            <p className="mt-5 max-w-3xl text-[15.5px] leading-relaxed text-[color:var(--brand-cream-72)] sm:text-base">
-              Sphagnum fuscum grows in the pristine Vasyugan wetlands of Western Siberia, the world&rsquo;s largest
-              wetland system, spanning 53,000 km². Unlike peat, it is harvested alive, retaining its natural structure,
-              antimicrobial compounds and exceptional moisture-holding capacity.
-            </p>
-          </Reveal>
-
-          <div className="mt-14 grid overflow-hidden rounded-2xl border border-[color:var(--brand-cream-15)] sm:grid-cols-2 lg:mt-20 lg:grid-cols-4">
-            {FUSCUM_METRICS.map((m, i) => (
-              <Reveal key={m.value} anim="scale" delay={i * 0.08} className="h-full">
-                <div
-                  className={`h-full bg-[color:var(--brand-ink-90)] p-6 backdrop-blur-sm lg:p-8 ${
-                    // Границы только между ячейками: у первой в ряду её быть не должно,
-                    // иначе она удвоит внешнюю рамку контейнера.
-                    i % 2 === 1 ? "sm:border-l sm:border-[color:var(--brand-cream-15)]" : ""
-                  } ${i > 0 ? "border-t border-[color:var(--brand-cream-15)] sm:border-t-0 lg:border-l lg:border-[color:var(--brand-cream-15)]" : ""} ${
-                    i >= 2 ? "sm:border-t sm:border-[color:var(--brand-cream-15)] lg:border-t-0" : ""
-                  }`}
-                >
-                  <p className="display text-[34px] font-extrabold leading-none tracking-[-0.03em] text-[#C3D45F] lg:text-[42px]">
-                    <CountUp value={m.value} />
-                  </p>
-                  <p className="mt-3 text-[14px] leading-snug text-[color:var(--brand-cream-72)]">{m.label}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-
-          {/* Ключевое заявление продукта — картинкой, а не строкой в списке */}
-          <Reveal anim="scale" delay={0.05}>
-            <div className="mt-8 lg:mt-10">
-              <WaterBattery />
-            </div>
-          </Reveal>
-
-          {/* battery отфильтрован: он показан выносным блоком выше, в сетке был дублем */}
-          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {FUSCUM_PROPERTIES.filter((p) => p.icon !== "battery").map((p, i) => (
-              <Reveal key={p.title} delay={i * 0.08}>
-                <div className="flex h-full gap-4 rounded-2xl border border-[color:var(--brand-cream-15)] bg-[color:var(--brand-cream-04)] p-6 transition-colors duration-300 hover:border-[#C3D45F]/40 hover:bg-[color:var(--brand-cream-07)]">
-                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#C3D45F]/15 text-[#C3D45F]">
-                    <Icon name={p.icon} />
-                  </span>
-                  <span>
-                    <span className="block text-[16px] font-bold">{p.title}</span>
-                    <span className="mt-1.5 block text-[14px] leading-relaxed text-[color:var(--brand-cream-72)]">{p.text}</span>
-                  </span>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-
-          <Reveal delay={0.1}>
-            <a
-              href="#contact"
-              className="btn btn-accent mt-10 inline-flex text-[14px]"
-            >
-              Request a Sample and Specification
-              <ArrowUpRight className="size-5" strokeWidth={2} />
-            </a>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ═══════════ РАЗДЕЛ 5 — SUBSTRATE PLATFORM ═══════════ */}
-      <section className="bg-[color:var(--brand-cream)] py-24 lg:py-36">
-        <div className="mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
-          <Reveal>
-            <SectionHead
-              kicker="Substrate platform for outdoors"
-              title="Engineered root-zone performance"
-            />
-          </Reveal>
-
-          <div className="mt-14 grid gap-7 lg:mt-20 lg:grid-cols-3">
-            {PLATFORM_PILLARS.map((p, i) => (
-              <Reveal key={p.title} anim="scale" delay={i * 0.1}>
-                <div className="h-full rounded-2xl bg-[color:var(--brand-cream)] p-7 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg lg:p-8">
-                  <span className="grid size-12 place-items-center rounded-xl bg-[color:var(--brand-cream)] text-[color:var(--brand-moss)] shadow-sm">
-                    <Icon name={p.icon} className="size-6" />
-                  </span>
-                  <h3 className="mt-5 text-[19px] font-bold leading-tight tracking-[-0.01em]">{p.title}</h3>
-                  <p className="mt-2.5 text-[14.5px] leading-relaxed text-[color:var(--brand-muted)]">{p.text}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-
-          <Reveal>
-            <h3 className="display mt-16 text-[24px] font-bold tracking-[-0.02em] lg:text-[30px]">Benefits</h3>
-          </Reveal>
-          {/* Нумерация в олива-акценте: раньше шесть одинаковых блоков с одной
-              лишь верхней линейкой сливались в серую сетку без точек входа. */}
-          <div className="mt-6 grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
-            {PLATFORM_BENEFITS.map((b, i) => (
-              <Reveal key={b.title} delay={(i % 3) * 0.07}>
-                <div className="group border-t-2 border-[color:var(--brand-line)] pt-5 transition-colors duration-300 hover:border-[color:var(--brand-moss)]">
-                  <span className="display block text-[13px] font-extrabold tracking-[0.08em] text-[color:var(--brand-moss)]">
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <h4 className="mt-2 text-[16px] font-bold">{b.title}</h4>
-                  <p className="mt-2 text-[14.5px] leading-relaxed text-[color:var(--brand-muted)]">{b.text}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-
-          <Reveal>
-            <h3 className="display mt-16 text-[24px] font-bold tracking-[-0.02em] lg:text-[30px]">Product range</h3>
-          </Reveal>
-          <div className="mt-6 grid gap-4 lg:grid-cols-3">
-            {PRODUCT_LINE.map((p, i) => (
-              <Reveal key={p.name} delay={i * 0.08}>
-                <div className="flex h-full items-baseline gap-4 rounded-xl border border-[color:var(--brand-line)] p-6">
-                  <span className="display shrink-0 text-[20px] font-extrabold tracking-[-0.02em] text-[color:var(--brand-moss)]">
-                    {p.name}
-                  </span>
-                  <span className="text-[14.5px] leading-snug text-[color:var(--brand-muted)]">{p.text}</span>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-
-          <Reveal>
-            <a
-              href="#contact"
-              className="btn btn-primary mt-10 inline-flex text-[14px]"
-            >
-              Request Technical Details
-              <ArrowUpRight className="size-5" strokeWidth={2} />
-            </a>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ═══════════ РАЗДЕЛ 6 — ПРИМЕНЕНИЕ ═══════════ */}
-      <section id="applications" className="bg-[color:var(--brand-cream)] py-24 lg:py-36">
-        <div className="mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
-          <Reveal>
-            <SectionHead kicker="Applications" title="Where our solutions perform" />
-          </Reveal>
-
-          <div className="mt-14 grid gap-10 lg:mt-20">
-            {APPLICATIONS.map((a, i) => (
-              <Reveal key={a.title} anim={i % 2 === 0 ? "left" : "right"} delay={0.05}>
-                <article
-                  className={`grid items-center gap-6 overflow-hidden rounded-2xl bg-[color:var(--brand-cream)] lg:grid-cols-2 lg:gap-0 ${
-                    i % 2 === 1 ? "lg:[&>figure]:order-2" : ""
-                  }`}
-                >
-                  {/* Пока кадра нет — схема применения вместо заглушки, см.
-                      комментарий у APPLICATIONS. Зум по наведению остаётся
-                      только у фотографии: схему увеличивать незачем, а её
-                      подписи при scale замылились бы. */}
-                  <figure className="m-0 overflow-hidden">
-                    {a.photo ? (
-                      <PhotoSlot
-                        ratio="16/10"
-                        shot={a.shot}
-                        alt={a.alt}
-                        src={a.photo}
-                        className="h-full transition-transform duration-700 ease-out hover:scale-[1.03]"
-                      />
-                    ) : (
-                      <ApplicationDiagram kind={a.diagram} label={a.diagramAlt} />
-                    )}
-                  </figure>
-                  <div className="p-6 sm:p-8 lg:p-12">
-                    {/* Номер был Playfair 13px мохом — в макете он читался
-                        случайной пылинкой. Теперь тот же капсовый гротеск, что у
-                        кикеров разделов, и с линейкой: получается «пункт 01 из
-                        трёх», а не декоративная цифра. */}
-                    <span className="flex items-center gap-3">
-                      <span className="label text-[11px] leading-none text-[color:var(--brand-moss)]">0{i + 1}</span>
-                      <span className="h-px w-8 bg-[color:var(--brand-line)]" aria-hidden />
-                    </span>
-                    <h3 className="mt-4 text-[22px] font-bold leading-tight tracking-[-0.02em] lg:text-[28px]">
-                      {a.title}
-                    </h3>
-                    <p className="mt-3.5 max-w-[58ch] text-[15px] leading-relaxed text-[color:var(--brand-muted)]">
-                      {a.text}
-                    </p>
-                  </div>
-                </article>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════ РАЗДЕЛ 7 — ПРОЕКТЫ ═══════════ */}
-      <section id="projects" className="bg-[color:var(--brand-cream)] py-24 lg:py-36">
-        <div className="mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
-          <Reveal>
-            <SectionHead kicker="Completed projects" title="Sites where our solutions already perform" />
-          </Reveal>
-
-          <div className="mt-14 grid gap-7 sm:grid-cols-2 lg:mt-20">
-            {PROJECTS.map((p, i) => (
-              <Reveal key={p.tag} anim="scale" delay={(i % 2) * 0.1}>
-                <article className="group h-full overflow-hidden rounded-2xl border border-[color:var(--brand-line)] transition-all duration-300 hover:-translate-y-1 hover:border-[color:var(--brand-moss-40)] hover:shadow-xl">
-                  <PhotoSlot
-                    ratio="16/10"
-                    shot={p.shot}
-                    alt={p.alt}
-                    src={p.photo || undefined}
-                    className="transition-transform duration-500 group-hover:scale-[1.03]"
-                  />
-                  <div className="p-6 lg:p-7">
-                    <span className="inline-block rounded-full bg-[color:var(--brand-moss-10)] px-3 py-1 text-[12px] font-semibold text-[color:var(--brand-moss)]">
-                      {p.tag}
-                    </span>
-                    <h3 className="mt-3 text-[19px] font-bold leading-tight tracking-[-0.01em]">{p.title}</h3>
-                    <p className="mt-2 text-[14.5px] leading-relaxed text-[color:var(--brand-muted)]">{p.text}</p>
-                  </div>
-                </article>
-              </Reveal>
-            ))}
-          </div>
-
-          <Reveal>
-            <a
-              href="#contact"
-              className="btn btn-primary mt-10 inline-flex text-[14px]"
-            >
-              Discuss Your Project
-              <ArrowUpRight className="size-5" strokeWidth={2} />
-            </a>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ═══════════ РАЗДЕЛ 8 — ADVANTAGES ═══════════ */}
-      <section id="advantages" className="bg-[color:var(--brand-ink)] py-20 text-[color:var(--brand-cream)] lg:py-28">
-        <div className="mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
-          <Reveal>
-            <SectionHead light kicker="Why us" title="Sphagnum Eco — advantages" />
-          </Reveal>
-
-          <div className="mt-14 grid gap-x-14 gap-y-12 sm:grid-cols-2 lg:mt-20">
-            {ADVANTAGES.map((a, i) => (
-              <Reveal key={a.num} delay={(i % 2) * 0.1}>
-                <div className="border-t border-[color:var(--brand-cream-15)] pt-6">
-                  <span className="display block text-[15px] font-extrabold tracking-[0.06em] text-[color:var(--brand-sage)]">
-                    {a.num}
-                  </span>
-                  <h3 className="mt-2.5 text-[20px] font-bold leading-tight tracking-[-0.01em]">{a.title}</h3>
-                  <p className="mt-2.5 text-[14.5px] leading-relaxed text-[color:var(--brand-cream-72)]">{a.text}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-
-          <Reveal>
-            <div className="mt-14 flex flex-wrap gap-2.5">
-              {TAGS.map((t) => (
-                <span
-                  key={t}
-                  className="rounded-full border border-[color:var(--brand-cream-15)] px-4 py-2 text-[13px] font-medium text-[color:var(--brand-cream-85)]"
-                >
-                  {t}
-                </span>
-              ))}
-            </div>
-          </Reveal>
-        </div>
-      </section>
 
       {/* ═══════════ РАЗДЕЛ 11 — FAQ ═══════════ */}
       <section id="faq" className="bg-[color:var(--brand-cream)] py-24 lg:py-36">
-        <div className="mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
+        <div className="pdf-grid">
           <Reveal>
             <SectionHead kicker="FAQ" title="Frequently asked questions" />
           </Reveal>
@@ -1442,7 +1197,7 @@ export default function SphagnumLanding() {
           style={{ background: "linear-gradient(180deg, rgba(20,24,15,.80) 0%, rgba(20,24,15,.62) 50%, rgba(20,24,15,.86) 100%)" }}
         />
 
-        <div className="relative grid gap-14 lg:grid-cols-[1fr_500px] lg:gap-20 mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
+        <div className="relative grid gap-14 lg:grid-cols-[1fr_500px] lg:gap-20 pdf-grid">
           <div>
             <Reveal anim="left">
               <SectionHead
@@ -1511,7 +1266,7 @@ export default function SphagnumLanding() {
 
       {/* ═══════════ ПОДВАЛ ═══════════ */}
       <footer className="bg-[color:var(--brand-ink)] py-8 text-[color:var(--brand-cream-72)]">
-        <div className="flex flex-col gap-2 text-[13px] sm:flex-row sm:items-center mx-auto w-full max-w-[1460px] px-5 sm:px-8 lg:px-14">
+        <div className="flex flex-col gap-2 text-[13px] sm:flex-row sm:items-center pdf-grid">
           <p>© 2026 Sphagnum Eco · Natural Substrates · All rights reserved.</p>
           <a href={`mailto:${CONTACT.email}`} className="hover:text-[color:var(--brand-cream)] sm:ml-auto">
             {CONTACT.email}
