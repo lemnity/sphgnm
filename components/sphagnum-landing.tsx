@@ -61,7 +61,7 @@ import applicationArid from "./assets/reference/crops/application-moisture-retai
 import solutionsHangingVines from "./assets/reference/crops/solutions-hanging-vines-transparent.png";
 import { SphagnumLogo } from "./sphagnum-logo";
 import { SphagnumStyles } from "./sphagnum-styles";
-import { MossTexture } from "./sphagnum-visuals";
+import { LivingWall, MossTexture } from "./sphagnum-visuals";
 import {
   ADVANTAGES,
   APPLICATIONS,
@@ -919,6 +919,12 @@ export default function SphagnumLanding() {
           Слушатель курсора живёт на секции героя (heroRef), а не на холсте: холст
           pointer-events:none, да и ловить надо движение над всем первым экраном.
         */}
+        <LivingWall
+          src={receptionWall.src}
+          pointerTargetRef={heroRef}
+          className="absolute inset-0"
+          style={{ filter: HERO_BG_FILTER }}
+        />
         {/*
           Затемнение под текст. Раньше был один диагональный градиент — на
           десктопе он работал, но на узком экране контент занимает ВСЮ ширину,
