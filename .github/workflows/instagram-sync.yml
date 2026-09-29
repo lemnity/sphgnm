@@ -1,0 +1,67 @@
+name: Sync Instagram portfolio
+
+# Автопубликация постов @sphagnum_eco в блок «Global portfolios».
+# Вебхука «вышел новый пост» у Instagram API нет, поэтому опрашиваем по
+# расписанию. Если посты изменились — коммитим ленту и запускаем деплой.
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+    # Отдельный запуск раз в неделю — в нём же продлевается токен.
+    - cron: "15 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: instagram-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Долгоживущий токен Instagram живёт 60 дней. Раз в неделю (понедельник,
+      # 03:15 UTC) продлеваем его и перезаписываем секрет. Писать секреты
+      # GITHUB_TOKEN не умеет — нужен PAT в секрете GH_SECRETS_TOKEN
+      # (fine-grained, доступ к этому репозиторию, Secrets: Read and write).
+      # Без него шаг пропускается, и токен придётся обновлять руками.
+      - name: Refresh Instagram token
+        if: github.event.schedule == '15 3 * * 1'
+        env:
+          GH_SECRETS_TOKEN: ${{ secrets.GH_SECRETS_TOKEN }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$GH_SECRETS_TOKEN" ]; then echo "GH_SECRETS_TOKEN не задан — продление пропущено."; exit 0; fi
+          token=$(curl -sf "https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${INSTAGRAM_ACCESS_TOKEN}" | jq -r '.access_token // empty')
+          if [ -z "$token" ]; then echo "::warning::Не удалось продлить токен Instagram"; exit 0; fi
+          echo "::add-mask::$token"
+          GH_TOKEN="$GH_SECRETS_TOKEN" gh secret set INSTAGRAM_ACCESS_TOKEN --body "$token" --repo "$GITHUB_REPOSITORY"
+          echo "Токен Instagram продлён."
+
+      - name: Fetch posts
+        env:
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+        run: node scripts/sync-instagram.mjs
+
+      - name: Commit and deploy if changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git add components/instagram-feed.json public/instagram
+          if git diff --cached --quiet; then
+            echo "Новых постов нет."; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(instagram): синхронизация постов @sphagnum_eco"
+          git push
+          # Пуш от GITHUB_TOKEN не запускает другие workflow — деплой зовём явно.
+          gh workflow run deploy.yml --ref "${GITHUB_REF_NAME}"

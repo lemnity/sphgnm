@@ -33,6 +33,7 @@ import {
   Flower2,
   Globe2,
   HandHeart,
+  Instagram,
   Layers3,
   RefreshCcw,
   Shovel,
@@ -59,6 +60,7 @@ import applicationRoof from "./assets/reference/crops/application-green-roof-lay
 import applicationWall from "./assets/reference/crops/application-vertical-garden.webp";
 import applicationArid from "./assets/reference/crops/application-moisture-retaining-mat.webp";
 import solutionsHangingVines from "./assets/reference/crops/solutions-hanging-vines-transparent.png";
+import instagramFeed from "./instagram-feed.json";
 import { SphagnumLogo } from "./sphagnum-logo";
 import { SphagnumStyles } from "./sphagnum-styles";
 import { LivingWall, MossTexture } from "./sphagnum-visuals";
@@ -144,6 +146,29 @@ const ICONS = {
 
 const SOLUTION_IMAGES = [solutionMoss, solutionSoil] as const;
 const PROJECT_IMAGES = [projectOasis, projectSkyline, projectValkyrie] as const;
+/* Посты Instagram кладёт в public/instagram скрипт scripts/sync-instagram.mjs
+   (его гоняет workflow instagram-sync по расписанию). Файлы из public — не
+   статические импорты, basePath к ним Next сам не допишет: добавляем вручную. */
+type InstagramFeed = {
+  username: string;
+  profile: string;
+  posts: { id: string; permalink: string; caption: string; timestamp: string; mediaType: string; image: string }[];
+};
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+const INSTAGRAM_FEED: InstagramFeed = instagramFeed;
+const INSTAGRAM_POSTS = INSTAGRAM_FEED.posts.map((post) => {
+  const [first = "", ...rest] = post.caption.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  const title = first.length > 70 ? `${first.slice(0, 67).trimEnd()}…` : first || "Sphagnum Eco";
+  return {
+    id: post.id,
+    href: post.permalink,
+    image: `${BASE_PATH}/${post.image}`,
+    title,
+    text: rest.join(" "),
+    date: new Date(post.timestamp).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }),
+  };
+});
+
 const APPLICATION_IMAGES = [applicationRoof, applicationWall, applicationArid] as const;
 const TAG_ICONS = ["moss", "refresh", "circleOff", "flask", "hand", "globe"] as const;
 
@@ -621,10 +646,15 @@ function PdfAlignedSections({
         <img data-reference-visual="portfolio-dots" src={portfolioDots.src} alt="" aria-hidden className="pointer-events-none absolute bottom-2 left-[191.25px] hidden h-auto w-[212.5px] mix-blend-lighten lg:block" />
         <div data-reference-visual="portfolio-baseline" aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-2 bg-[linear-gradient(to_bottom,#8d782d_0%,#c4a239_45%,#c4a239_100%)]" />
         <div className="pdf-grid relative grid gap-10 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <div><p className="label inline-block border border-[color:var(--brand-gold)] px-3 py-2 text-[10px] text-[color:var(--brand-gold)]">Global portfolios</p><h2 className="portfolio-title mt-8 text-[42px] leading-[1.02] sm:text-[54px]">Flagship <span className="block text-[color:var(--brand-gold)]">Installations</span></h2><span className="mt-8 block h-px w-16 bg-[color:var(--brand-gold)]" /><p className="mt-8 text-[15px] leading-relaxed text-[color:var(--brand-cream-72)]">Stunning green installations designed for reliable performance, visual impact and demanding climates.</p></div>
+          <div><p className="label inline-block border border-[color:var(--brand-gold)] px-3 py-2 text-[10px] text-[color:var(--brand-gold)]">Global portfolios</p><h2 className="portfolio-title mt-8 text-[42px] leading-[1.02] sm:text-[54px]">Flagship <span className="block text-[color:var(--brand-gold)]">Installations</span></h2><span className="mt-8 block h-px w-16 bg-[color:var(--brand-gold)]" /><p className="mt-8 text-[15px] leading-relaxed text-[color:var(--brand-cream-72)]">Stunning green installations designed for reliable performance, visual impact and demanding climates.</p>{INSTAGRAM_POSTS.length > 0 ? <a href={INSTAGRAM_FEED.profile} target="_blank" rel="noopener noreferrer" className="label mt-8 inline-flex items-center gap-2 text-[10px] text-[color:var(--brand-gold)]"><Instagram className="size-4" strokeWidth={1.6} aria-hidden />@{INSTAGRAM_FEED.username}</a> : null}</div>
           <div className="min-w-0">
             <div ref={projectsRef} className="hide-scrollbar flex snap-x snap-mandatory gap-5 overflow-x-auto pb-4">
-              {PROJECTS.map((project, index) => (
+              {INSTAGRAM_POSTS.length > 0 ? INSTAGRAM_POSTS.map((post) => (
+                <article key={post.id} className="group flex w-[82vw] max-w-[360px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-[rgba(215,177,94,.28)] bg-[#082117] first:border-[color:var(--brand-gold)] sm:w-[330px]">
+                  <a href={post.href} target="_blank" rel="noopener noreferrer" className="block overflow-hidden"><img src={post.image} alt={post.title} loading="lazy" className="h-[300px] w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]" /></a>
+                  <div className="flex flex-1 flex-col p-6"><span className="grid size-10 place-items-center rounded-lg border border-[rgba(215,177,94,.55)] text-[color:var(--brand-gold)]"><Instagram className="size-5" strokeWidth={1.6} aria-hidden /></span><h3 className="mt-5 line-clamp-3 text-[23px] leading-tight text-[color:var(--brand-gold)]">{post.title}</h3><span className="mt-4 h-px w-9 bg-[color:var(--brand-gold)]" /><p className="mt-4 line-clamp-4 flex-1 text-[13.5px] leading-relaxed text-[color:var(--brand-cream-72)]">{post.text}</p><a href={post.href} target="_blank" rel="noopener noreferrer" className="label mt-6 flex items-center gap-2 text-[10px] text-[color:var(--brand-gold)]">{post.date} · View on Instagram <ArrowUpRight className="size-4" /></a></div>
+                </article>
+              )) : PROJECTS.map((project, index) => (
                 <article key={project.title} className="group flex w-[82vw] max-w-[360px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-[rgba(215,177,94,.28)] bg-[#082117] first:border-[color:var(--brand-gold)] sm:w-[330px]">
                   <img src={PROJECT_IMAGES[index].src} alt={project.alt} className="h-[300px] w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]" />
                   <div className="flex flex-1 flex-col p-6"><span className="grid size-10 place-items-center rounded-lg border border-[rgba(215,177,94,.55)] text-[color:var(--brand-gold)]"><Icon name={project.icon} /></span><h3 className="mt-5 text-[23px] leading-tight text-[color:var(--brand-gold)]">{project.title}</h3><span className="mt-4 h-px w-9 bg-[color:var(--brand-gold)]" /><p className="mt-4 flex-1 text-[13.5px] leading-relaxed text-[color:var(--brand-cream-72)]">{project.text}</p><a href="#contact" className="label mt-6 flex items-center gap-2 text-[10px] text-[color:var(--brand-gold)]">Discuss project <ArrowRight className="size-4" /></a></div>
