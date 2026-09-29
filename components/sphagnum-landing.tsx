@@ -34,6 +34,7 @@ import {
   Globe2,
   HandHeart,
   Instagram,
+  Play,
   Layers3,
   RefreshCcw,
   Shovel,
@@ -61,6 +62,7 @@ import applicationWall from "./assets/reference/crops/application-vertical-garde
 import applicationArid from "./assets/reference/crops/application-moisture-retaining-mat.webp";
 import solutionsHangingVines from "./assets/reference/crops/solutions-hanging-vines-transparent.png";
 import instagramFeed from "./instagram-feed.json";
+import { SphagnumLoader } from "./sphagnum-loader";
 import { SphagnumLogo } from "./sphagnum-logo";
 import { SphagnumStyles } from "./sphagnum-styles";
 import { LivingWall, MossTexture } from "./sphagnum-visuals";
@@ -152,7 +154,7 @@ const PROJECT_IMAGES = [projectOasis, projectSkyline, projectValkyrie] as const;
 type InstagramFeed = {
   username: string;
   profile: string;
-  posts: { id: string; permalink: string; caption: string; timestamp: string; mediaType: string; image: string }[];
+  posts: { id: string; permalink: string; caption: string; timestamp: string; mediaType: string; image: string; video?: string }[];
 };
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const INSTAGRAM_FEED: InstagramFeed = instagramFeed;
@@ -163,6 +165,7 @@ const INSTAGRAM_POSTS = INSTAGRAM_FEED.posts.map((post) => {
     id: post.id,
     href: post.permalink,
     image: `${BASE_PATH}/${post.image}`,
+    video: post.video ? `${BASE_PATH}/${post.video}` : null,
     title,
     text: rest.join(" "),
     date: new Date(post.timestamp).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }),
@@ -184,6 +187,36 @@ const VINE_BRANCHES = [
   { clipPath: "inset(0 7% 12% 78%)", anchor: 0.855, x: 0.9, y: 0.8, rotate: 1.04, duration: 620 },
   { clipPath: "inset(0 0 0 87%)", anchor: 0.935, x: 1.08, y: 0.7, rotate: -1.16, duration: 700 },
 ] as const;
+
+/** Медиа поста Instagram. Ролик без звука крутится, только пока карточка
+    видна: девять одновременно играющих видео в слайдере — лишняя нагрузка. */
+function InstagramMedia({ image, video, alt }: { image: string; video: string | null; alt: string }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    const element = videoRef.current;
+    if (!element) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) element.play().catch(() => {});
+        else element.pause();
+      },
+      { threshold: 0.6 },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  const className = "aspect-[4/5] w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]";
+  if (!video) return <img src={image} alt={alt} loading="lazy" className={className} />;
+  return (
+    <>
+      <video ref={videoRef} src={video} poster={image} muted loop playsInline preload="none" aria-label={alt} className={className} />
+      <span className="pointer-events-none absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-[rgba(0,11,7,.55)] text-[color:var(--brand-gold)]"><Play className="size-4" strokeWidth={1.6} aria-hidden /></span>
+    </>
+  );
+}
 
 function Icon({ name, className = "size-5" }: { name: string; className?: string }) {
   const C = ICONS[name as keyof typeof ICONS] ?? Leaf;
@@ -651,7 +684,7 @@ function PdfAlignedSections({
             <div ref={projectsRef} className="hide-scrollbar flex snap-x snap-mandatory gap-5 overflow-x-auto pb-4">
               {INSTAGRAM_POSTS.length > 0 ? INSTAGRAM_POSTS.map((post) => (
                 <article key={post.id} className="group flex w-[82vw] max-w-[360px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-[rgba(215,177,94,.28)] bg-[#082117] first:border-[color:var(--brand-gold)] sm:w-[330px]">
-                  <a href={post.href} target="_blank" rel="noopener noreferrer" className="block overflow-hidden"><img src={post.image} alt={post.title} loading="lazy" className="h-[300px] w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]" /></a>
+                  <a href={post.href} target="_blank" rel="noopener noreferrer" className="relative block overflow-hidden"><InstagramMedia image={post.image} video={post.video} alt={post.title} /></a>
                   <div className="flex flex-1 flex-col p-6"><span className="grid size-10 place-items-center rounded-lg border border-[rgba(215,177,94,.55)] text-[color:var(--brand-gold)]"><Instagram className="size-5" strokeWidth={1.6} aria-hidden /></span><h3 className="mt-5 line-clamp-3 text-[23px] leading-tight text-[color:var(--brand-gold)]">{post.title}</h3><span className="mt-4 h-px w-9 bg-[color:var(--brand-gold)]" /><p className="mt-4 line-clamp-4 flex-1 text-[13.5px] leading-relaxed text-[color:var(--brand-cream-72)]">{post.text}</p><a href={post.href} target="_blank" rel="noopener noreferrer" className="label mt-6 flex items-center gap-2 text-[10px] text-[color:var(--brand-gold)]">{post.date} · View on Instagram <ArrowUpRight className="size-4" /></a></div>
                 </article>
               )) : PROJECTS.map((project, index) => (
@@ -750,6 +783,7 @@ export default function SphagnumLanding() {
   return (
     <div className="sph scroll-smooth">
       <SphagnumStyles />
+      <SphagnumLoader />
 
       {/*
         ═══════════ ШАПКА (фиксированная) ═══════════

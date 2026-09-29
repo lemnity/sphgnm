@@ -6,7 +6,8 @@
 //
 // Что делает:
 //   1. берёт последние INSTAGRAM_LIMIT постов (по умолчанию 9);
-//   2. скачивает картинки в public/instagram/<id>.jpg — ссылки CDN Instagram
+//   2. скачивает картинки в public/instagram/<id>.jpg, а для видео и рилсов —
+//      ещё и ролик <id>.mp4 (обложка остаётся постером). Ссылки CDN Instagram
 //      протухают через несколько дней, хранить их в JSON нельзя;
 //   3. пишет components/instagram-feed.json, который читает лендинг;
 //   4. удаляет картинки постов, выпавших из выборки.
@@ -27,6 +28,9 @@ const IMAGE_DIR = path.join(root, "public/instagram");
 const token = process.env.INSTAGRAM_ACCESS_TOKEN;
 const limit = Number(process.env.INSTAGRAM_LIMIT || 9);
 const API = "https://graph.instagram.com/v23.0";
+// Ролики тяжелее картинок и копятся в истории git: слишком большой не качаем,
+// в карточке тогда останется обложка со ссылкой на пост.
+const MAX_VIDEO_BYTES = Number(process.env.INSTAGRAM_MAX_VIDEO_MB || 20) * 1024 * 1024;
 
 if (!token) {
   console.warn("INSTAGRAM_ACCESS_TOKEN не задан — синхронизация пропущена, остаётся текущий instagram-feed.json.");
@@ -45,13 +49,40 @@ async function api(pathname, params) {
   return body;
 }
 
-// Для видео и рилсов media_url — это mp4, в <img> он не встанет: берём обложку.
-// У карусели первым слайдом может оказаться видео — тогда ищем первую картинку
-// среди детей, а если картинок нет, обложку первого видео.
+// Ролик поста: у видео это media_url, у карусели — первый слайд, если он видео.
+function pickVideo(media) {
+  if (media.media_type === "VIDEO") return media.media_url;
+  if (media.media_type === "CAROUSEL_ALBUM") {
+    const first = media.children?.data?.[0];
+    if (first?.media_type === "VIDEO") return first.media_url;
+  }
+  return null;
+}
+
+async function download(url, target) {
+  const existing = await readFile(target).catch(() => null);
+  // Медиа поста после публикации не меняется: уже скачанное не тянем повторно,
+  // иначе каждый прогон давал бы бинарный дифф и пустой коммит.
+  if (existing) return true;
+  const response = await fetch(url);
+  if (!response.ok) return false;
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (target.endsWith(".mp4") && buffer.length > MAX_VIDEO_BYTES) {
+    console.warn(`Ролик ${path.basename(target)} больше лимита (${(buffer.length / 1048576).toFixed(1)} МБ) — оставляем обложку.`);
+    return false;
+  }
+  await writeFile(target, buffer);
+  return true;
+}
+
+// Для видео и рилсов media_url — это mp4, в <img> он не встанет: берём обложку,
+// она же постер ролика. Если карусель начинается с видео — обложка этого видео,
+// иначе первая картинка карусели.
 function pickImage(media) {
   if (media.media_type === "IMAGE") return media.media_url;
   if (media.media_type === "VIDEO") return media.thumbnail_url;
   const children = media.children?.data ?? [];
+  if (children[0]?.media_type === "VIDEO") return children[0].thumbnail_url ?? media.thumbnail_url;
   const image = children.find((child) => child.media_type === "IMAGE");
   if (image) return image.media_url;
   return children[0]?.thumbnail_url ?? media.thumbnail_url ?? media.media_url;
@@ -70,18 +101,13 @@ for (const media of data.slice(0, limit)) {
   const source = pickImage(media);
   if (!source) continue;
   const file = `${media.id}.jpg`;
-  const target = path.join(IMAGE_DIR, file);
-  const existing = await readFile(target).catch(() => null);
-  // Пост в Instagram не меняет картинку после публикации: уже скачанную не
-  // тянем повторно, иначе каждый прогон давал бы бинарный дифф и пустой коммит.
-  if (!existing) {
-    const response = await fetch(source);
-    if (!response.ok) {
-      console.warn(`Картинка поста ${media.id} не скачалась (${response.status}) — пост пропущен.`);
-      continue;
-    }
-    await writeFile(target, Buffer.from(await response.arrayBuffer()));
+  if (!(await download(source, path.join(IMAGE_DIR, file)))) {
+    console.warn(`Картинка поста ${media.id} не скачалась — пост пропущен.`);
+    continue;
   }
+  const videoSource = pickVideo(media);
+  const videoFile = `${media.id}.mp4`;
+  const hasVideo = videoSource ? await download(videoSource, path.join(IMAGE_DIR, videoFile)) : false;
   posts.push({
     id: media.id,
     permalink: media.permalink,
@@ -89,13 +115,14 @@ for (const media of data.slice(0, limit)) {
     timestamp: media.timestamp,
     mediaType: media.media_type,
     image: `instagram/${file}`,
+    ...(hasVideo ? { video: `instagram/${videoFile}` } : {}),
   });
 }
 
-// Подчищаем картинки постов, которые выпали из выборки (или удалены в Instagram).
-const keep = new Set(posts.map((post) => `${post.id}.jpg`));
+// Подчищаем медиа постов, которые выпали из выборки (или удалены в Instagram).
+const keep = new Set(posts.flatMap((post) => [post.image, post.video].filter(Boolean).map((file) => path.basename(file))));
 for (const file of await readdir(IMAGE_DIR)) {
-  if (file.endsWith(".jpg") && !keep.has(file)) await rm(path.join(IMAGE_DIR, file));
+  if (/\.(jpg|mp4)$/.test(file) && !keep.has(file)) await rm(path.join(IMAGE_DIR, file));
 }
 
 // Без метки времени синхронизации: файл меняется только когда меняются посты,
