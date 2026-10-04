@@ -13,22 +13,34 @@ export type GalleryPhoto = {
   date: string;
 };
 
-/** Плитка-ролик: крутится без звука, только пока видна на экране, — как в
-    ленте Instagram. При «уменьшить движение» остаётся постер. */
+/** Плитка-ролик: без звука и по кругу, не останавливается. Грузиться начинает,
+    когда плитка впервые попадает на экран, — чтобы шесть роликов не тянулись
+    вместе со страницей. Если браузер сам поставит ролик на паузу (вкладка
+    ушла в фон и вернулась, энергосбережение), запускаем снова. При «уменьшить
+    движение» остаётся постер. */
 function TileVideo({ src, poster, alt }: { src: string; poster: string; alt: string }) {
   const ref = useRef<HTMLVideoElement | null>(null);
   useEffect(() => {
     const element = ref.current;
     if (!element || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) element.play().catch(() => {});
-        else element.pause();
-      },
-      { threshold: 0.5 },
-    );
+    let started = false;
+    const play = () => {
+      if (started && !document.hidden) element.play().catch(() => {});
+    };
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      observer.disconnect();
+      started = true;
+      element.addEventListener("pause", play);
+      play();
+    });
     observer.observe(element);
-    return () => observer.disconnect();
+    document.addEventListener("visibilitychange", play);
+    return () => {
+      observer.disconnect();
+      element.removeEventListener("pause", play);
+      document.removeEventListener("visibilitychange", play);
+    };
   }, []);
   return <video ref={ref} src={src} poster={poster} muted loop playsInline preload="none" aria-label={alt} className="block h-auto w-full transition-transform duration-700 group-hover:scale-[1.04]" />;
 }
