@@ -28,3 +28,9 @@ next-env.d.ts
 # подставят реальные фото. Пересоздаются: node scripts/screenshots.mjs
 # Хотите держать их в репозитории — удалите строку ниже.
 screenshots/
+
+# Исходники, из которых собраны галерея и лоадер: выгрузки из Google Drive
+# (оригиналы PNG и MP4, ~300 МБ — на сайт идут сжатые копии из
+# public/instagram/archive) и CodePen tree-loader, чей рисунок брать нельзя.
+drive-download-*/
+tree-loader/

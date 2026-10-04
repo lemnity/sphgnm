@@ -46,7 +46,7 @@ try {
       "two solutions for urban greening at every scale",
       "53,000 km²",
       "engineered root-zone performance",
-      "flagship installations",
+      "our gallery",
       "where our solutions perform",
       "sphagnum eco — advantages",
     ];
@@ -305,7 +305,9 @@ try {
     invariant(metrics.solutionCards.every((card) => card.titleHeight >= card.titleLineHeight * 1.9), `Solution titles do not preserve the source line breaks: ${JSON.stringify(metrics.solutionCards)}`);
     invariant(metrics.rawPanel && metrics.rawPanel.width >= 1540, `Raw-material panel is too narrow: ${metrics.rawPanel?.width}`);
     invariant(metrics.benefitsSurface && metrics.benefitsSurface.width >= 1680, `Benefits surface does not reach viewport edges: ${metrics.benefitsSurface?.width}`);
-    invariant(metrics.primaryBottom >= 10_100 && metrics.primaryBottom <= 10_400, `Primary PDF flow ends at ${metrics.primaryBottom}px`);
+    // Блок портфолио — masonry-галерея Instagram (фото и вертикальные рилсы)
+    // вместо слайдера из PDF: поток стал примерно на 1700px длиннее.
+    invariant(metrics.primaryBottom >= 11_800 && metrics.primaryBottom <= 12_200, `Primary PDF flow ends at ${metrics.primaryBottom}px`);
     invariant(metrics.applicationWidths.every((width) => width >= 735), `Application images are too small: ${metrics.applicationWidths.map(Math.round).join(", ")}`);
     invariant(metrics.rootMask !== "none", "Root-zone scene has no softened top transition");
     invariant(metrics.backgrounds.living === "rgb(250, 250, 250)", `Living-wall surround is ${metrics.backgrounds.living}`);
@@ -391,76 +393,24 @@ try {
     invariant(JSON.stringify(numbers) === JSON.stringify(["01", "02", "03"]), `Found numbering: ${numbers.join(", ")}`);
   });
 
-  await check("portfolio heading does not overlap the project rail at 1685px and 1280px", async () => {
-    const viewports = [
-      { label: "1685px", page: desktop },
-      {
-        label: "1280px",
-        page: await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" }),
-      },
-    ];
-    const overlaps = [];
-
-    try {
-      await settlePage(viewports[1].page);
-      for (const viewport of viewports) {
-        const headingTextRight = await viewport.page.locator("#projects h2").evaluate((heading) => {
-          const walker = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT);
-          let right = Number.NEGATIVE_INFINITY;
-          let textNode = walker.nextNode();
-          while (textNode) {
-            if (textNode.textContent?.trim()) {
-              const range = document.createRange();
-              range.selectNodeContents(textNode);
-              right = Math.max(right, range.getBoundingClientRect().right);
-            }
-            textNode = walker.nextNode();
-          }
-          return right;
-        });
-        const railBox = await viewport.page.locator("#projects .hide-scrollbar").boundingBox();
-        invariant(Number.isFinite(headingTextRight), `Portfolio heading text is not rendered at ${viewport.label}`);
-        invariant(railBox, `Project rail is not rendered at ${viewport.label}`);
-
-        const railLeft = railBox.x;
-        const tolerance = 2;
-        if (headingTextRight > railLeft + tolerance) {
-          overlaps.push(
-            `${viewport.label}: heading glyphs end at ${headingTextRight.toFixed(1)}px, rail starts at ${railLeft.toFixed(1)}px`,
-          );
-        }
-      }
-    } finally {
-      await viewports[1].page.close();
-    }
-    invariant(overlaps.length === 0, `Portfolio overlap — ${overlaps.join("; ")}`);
-  });
-
-  await check("portfolio heading keeps the light reference weight", async () => {
-    const weight = await desktop.locator("#projects h2").evaluate((heading) => Number.parseInt(getComputedStyle(heading).fontWeight, 10));
-    invariant(weight <= 400, `Expected portfolio heading weight <= 400, found ${weight}`);
-  });
-
-  await check("project controls move the overflowing mobile rail forward and backward", async () => {
+  await check("portfolio gallery opens a photo and steps to the next one", async () => {
     const mobile = await browser.newPage({
       viewport: { width: 390, height: 844 },
       reducedMotion: "reduce",
     });
     try {
       await settlePage(mobile);
-      const rail = mobile.locator("#projects .hide-scrollbar");
-      await rail.evaluate((element) => element.scrollTo({ left: 0, behavior: "instant" }));
-      const initial = await rail.evaluate((element) => element.scrollLeft);
-
-      await mobile.getByRole("button", { name: "Next projects" }).click();
-      await mobile.waitForTimeout(900);
-      const afterNext = await rail.evaluate((element) => element.scrollLeft);
-      invariant(afterNext > initial, `Next did not increase scrollLeft at 390px (${initial} → ${afterNext})`);
-
-      await mobile.getByRole("button", { name: "Previous projects" }).click();
-      await mobile.waitForTimeout(900);
-      const afterPrevious = await rail.evaluate((element) => element.scrollLeft);
-      invariant(afterPrevious < afterNext, `Previous did not decrease scrollLeft at 390px (${afterNext} → ${afterPrevious})`);
+      const tiles = mobile.locator("#projects li button");
+      invariant((await tiles.count()) > 0, "Portfolio gallery has no photos");
+      await tiles.first().click();
+      const dialog = mobile.getByRole("dialog");
+      await dialog.waitFor();
+      const counter = async () => (await dialog.innerText()).match(/(\d+) \/ \d+/)?.[1];
+      invariant((await counter()) === "1", "Gallery did not open on the first photo");
+      await mobile.getByRole("button", { name: "Next photo" }).click();
+      invariant((await counter()) === "2", "Next photo did not advance the gallery");
+      await mobile.keyboard.press("Escape");
+      await dialog.waitFor({ state: "detached" });
     } finally {
       await mobile.close();
     }

@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   ArrowRight,
-  ArrowLeft,
   ArrowUpRight,
   CheckCircle2,
   Droplets,
@@ -33,8 +32,6 @@ import {
   Flower2,
   Globe2,
   HandHeart,
-  Instagram,
-  Play,
   Layers3,
   RefreshCcw,
   Shovel,
@@ -54,14 +51,13 @@ import livingWallWide from "./assets/reference/crops/living-wall-wide.jpg";
 import rootZoneStrip from "./assets/reference/crops/root-zone-soil-strip.webp";
 import portfolioBotanical from "./assets/reference/crops/portfolio-botanical-original.webp";
 import portfolioDots from "./assets/reference/crops/portfolio-dots-original.webp";
-import projectOasis from "./assets/reference/crops/portfolio-oasis-resort.webp";
-import projectSkyline from "./assets/reference/crops/portfolio-skyline-business-centre.webp";
-import projectValkyrie from "./assets/reference/crops/portfolio-valkyrie-residential-park.webp";
 import applicationRoof from "./assets/reference/crops/application-green-roof-layers.webp";
 import applicationWall from "./assets/reference/crops/application-vertical-garden.webp";
 import applicationArid from "./assets/reference/crops/application-moisture-retaining-mat.webp";
 import solutionsHangingVines from "./assets/reference/crops/solutions-hanging-vines-transparent.png";
+import instagramArchive from "./instagram-archive.json";
 import instagramFeed from "./instagram-feed.json";
+import { InstagramGallery } from "./instagram-gallery";
 import { SphagnumLoader } from "./sphagnum-loader";
 import { SphagnumLogo } from "./sphagnum-logo";
 import { SphagnumStyles } from "./sphagnum-styles";
@@ -79,7 +75,6 @@ import {
   PLATFORM_BENEFITS,
   PLATFORM_PILLARS,
   PRODUCT_LINE,
-  PROJECTS,
   PROJECT_TYPES,
   CONTACT_DELIVERABLES,
   SOLUTIONS,
@@ -147,7 +142,6 @@ const ICONS = {
 } as const;
 
 const SOLUTION_IMAGES = [solutionMoss, solutionSoil] as const;
-const PROJECT_IMAGES = [projectOasis, projectSkyline, projectValkyrie] as const;
 /* Посты Instagram кладёт в public/instagram скрипт scripts/sync-instagram.mjs
    (его гоняет workflow instagram-sync по расписанию). Файлы из public — не
    статические импорты, basePath к ним Next сам не допишет: добавляем вручную. */
@@ -158,6 +152,7 @@ type InstagramFeed = {
 };
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const INSTAGRAM_FEED: InstagramFeed = instagramFeed;
+const DATE_FORMAT: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" };
 const INSTAGRAM_POSTS = INSTAGRAM_FEED.posts.map((post) => {
   const [first = "", ...rest] = post.caption.split(/\n+/).map((line) => line.trim()).filter(Boolean);
   const title = first.length > 70 ? `${first.slice(0, 67).trimEnd()}…` : first || "Sphagnum Eco";
@@ -168,9 +163,28 @@ const INSTAGRAM_POSTS = INSTAGRAM_FEED.posts.map((post) => {
     video: post.video ? `${BASE_PATH}/${post.video}` : null,
     title,
     text: rest.join(" "),
-    date: new Date(post.timestamp).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }),
+    date: new Date(post.timestamp).toLocaleDateString("en-GB", DATE_FORMAT),
   };
 });
+/* Архив профиля, выгруженный вручную: кадры постов (в том числе каждый слайд
+   каруселей) и рилсы (mp4 + постер) лежат в public/instagram/archive, подписи — в
+   components/instagram-archive.json. Галерея показывает его, пока синхронизация
+   с Instagram не принесла живые посты. Ссылок на сами посты в выгрузке нет —
+   ведём в профиль. */
+// Сначала обложки постов (новые → старые), за ними внутренние слайды каруселей:
+// в первых рядах — лица постов, а не текстовые карточки из середины каруселей.
+const ARCHIVE_PHOTOS = [0, 1].flatMap((pass) => instagramArchive.flatMap((post) =>
+  (pass === 0 ? post.slides.slice(0, 1) : post.slides.slice(1)).map((slide) => ({
+    id: slide,
+    href: INSTAGRAM_FEED.profile,
+    image: `${BASE_PATH}/${slide}`,
+    video: post.video ? `${BASE_PATH}/${post.video}` : null,
+    title: post.title,
+    text: "",
+    date: new Date(`${post.date}T00:00:00Z`).toLocaleDateString("en-GB", DATE_FORMAT),
+  })),
+));
+const GALLERY_PHOTOS = INSTAGRAM_POSTS.length > 0 ? INSTAGRAM_POSTS : ARCHIVE_PHOTOS;
 
 const APPLICATION_IMAGES = [applicationRoof, applicationWall, applicationArid] as const;
 const TAG_ICONS = ["moss", "refresh", "circleOff", "flask", "hand", "globe"] as const;
@@ -187,36 +201,6 @@ const VINE_BRANCHES = [
   { clipPath: "inset(0 7% 12% 78%)", anchor: 0.855, x: 0.9, y: 0.8, rotate: 1.04, duration: 620 },
   { clipPath: "inset(0 0 0 87%)", anchor: 0.935, x: 1.08, y: 0.7, rotate: -1.16, duration: 700 },
 ] as const;
-
-/** Медиа поста Instagram. Ролик без звука крутится, только пока карточка
-    видна: девять одновременно играющих видео в слайдере — лишняя нагрузка. */
-function InstagramMedia({ image, video, alt }: { image: string; video: string | null; alt: string }) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-
-  useEffect(() => {
-    const element = videoRef.current;
-    if (!element) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) element.play().catch(() => {});
-        else element.pause();
-      },
-      { threshold: 0.6 },
-    );
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
-  const className = "aspect-[4/5] w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]";
-  if (!video) return <img src={image} alt={alt} loading="lazy" className={className} />;
-  return (
-    <>
-      <video ref={videoRef} src={video} poster={image} muted loop playsInline preload="none" aria-label={alt} className={className} />
-      <span className="pointer-events-none absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-[rgba(0,11,7,.55)] text-[color:var(--brand-gold)]"><Play className="size-4" strokeWidth={1.6} aria-hidden /></span>
-    </>
-  );
-}
 
 function Icon({ name, className = "size-5" }: { name: string; className?: string }) {
   const C = ICONS[name as keyof typeof ICONS] ?? Leaf;
@@ -419,13 +403,7 @@ function Field({
   );
 }
 
-function PdfAlignedSections({
-  projectsRef,
-  onScrollProjects,
-}: {
-  projectsRef: React.RefObject<HTMLDivElement | null>;
-  onScrollProjects: (direction: -1 | 1) => void;
-}) {
+function PdfAlignedSections() {
   const productSectionRef = useRef<HTMLElement | null>(null);
   const vinesRef = useRef<HTMLDivElement | null>(null);
 
@@ -678,24 +656,8 @@ function PdfAlignedSections({
         <img data-reference-visual="portfolio-botanical" src={portfolioBotanical.src} alt="" aria-hidden className="pointer-events-none absolute bottom-2 left-0 hidden h-auto w-[191.25px] mix-blend-lighten lg:block" />
         <img data-reference-visual="portfolio-dots" src={portfolioDots.src} alt="" aria-hidden className="pointer-events-none absolute bottom-2 left-[191.25px] hidden h-auto w-[212.5px] mix-blend-lighten lg:block" />
         <div data-reference-visual="portfolio-baseline" aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-2 bg-[linear-gradient(to_bottom,#8d782d_0%,#c4a239_45%,#c4a239_100%)]" />
-        <div className="pdf-grid relative grid gap-10 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <div><p className="label inline-block border border-[color:var(--brand-gold)] px-3 py-2 text-[10px] text-[color:var(--brand-gold)]">Global portfolios</p><h2 className="portfolio-title mt-8 text-[42px] leading-[1.02] sm:text-[54px]">Flagship <span className="block text-[color:var(--brand-gold)]">Installations</span></h2><span className="mt-8 block h-px w-16 bg-[color:var(--brand-gold)]" /><p className="mt-8 text-[15px] leading-relaxed text-[color:var(--brand-cream-72)]">Stunning green installations designed for reliable performance, visual impact and demanding climates.</p>{INSTAGRAM_POSTS.length > 0 ? <a href={INSTAGRAM_FEED.profile} target="_blank" rel="noopener noreferrer" className="label mt-8 inline-flex items-center gap-2 text-[10px] text-[color:var(--brand-gold)]"><Instagram className="size-4" strokeWidth={1.6} aria-hidden />@{INSTAGRAM_FEED.username}</a> : null}</div>
-          <div className="min-w-0">
-            <div ref={projectsRef} className="hide-scrollbar flex snap-x snap-mandatory gap-5 overflow-x-auto pb-4">
-              {INSTAGRAM_POSTS.length > 0 ? INSTAGRAM_POSTS.map((post) => (
-                <article key={post.id} className="group flex w-[82vw] max-w-[360px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-[rgba(215,177,94,.28)] bg-[#082117] first:border-[color:var(--brand-gold)] sm:w-[330px]">
-                  <a href={post.href} target="_blank" rel="noopener noreferrer" className="relative block overflow-hidden"><InstagramMedia image={post.image} video={post.video} alt={post.title} /></a>
-                  <div className="flex flex-1 flex-col p-6"><span className="grid size-10 place-items-center rounded-lg border border-[rgba(215,177,94,.55)] text-[color:var(--brand-gold)]"><Instagram className="size-5" strokeWidth={1.6} aria-hidden /></span><h3 className="mt-5 line-clamp-3 text-[23px] leading-tight text-[color:var(--brand-gold)]">{post.title}</h3><span className="mt-4 h-px w-9 bg-[color:var(--brand-gold)]" /><p className="mt-4 line-clamp-4 flex-1 text-[13.5px] leading-relaxed text-[color:var(--brand-cream-72)]">{post.text}</p><a href={post.href} target="_blank" rel="noopener noreferrer" className="label mt-6 flex items-center gap-2 text-[10px] text-[color:var(--brand-gold)]">{post.date} · View on Instagram <ArrowUpRight className="size-4" /></a></div>
-                </article>
-              )) : PROJECTS.map((project, index) => (
-                <article key={project.title} className="group flex w-[82vw] max-w-[360px] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-[rgba(215,177,94,.28)] bg-[#082117] first:border-[color:var(--brand-gold)] sm:w-[330px]">
-                  <img src={PROJECT_IMAGES[index].src} alt={project.alt} className="h-[300px] w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]" />
-                  <div className="flex flex-1 flex-col p-6"><span className="grid size-10 place-items-center rounded-lg border border-[rgba(215,177,94,.55)] text-[color:var(--brand-gold)]"><Icon name={project.icon} /></span><h3 className="mt-5 text-[23px] leading-tight text-[color:var(--brand-gold)]">{project.title}</h3><span className="mt-4 h-px w-9 bg-[color:var(--brand-gold)]" /><p className="mt-4 flex-1 text-[13.5px] leading-relaxed text-[color:var(--brand-cream-72)]">{project.text}</p><a href="#contact" className="label mt-6 flex items-center gap-2 text-[10px] text-[color:var(--brand-gold)]">Discuss project <ArrowRight className="size-4" /></a></div>
-                </article>
-              ))}
-            </div>
-            <div className="mt-5 flex justify-end gap-3"><button type="button" onClick={() => onScrollProjects(-1)} aria-label="Previous projects" className="grid size-12 place-items-center border border-[color:var(--brand-gold)] text-[color:var(--brand-gold)] transition-colors hover:bg-[color:var(--brand-gold)] hover:text-[color:var(--brand-ink)]"><ArrowLeft /></button><button type="button" onClick={() => onScrollProjects(1)} aria-label="Next projects" className="grid size-12 place-items-center bg-[color:var(--brand-gold)] text-[color:var(--brand-ink)]"><ArrowRight /></button></div>
-          </div>
+        <div className="pdf-grid">
+          <InstagramGallery photos={GALLERY_PHOTOS} profile={INSTAGRAM_FEED.profile} username={INSTAGRAM_FEED.username} />
         </div>
       </section>
 
@@ -738,14 +700,6 @@ export default function SphagnumLanding() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [stripCard, setStripCard] = useState(0);
   const heroRef = useRef<HTMLElement | null>(null);
-  const projectsRef = useRef<HTMLDivElement | null>(null);
-
-  const scrollProjects = (direction: -1 | 1) => {
-    projectsRef.current?.scrollBy({
-      left: direction * Math.min(projectsRef.current.clientWidth * 0.82, 430),
-      behavior: "smooth",
-    });
-  };
 
   // Автокарусель нижней полосы героя — 3500 мс, как в референсе.
   useEffect(() => {
@@ -806,10 +760,14 @@ export default function SphagnumLanding() {
         }
       >
         {/* Верхний служебный ярус — как у референса: второстепенные ссылки и язык
-            уводятся из основного меню, чтобы оно не разрасталось. */}
+            уводятся из основного меню, чтобы оно не разрасталось. При прокрутке
+            ярус схлопывается: к верху экрана прилипает только главное меню. */}
         <div
-          className={`hidden border-b transition-colors lg:block ${
-            scrolled ? "border-[color:var(--brand-line)] bg-[color:var(--brand-cream)]" : "border-[color:var(--brand-cream-15)] bg-[color:var(--brand-ink-45)]"
+          aria-hidden={scrolled || undefined}
+          className={`hidden overflow-hidden border-b transition-[max-height,opacity,visibility,border-color,background-color] duration-300 lg:block ${
+            scrolled
+              ? "invisible max-h-0 border-transparent opacity-0"
+              : "visible max-h-16 border-[color:var(--brand-cream-15)] bg-[color:var(--brand-ink-45)] opacity-100"
           }`}
         >
           <div className="flex items-center justify-end gap-7 py-2.5 pdf-grid">
@@ -1207,7 +1165,7 @@ export default function SphagnumLanding() {
         </div>
         </div>
       </section>
-      <PdfAlignedSections projectsRef={projectsRef} onScrollProjects={scrollProjects} />
+      <PdfAlignedSections />
 
 
       {/* ═══════════ РАЗДЕЛ 11 — FAQ ═══════════ */}

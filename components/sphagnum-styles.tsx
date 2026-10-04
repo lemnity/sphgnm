@@ -202,7 +202,7 @@ export function SphagnumStyles() {
 .sph .btn-ghost { border: 2px solid currentColor; }
 
 /* Якорная навигация из фиксированной шапки: без отступа заголовок уезжает под неё. */
-.sph section[id] { scroll-margin-top: 116px; }
+.sph section[id] { scroll-margin-top: 82px; }
 .sph [data-reference-visual="portfolio-botanical"],
 .sph [data-reference-visual="portfolio-dots"] { filter: contrast(1.2); }
 

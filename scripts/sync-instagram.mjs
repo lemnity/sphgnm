@@ -5,7 +5,7 @@
 // (Instagram Login, graph.instagram.com) с долгоживущим токеном аккаунта.
 //
 // Что делает:
-//   1. берёт последние INSTAGRAM_LIMIT постов (по умолчанию 9);
+//   1. берёт последние INSTAGRAM_LIMIT постов (по умолчанию 18) для галереи блока;
 //   2. скачивает картинки в public/instagram/<id>.jpg, а для видео и рилсов —
 //      ещё и ролик <id>.mp4 (обложка остаётся постером). Ссылки CDN Instagram
 //      протухают через несколько дней, хранить их в JSON нельзя;
@@ -26,7 +26,7 @@ const FEED_FILE = path.join(root, "components/instagram-feed.json");
 const IMAGE_DIR = path.join(root, "public/instagram");
 
 const token = process.env.INSTAGRAM_ACCESS_TOKEN;
-const limit = Number(process.env.INSTAGRAM_LIMIT || 9);
+const limit = Number(process.env.INSTAGRAM_LIMIT || 18);
 const API = "https://graph.instagram.com/v23.0";
 // Ролики тяжелее картинок и копятся в истории git: слишком большой не качаем,
 // в карточке тогда останется обложка со ссылкой на пост.

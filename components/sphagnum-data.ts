@@ -8,7 +8,7 @@ export const NAV_LINKS = [
   { id: "product", label: "Products" },
   { id: "applications", label: "Applications" },
   { id: "fuscum", label: "Sphagnum Fuscum" },
-  { id: "projects", label: "Projects" },
+  { id: "projects", label: "Gallery" },
   { id: "advantages", label: "Why Us" },
   { id: "faq", label: "FAQ" },
   { id: "contact", label: "Contact" },
