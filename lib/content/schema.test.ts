@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { checkMediaPath, validateGallery, validateSiteContent } from "./schema.ts";
+import { checkHref, checkMediaPath, validateGallery, validateSiteContent } from "./schema.ts";
 
 const readJson = (name: string) => JSON.parse(readFileSync(new URL(`../../content/${name}`, import.meta.url), "utf8"));
 // Каждый тест портит свою копию.
@@ -178,4 +178,51 @@ test("site и gallery: недопустимые пути попадают в с�
   assert.equal(galleryErrors.length, 2);
   assert.match(galleryErrors[0], /^gallery\[0\]\.src: /);
   assert.match(galleryErrors[1], /^gallery\[1\]\.poster: /);
+});
+
+test("checkHref: допустимые ссылки", () => {
+  for (const ok of [
+    "https://www.instagram.com/sphagnum_eco/",
+    "http://example.com",
+    "HTTPS://EXAMPLE.COM",
+    "mailto:info@example.com",
+    "tel:+79990000000",
+    "#contact",
+    "/catalog",
+    "./price.pdf",
+    "media/price.pdf",
+  ]) {
+    assert.equal(checkHref(ok), null, ok);
+  }
+});
+
+test("checkHref: опасные и чужие схемы отклоняются", () => {
+  for (const bad of [
+    "",
+    "javascript:alert(1)",
+    "JavaScript:alert(1)",
+    " javascript:alert(1)",
+    "java\tscript:alert(1)",
+    "data:text/html,<script>alert(1)</script>",
+    "vbscript:msgbox(1)",
+    "file:///etc/passwd",
+    "ftp://example.com",
+    "//evil.example",
+  ]) {
+    assert.notEqual(checkHref(bad), null, JSON.stringify(bad));
+  }
+});
+
+test("site: все поля-ссылки проверяются", () => {
+  const content = site();
+  content.strip.intro.linkHref = "javascript:alert(1)";
+  content.gallery.profileUrl = "data:text/html,x";
+  content.nav.links[0].target = "javascript:alert(1)";
+  content.nav.links[1].target = "#applications";
+  const errors = validateSiteContent(content);
+  assert.equal(errors.length, 4, errors.join("\n"));
+  assert.match(errors[0], /^nav\.links\[0\]\.target: /);
+  assert.match(errors[1], /^nav\.links\[1\]\.target: /);
+  assert.match(errors[2], /^strip\.intro\.linkHref: /);
+  assert.match(errors[3], /^gallery\.profileUrl: /);
 });

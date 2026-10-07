@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createRateLimiter } from "./rate-limit.ts";
+import { createLoginLimiter, createRateLimiter } from "./rate-limit.ts";
 
 const WINDOW = 15 * 60 * 1000;
 
@@ -36,4 +36,34 @@ test("старые неудачи забываются", () => {
   limiter.fail("a", 0);
   limiter.fail("a", WINDOW + 1);
   assert.equal(limiter.retryAfter("a", WINDOW + 2), 0);
+});
+
+test("число ключей ограничено: истёкшие и самые давние вытесняются", () => {
+  const limiter = createRateLimiter({ limit: 3, windowMs: WINDOW, maxKeys: 100 });
+  for (let i = 0; i < 1000; i += 1) limiter.fail(`k${i}`, i);
+  assert.ok(limiter.size() <= 100, `ключей: ${limiter.size()}`);
+  // Свежий ключ на месте, самый первый вытеснен.
+  limiter.fail("k999", 1000);
+  limiter.fail("k999", 1001);
+  assert.ok(limiter.retryAfter("k999", 1002) > 0);
+  assert.equal(limiter.retryAfter("k0", 1002), 0);
+});
+
+test("общий потолок: не больше 50 неудач за 15 минут по всем ключам", () => {
+  const limiter = createLoginLimiter();
+  for (let i = 0; i < 50; i += 1) {
+    assert.equal(limiter.retryAfter(`ip${i}`, i), 0);
+    limiter.fail(`ip${i}`, i);
+  }
+  assert.ok(limiter.retryAfter("ещё-не-было", 50) > 0);
+  assert.equal(limiter.retryAfter("ещё-не-было", WINDOW + 50), 0);
+});
+
+test("общий потолок не сбрасывается успешным входом", () => {
+  const limiter = createLoginLimiter(10, 3);
+  limiter.fail("a", 0);
+  limiter.fail("b", 1);
+  limiter.fail("c", 2);
+  limiter.reset("a");
+  assert.ok(limiter.retryAfter("a", 3) > 0);
 });

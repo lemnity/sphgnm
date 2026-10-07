@@ -42,15 +42,28 @@ type Env = Record<string, string | undefined>;
 export type SecretResult = { secret: string } | { error: string };
 
 // Модули роутов в Next собираются раздельно, поэтому общее состояние процесса держим на globalThis.
-const state = globalThis as typeof globalThis & { __sphAdminDevSecret?: string };
+const state = globalThis as typeof globalThis & { __sphAdminDevSecret?: string; __sphAdminShortSecretWarned?: boolean };
 
 /**
  * Секрет подписи. В dev без ADMIN_SESSION_SECRET берём случайный на время жизни процесса
  * (после перезапуска сервера придётся войти заново). В production без секрета вход запрещён.
  */
+export const MIN_SECRET_LENGTH = 32;
+
 export function resolveSessionSecret(env: Env = process.env): SecretResult {
   const secret = env.ADMIN_SESSION_SECRET?.trim();
-  if (secret) return { secret };
+  if (secret) {
+    if (secret.length >= MIN_SECRET_LENGTH) return { secret };
+    // Короткий секрет подбирается перебором, а с ним — подделка любой сессии.
+    if (env.NODE_ENV === "production") {
+      return { error: `ADMIN_SESSION_SECRET короче ${MIN_SECRET_LENGTH} символов: вход в админку отключён. Задайте длинную случайную строку (см. .env.example).` };
+    }
+    if (!state.__sphAdminShortSecretWarned) {
+      state.__sphAdminShortSecretWarned = true;
+      console.warn(`[admin] ADMIN_SESSION_SECRET короче ${MIN_SECRET_LENGTH} символов — в production вход с ним будет отключён.`);
+    }
+    return { secret };
+  }
   if (env.NODE_ENV === "production") {
     return { error: "ADMIN_SESSION_SECRET не задан: вход в админку отключён. Задайте его в .env.local (см. .env.example)." };
   }
@@ -62,11 +75,12 @@ export function resolveSessionSecret(env: Env = process.env): SecretResult {
 }
 
 /**
- * Настройки cookie. secure — в production, но его можно выключить через ADMIN_COOKIE_SECURE=false,
- * пока на сервере нет HTTPS: иначе браузер не сохранит cookie и вход молча не сработает.
+ * Настройки cookie. secure — в production; выключается только явным ADMIN_COOKIE_SECURE=false,
+ * пока на сервере нет HTTPS (иначе браузер не сохранит cookie и вход молча не сработает).
+ * Любое другое значение, включая опечатки, оставляет Secure.
  */
 export function sessionCookieOptions(env: Env = process.env) {
-  const secure = env.ADMIN_COOKIE_SECURE ? env.ADMIN_COOKIE_SECURE === "true" : env.NODE_ENV === "production";
+  const secure = env.NODE_ENV === "production" && env.ADMIN_COOKIE_SECURE !== "false";
   return {
     httpOnly: true,
     sameSite: "strict" as const,

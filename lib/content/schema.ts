@@ -152,7 +152,7 @@ export type GalleryItem = {
 /* Описание формы site.json для проверки. Держать в паре с типом SiteContent:
    тест прогоняет через него настоящий content/site.json, так что расхождение
    вылезет сразу. */
-type Shape = "string" | "path" | "icon" | Shape[] | { [key: string]: Shape };
+type Shape = "string" | "path" | "icon" | "href" | "anchor" | Shape[] | { [key: string]: Shape };
 
 const IMAGE: Shape = { src: "path", alt: "string" };
 const ICON_TEXT: Shape = { icon: "icon", title: "string", text: "string" };
@@ -161,14 +161,14 @@ const SITE_SHAPE: Shape = {
   meta: { title: "string", description: "string", shareDescription: "string" },
   contacts: { person: "string", role: "string", phone: "string", email: "string" },
   nav: {
-    links: [{ label: "string", target: "string" }],
+    links: [{ label: "string", target: "anchor" }],
     ctaLabel: "string",
     openMenuLabel: "string",
     closeMenuLabel: "string",
   },
   hero: { title: "string", subtitle: "string", ctaLabel: "string", bullets: ["string"], image: IMAGE },
   strip: {
-    intro: { text: "string", linkLabel: "string", linkHref: "string" },
+    intro: { text: "string", linkLabel: "string", linkHref: "href" },
     cards: [{ icon: "icon", text: "string" }],
     fact: { value: "string", text: "string" },
   },
@@ -198,7 +198,7 @@ const SITE_SHAPE: Shape = {
     title: "string",
     titleAccent: "string",
     username: "string",
-    profileUrl: "string",
+    profileUrl: "href",
     followLabel: "string",
     showMoreLabel: "string",
     showLessLabel: "string",
@@ -253,6 +253,23 @@ const SITE_SHAPE: Shape = {
 
 const ICON_SET = new Set<string>(ICON_NAMES);
 
+/* Ссылка из контента в href. Разрешены http(s), mailto, tel, якорь "#…" и относительные
+   пути; javascript:, data:, vbscript: и любые другие схемы — нет. Пробелы и управляющие
+   символы запрещены целиком: браузер вырезает их из схемы ("java\tscript:" сработает). */
+export function checkHref(value: string): string | null {
+  if (!value) return "пустая ссылка";
+  if (/[\u0000-\u0020\u007f]/.test(value)) return `«${value}»: пробелы и управляющие символы в ссылке недопустимы`;
+  if (value.startsWith("//")) return `«${value}»: укажите адрес полностью, с https://`;
+  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(value);
+  if (scheme && !["http", "https", "mailto", "tel"].includes(scheme[1].toLowerCase())) {
+    return `«${value}»: недопустимая ссылка — можно http(s)://, mailto:, tel:, #якорь или путь на сайте`;
+  }
+  return null;
+}
+
+/* id секции на странице: в разметке становится "#<id>". */
+const ANCHOR_RE = /^[A-Za-z][A-Za-z0-9_-]*$/;
+
 /** Папки в public, из которых контент может брать файлы. */
 export const MEDIA_DIRS = ["media", "uploads", "instagram"] as const;
 
@@ -290,6 +307,19 @@ function check(value: unknown, shape: Shape, path: string, errors: string[]) {
       const problem = checkMediaPath(value);
       if (problem) errors.push(`${path}: ${problem}`);
     }
+    return;
+  }
+  if (shape === "href") {
+    if (typeof value !== "string") errors.push(`${path}: ожидается ссылка`);
+    else {
+      const problem = checkHref(value);
+      if (problem) errors.push(`${path}: ${problem}`);
+    }
+    return;
+  }
+  if (shape === "anchor") {
+    if (typeof value !== "string") errors.push(`${path}: ожидается id секции`);
+    else if (!ANCHOR_RE.test(value)) errors.push(`${path}: «${value}» — нужен id секции без решётки: латиница, цифры, - и _`);
     return;
   }
   if (shape === "icon") {

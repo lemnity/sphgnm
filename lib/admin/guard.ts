@@ -37,14 +37,3 @@ export function handleError(error: unknown): NextResponse {
   console.error("[admin]", error);
   return jsonError(500, "Внутренняя ошибка сервера");
 }
-
-/**
- * IP клиента для лимита попыток входа. За nginx берём X-Real-IP (его ставит прокси),
- * иначе последний адрес из X-Forwarded-For — его дописывает ближайший прокси.
- */
-export function clientIp(request: NextRequest): string {
-  const real = request.headers.get("x-real-ip")?.trim();
-  if (real) return real;
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",").map((part) => part.trim()).filter(Boolean);
-  return forwarded?.at(-1) ?? "unknown";
-}

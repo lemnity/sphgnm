@@ -50,7 +50,9 @@ test("checkPassword", () => {
 });
 
 test("секрет: из env, временный в dev, отказ в production", () => {
-  assert.deepEqual(resolveSessionSecret({ ADMIN_SESSION_SECRET: " s3cret " }), { secret: "s3cret" });
+  const long = "x".repeat(32);
+  assert.deepEqual(resolveSessionSecret({ ADMIN_SESSION_SECRET: ` ${long} ` }), { secret: long });
+  assert.deepEqual(resolveSessionSecret({ ADMIN_SESSION_SECRET: long, NODE_ENV: "production" }), { secret: long });
 
   const warn = console.warn;
   console.warn = () => {};
@@ -75,4 +77,27 @@ test("cookie: httpOnly, strict, secure только в production", () => {
   assert.equal(dev.maxAge, 7 * 24 * 60 * 60);
   assert.equal(sessionCookieOptions({ NODE_ENV: "production" }).secure, true);
   assert.equal(sessionCookieOptions({ NODE_ENV: "production", ADMIN_COOKIE_SECURE: "false" }).secure, false);
+  // Выключает только точное "false": опечатки и прочие значения оставляют Secure.
+  for (const value of ["0", "no", "False", "FALSE", " false", "off", "true", ""]) {
+    assert.equal(sessionCookieOptions({ NODE_ENV: "production", ADMIN_COOKIE_SECURE: value }).secure, true, value);
+  }
+  assert.equal(sessionCookieOptions({ NODE_ENV: "development", ADMIN_COOKIE_SECURE: "true" }).secure, false);
+});
+
+test("короткий секрет: в production вход отключён, в dev — предупреждение", () => {
+  const short = "short-secret-31-chars-xxxxxxxxx";
+  assert.equal(short.length, 31);
+  const prod = resolveSessionSecret({ ADMIN_SESSION_SECRET: short, NODE_ENV: "production" });
+  assert.ok("error" in prod && /короче 32/.test(prod.error));
+
+  const warnings: unknown[] = [];
+  const warn = console.warn;
+  console.warn = (...args: unknown[]) => warnings.push(args);
+  try {
+    assert.deepEqual(resolveSessionSecret({ ADMIN_SESSION_SECRET: short, NODE_ENV: "development" }), { secret: short });
+    resolveSessionSecret({ ADMIN_SESSION_SECRET: short, NODE_ENV: "development" });
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(warnings.length, 1, "предупреждение один раз на процесс");
 });
