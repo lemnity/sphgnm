@@ -20,6 +20,9 @@ const nextConfig = {
   env: { NEXT_PUBLIC_BASE_PATH: isPages ? "/sphgnm" : "" },
   // Оптимизатора картинок в статике нет; лендинг везде использует обычный <img>.
   images: { unoptimized: true },
+  // middleware.admin.ts стоит перед /api/admin/upload, а Next по умолчанию отдаёт
+  // дальше только первые 10 МБ тела запроса с middleware — ролик до 150 МБ обрезался бы.
+  ...(isStatic ? {} : { experimental: { middlewareClientMaxBodySize: "160mb" } }),
 };
 
 export default nextConfig;
