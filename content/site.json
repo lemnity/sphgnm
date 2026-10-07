@@ -113,7 +113,7 @@
       {
         "icon": "roof",
         "kicker": "Green Roofs & Urban Landscapes",
-        "title": "Substrate platform\nfor roofs and landscape",
+        "title": "Substrate platform\nfor roofs and landscaping",
         "lead": "A mineral-organic substrate platform for intensive and extensive roofs, podium decks and accessible roof gardens.",
         "features": [
           "Balances water retention and drainage",
@@ -139,7 +139,7 @@
     }
   },
   "wetland": {
-    "text": "The Vasyugan wetlands of Western Siberia form the world’s largest wetland system and the base of our raw material. Harvesting is deliberately shallow: the bog closes over and the same field is cut again a few years later. That is what makes it renewable, unlike peat, which takes thousands of years to form.",
+    "text": "The Vasyugan wetlands of Western Siberia form the world’s largest wetland system and are the source of our raw material. Harvesting is deliberately shallow: the bog closes over and the same field is cut again a few years later. That is what makes it renewable, unlike peat, which takes thousands of years to form.",
     "facts": [
       {
         "icon": "shovel",
@@ -154,7 +154,7 @@
       {
         "icon": "hand",
         "value": "100%",
-        "text": "Hand-harvested, and the moss is taken alive"
+        "text": "Hand-harvested; the moss is taken alive"
       }
     ],
     "wallImage": {
@@ -163,7 +163,7 @@
     }
   },
   "platform": {
-    "kicker": "Substrate platform for outdoors",
+    "kicker": "Outdoor substrate platform",
     "title": "Engineered root-zone performance",
     "lead": "Science-backed substrate technology for healthy plants and lasting green spaces.",
     "pillars": [
@@ -331,7 +331,7 @@
           {
             "icon": "flower",
             "title": "Erosion control",
-            "text": "Protects and stabilizes soil"
+            "text": "Protects and stabilises soil"
           },
           {
             "icon": "layers3",
@@ -346,7 +346,7 @@
     "kicker": "Why us",
     "title": "Sphagnum Eco —",
     "titleAccent": "advantages",
-    "lead": "From raw material to finished substrate, we ensure quality, consistency, and support you can rely on for every project.",
+    "lead": "From raw material to finished substrate, we ensure quality, consistency and support you can rely on for every project.",
     "items": [
       {
         "icon": "factory",
@@ -422,7 +422,7 @@
       },
       {
         "question": "What are the minimum order quantity and delivery time?",
-        "answer": "They depend on the product and destination. Contact us for a commercial offer within 24 hours."
+        "answer": "They depend on the product and destination. Contact us and we will send a commercial offer within 24 hours."
       }
     ]
   },
@@ -483,7 +483,7 @@
       "Lightening the roof load",
       "Planting the living wall",
       "Cooling the rooftop",
-      "Harvesting peat moss",
+      "Harvesting living moss",
       "Growing root zones"
     ]
   }
