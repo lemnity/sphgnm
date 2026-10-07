@@ -1,143 +1,266 @@
 # SPHAGNUM ECO — Natural Substrates
 
-Одностраничный лендинг. Next.js 15 (App Router) + React 19 + Tailwind 3.4.
-Внешних сервисов, API и бэкенда нет — статическая страница с формой-заглушкой.
+Одностраничный сайт поставщика субстратов (английский, рынок ОАЭ/КСА) и кабинет
+для правки его содержимого. Next.js 15 (App Router), React 19, Tailwind 3.4.
 
-Контент — английский по ТЗ «Struktura-saita_EN_shortened» (целевой рынок ОАЭ/КСА).
-Комментарии в коде русские.
+Сайт собирается двумя способами:
 
-## Запуск
+- **статикой для GitHub Pages** — только страница, без кабинета;
+- **сервером** (`next build && next start`) — страница плюс кабинет `/admin`, где
+  правятся тексты, картинки, видео и галерея.
+
+## Быстрый старт
+
+Нужен Node.js 22 или новее.
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000
+cp .env.example .env.local      # задайте ADMIN_PASSWORD
+npm run dev                     # http://localhost:3000, кабинет — /admin
 ```
 
-```bash
-npm run build && npm run start   # прод-сборка
-npm run typecheck                # tsc --noEmit
-```
+## Скрипты
 
-## Публикация на GitHub Pages
+| Команда | Что делает |
+|---|---|
+| `npm run dev` | dev-сервер с кабинетом |
+| `npm run build` | сборка; со `GITHUB_PAGES=true` — статика в `out/` |
+| `npm start` | запуск серверной сборки (`next start`) |
+| `npm test` | тесты схемы контента и логики кабинета (`node --test`; нужен Node, который сам снимает типы TypeScript: 24 или 22.18+) |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run verify:layout` | проверка вёрстки в браузере: порядок блоков, сетка, переполнение, мобильное меню. Нужен запущенный сервер: `URL=http://127.0.0.1:3000/ npm run verify:layout` |
+| `npm run verify:admin` | сквозная проверка кабинета: вход, правка, ошибки, галерея, медиатека, история, выход. `URL=… npm run verify:admin`, пароль берётся из `.env.local`. Контент и загрузки после прогона возвращаются как были |
+| `npm run sync:instagram` | подтянуть посты @sphagnum_eco (нужен `INSTAGRAM_ACCESS_TOKEN`) |
+| `npm run preview` | раздать статическую сборку из `out/` |
 
-Живёт по адресу **https://lemnity.github.io/sphgnm/**
+Перед первым `verify:*` один раз: `npx playwright install chromium`.
 
-Деплой автоматический: `.github/workflows/deploy.yml` на каждый push в `main`
-собирает статику (`output: "export"` → папка `out`) и публикует её.
-
-**Источник публикации обязан быть «GitHub Actions»** (Settings → Pages → Source).
-Сейчас он выставлен именно так.
-
-Почему это важно. При источнике «Deploy from a branch» GitHub на каждый push
-запускает СВОЙ сборщик — `pages build and deployment` — который прогоняет
-репозиторий через Jekyll. `index.html` в корне нет, поэтому Jekyll рендерит этот
-README и публикует его вместо сайта. При этом наш workflow тоже отрабатывает
-успешно, и два деплоя начинают конкурировать: по адресу оказывается то сайт, то
-README, в зависимости от того, кто финишировал последним. Симптом обманчивый —
-в Actions оба прогона зелёные.
-
-Если такое вернулось: проверить `build_type` (должен быть `workflow`, не `legacy`)
-и убедиться, что в списке прогонов больше нет `pages build and deployment`.
-
-Про подпапку: сайт отдаётся не из корня домена, а из `/sphgnm/`. Поэтому сборка для
-Pages идёт с `basePath: "/sphgnm"` — его включает переменная `GITHUB_PAGES=true`,
-которую выставляет только workflow. Локально она пуста, и `npm run dev` работает на
-`http://localhost:3000/` без префикса. Если репозиторий переименуют, `basePath`
-в `next.config.mjs` надо поменять, иначе стили и скрипты отвалятся.
-
-Локально проверить прод-сборку:
-
-```bash
-npm run build && npm run preview
-```
-
-`next start` не используется — он несовместим с `output: "export"`.
+`next build` не запускайте при работающем `next dev` из той же папки: оба пишут
+в `.next`, и dev-сервер начинает отдавать битую страницу. Остановите dev,
+при необходимости удалите `.next`.
 
 ## Структура
 
 ```
 app/
-  layout.tsx      корневой лейаут, <html lang="en">, метатеги
-  page.tsx        читает контент и рендерит лендинг
-  globals.css     только @tailwind base/components/utilities
+  page.tsx, layout.tsx          страница и метатеги — читают content/ на сервере
+  admin/**/page.admin.tsx       кабинет и страница входа
+  api/admin/**/route.admin.ts   API кабинета: вход, контент, загрузки, история
+  uploads/[...path]/route.admin.ts  отдача загруженных файлов в next start
+middleware.admin.ts             закрывает /admin и /api/admin без входа
 content/
-  site.json              ВЕСЬ ТЕКСТ сайта по блокам, пути и alt картинок, фразы загрузчика
-  gallery.json           элементы галереи (пока нет живых постов Instagram)
-public/media/            контентные картинки (в site.json — путь «media/…»)
-lib/media.ts             withBase: префикс подпапки GitHub Pages
-lib/content/
-  schema.ts              типы контента и проверка структуры JSON
-  load.ts                чтение content/ на сервере
+  site.json                     все тексты, ссылки и картинки по блокам страницы
+  gallery.json                  элементы галереи (фото и видео)
+public/
+  media/                        картинки блоков
+  instagram/                    архив и живые посты Instagram
+  uploads/                      файлы, загруженные через кабинет
 components/
-  sphagnum-landing.tsx   разметка страницы
-  sphagnum-styles.tsx    шрифты, палитра, анимации (одним тегом <style>)
-  sphagnum-visuals.tsx   текстура мха, счётчики цифр, «водяная батарея»
-scripts/
-  screenshots.mjs        съёмка страницы целиком и по секциям
-screenshots/             результат съёмки (в git не попадает)
+  sphagnum-landing.tsx          разметка страницы
+  sphagnum-styles.tsx           шрифт, палитра и анимации (один тег <style>)
+  sphagnum-visuals.tsx          живая фотостена первого экрана, текстура мха
+  instagram-gallery.tsx         галерея с просмотром на весь экран
+  admin/                        интерфейс кабинета
+lib/
+  content/                      схема контента (типы и проверка) и чтение файлов
+  admin/                        вход, лимит попыток, хранилище, описание полей редактора
+scripts/                        проверки, синхронизация Instagram, снимки экрана
 ```
+
+Файлы кабинета названы `*.admin.ts(x)`. `next.config.mjs` подключает это
+расширение только в серверном режиме, поэтому в статической сборке кабинета и API
+физически нет.
+
+## Контент
+
+Всё, что видно на странице, лежит в `content/site.json` (блоки в порядке страницы)
+и `content/gallery.json`. Править можно в кабинете или руками в JSON. Структура
+проверяется схемой `lib/content/schema.ts`: при битом файле сборка и сохранение
+в кабинете остановятся с понятным списком ошибок.
+
+- Пути к файлам — от `public`, без ведущего слэша: `media/…`, `uploads/…`,
+  `instagram/…`. Внешние адреса в картинках не принимаются.
+- Перенос строки в заголовке карточки — `\n`.
+- Иконки задаются ключами из `ICON_NAMES` (`lib/content/schema.ts`).
+- Если в `components/instagram-feed.json` есть живые посты, галерея показывает их,
+  а не `gallery.json`.
+
+Формулировки на странице намеренно осторожные (`can reduce`, `help extend`).
+Не добавляйте цифры и заявления без письменного источника — это коммерческая
+страница.
+
+## Кабинет
+
+Вход — `/admin`, пароль из `ADMIN_PASSWORD`. Слева список блоков страницы и общие
+разделы (контакты, меню, подвал, экран загрузки, SEO), справа редактор блока.
+
+- **Тексты и ссылки** правятся полями; списки (FAQ, преимущества, пункты) можно
+  дополнять, удалять и переставлять.
+- **Картинки и видео.** У поля картинки — «Загрузить/Заменить» и «Выбрать из
+  загруженных». Картинки jpg, png, webp, avif, gif — до 15 МБ, видео mp4 и webm —
+  до 150 МБ. SVG не принимается. Тип определяется по содержимому файла, имя
+  на сервере случайное.
+- **Галерея** — в блоке «Галерея»: загрузка пачкой, подпись, дата, постер ролика,
+  порядок, удаление.
+- **Сохранить** (или Ctrl/⌘+S) пишет изменённые файлы. Перед записью проверяется
+  схема; при ошибке ничего не сохраняется, а поля с ошибками подсвечиваются.
+- **История версий.** Каждое сохранение кладёт прежний файл в
+  `content/.history/` (последние 30 версий каждого файла), любую можно вернуть.
+- **Загруженные файлы** — медиатека `public/uploads`. Файл, который ещё стоит на
+  сайте, удалить нельзя.
+
+Где лежат данные: `content/site.json`, `content/gallery.json`,
+`content/.history/` (в git не идёт), `public/uploads/` (в git идёт — иначе
+загрузки не попадут на Pages).
+
+После сохранения `next start` сразу отдаёт обновлённую страницу. Загруженные после
+запуска файлы отдаёт роут `/uploads/…`: сам `next start` раздаёт из `public` только
+то, что было там при старте.
+
+## Переменные окружения
+
+Шаблон — `.env.example`. Локально — `.env.local`, на сервере — `.env.local` в папке
+проекта или переменные в unit-файле systemd. В git не коммитить.
+
+| Переменная | Зачем |
+|---|---|
+| `ADMIN_PASSWORD` | пароль кабинета. Без него вход отключён |
+| `ADMIN_SESSION_SECRET` | ключ подписи cookie входа, случайная строка **не короче 32 символов**: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. В production обязателен. Смена ключа разлогинивает всех |
+| `ADMIN_TRUST_PROXY=1` | ставить, когда сайт открыт только через nginx и тот передаёт `proxy_set_header X-Real-IP $remote_addr;`. Тогда лимит попыток входа считается по IP |
+| `ADMIN_COOKIE_SECURE=false` | только пока у сервера нет HTTPS: иначе cookie с флагом Secure браузер по http не сохранит и вход молча не сработает. Работает только точное значение `false` |
+| `INSTAGRAM_ACCESS_TOKEN` | для `sync:instagram`; на GitHub — секрет репозитория |
+
+Лимит входа: 10 неудачных попыток за 15 минут на IP и не больше 50 на всех.
+**Без `ADMIN_TRUST_PROXY` все неудачные попытки, от кого бы они ни были, идут в
+один общий счётчик** — чужой перебор может закрыть вход и владельцу на 15 минут.
+За nginx флаг нужен обязательно. Счётчики живут в памяти процесса и
+сбрасываются перезапуском.
+
+## Запуск на своём сервере (VDS)
+
+1. Node.js 22+, nginx, git. Склонировать репозиторий, например в `/srv/sphagnum`.
+2. `npm ci && npm run build`.
+3. `.env.local`:
+   ```
+   ADMIN_PASSWORD=…
+   ADMIN_SESSION_SECRET=…        # 64 hex-символа из команды выше
+   ADMIN_TRUST_PROXY=1
+   # ADMIN_COOKIE_SECURE=false   # только пока нет HTTPS
+   ```
+4. Права: пользователь, от которого работает Node, должен писать в `content/`
+   (включая `content/.history/`) и `public/uploads/`:
+   ```bash
+   sudo chown -R sphagnum:sphagnum /srv/sphagnum/content /srv/sphagnum/public
+   ```
+5. Запуск `npm start -- -H 127.0.0.1 -p 3000` под процесс-менеджером (ниже) и nginx
+   перед ним.
+
+Обновление кода: `git pull && npm ci && npm run build`, затем перезапуск сервиса.
+Правки из кабинета в это время лежат в рабочей копии — закоммитьте их до `git pull`
+(см. «Pages и сервер вместе»).
+
+### systemd
+
+`/etc/systemd/system/sphagnum.service`:
+
+```ini
+[Unit]
+Description=SPHAGNUM ECO site
+After=network.target
+
+[Service]
+User=sphagnum
+WorkingDirectory=/srv/sphagnum
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/npm start -- -H 127.0.0.1 -p 3000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload && sudo systemctl enable --now sphagnum
+journalctl -u sphagnum -f        # логи
+```
+
+Вместо systemd подойдёт pm2:
+`pm2 start npm --name sphagnum -- start -- -H 127.0.0.1 -p 3000 && pm2 save`.
+
+### nginx
+
+```nginx
+server {
+    listen 80;
+    server_name example.com;
+
+    # Видео в кабинете — до 150 МБ.
+    client_max_body_size 160m;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+    }
+}
+```
+
+HTTPS — `certbot --nginx -d example.com`. После этого `ADMIN_COOKIE_SECURE` не нужен.
+
+## GitHub Pages
+
+Сайт публикуется по адресу https://lemnity.github.io/sphgnm/. Workflow
+`.github/workflows/deploy.yml` на каждый push в `main` собирает статику
+(`GITHUB_PAGES=true npm run build` → `out/`) и выкладывает её. Посмотреть статику
+локально (без подпапки, иначе `serve` не найдёт стили):
+
+```bash
+STATIC_EXPORT=true npm run build && npm run preview
+```
+
+- `GITHUB_PAGES=true` включает статическую сборку и `basePath: "/sphgnm"` — сайт
+  живёт в подпапке. Переименуете репозиторий — поменяйте путь в `next.config.mjs`.
+  `STATIC_EXPORT=true` даёт ту же статику без подпапки.
+- Источник публикации в Settings → Pages должен быть **GitHub Actions**. При «Deploy
+  from a branch» GitHub параллельно гонит свой Jekyll-деплой, и по адресу
+  попеременно оказывается то сайт, то этот README, хотя оба прогона зелёные.
+- `.github/workflows/instagram-sync.yml` каждые 30 минут забирает новые посты
+  Instagram, коммитит их в `main` и запускает деплой.
+
+### Pages и сервер вместе
+
+Статическая сборка берёт контент из репозитория. Правки, сделанные в кабинете на
+сервере, остаются в его рабочей копии и на Pages не попадут, пока их не
+закоммитить и не отправить:
+
+```bash
+git add content public/uploads
+git commit -m "content: правки из кабинета"
+git pull --rebase && git push
+```
+
+`git pull --rebase` нужен, потому что workflow Instagram сам пушит в `main`.
+Если Pages больше не нужен, workflow деплоя можно отключить, а сервер считать
+единственным источником.
 
 ## Снимки экрана
 
 ```bash
-npm i -D playwright && npx playwright install chromium   # один раз
-npm run dev                                              # в соседнем окне
-node scripts/screenshots.mjs
+npm run dev                    # в соседнем окне
+node scripts/screenshots.mjs   # → screenshots/ (в git не идёт)
 ```
 
-Кладёт в `screenshots/` три полностраничных снимка (1440 / 834 / 390 px) и
-восемь посекционных, попутно печатая горизонтальное переполнение, ошибки JS и
-неудачные запросы. Playwright намеренно не в зависимостях — он тянет ~300 МБ
-браузеров, а нужен раз в несколько правок.
+Полная страница на 1440, 834 и 390 px и отдельные секции; заодно печатает
+горизонтальное переполнение, ошибки JS и упавшие запросы.
 
-## Как править текст
+## Открытые вопросы
 
-Весь текст — в `content/site.json`, блоки идут в порядке страницы. Разметку
-трогать не нужно. Иконки задаются ключами из `ICON_NAMES` в
-`lib/content/schema.ts`; перенос строки в заголовке карточки — `\n`.
-Структура проверяется при сборке: битый JSON или пропавшее поле остановит её
-с понятным списком ошибок. Тесты проверки — `npm test`.
+1. **`SPHAGNUM AE` или `Sphagnum Eco`.** В логотипе — `SPHAGNUM AE`, в текстах,
+   FAQ и подвале — `Sphagnum Eco`.
+2. **Форма заявки никуда не отправляется** — только показывает подтверждение.
+   Приём заявок нужно подключить отдельно.
 
-**Важно про формулировки.** Сокращённая редакция ТЗ намеренно смягчает
-заявления (`can reduce`, `help extend`) и убирает непроверяемую конкретику —
-моделирование в Абу-Даби, LEED v5, поглощение VOC, бренд Growplant. Не
-возвращайте их без письменного источника: это коммерческая страница.
-
-## Стили
-
-Палитра, шрифты (Archivo + Work Sans из Google Fonts) и анимации лежат в
-`sphagnum-styles.tsx` внутри одного тега `<style>`. Конфиг Tailwind тему не
-расширяет намеренно — цвета отдаются через CSS-переменные
-(`bg-[color:var(--sand)]`), поэтому компонент переносится в другой проект
-без правки `tailwind.config.ts` и `globals.css`.
-
-Про контраст: яркая олива `--olive` (#96A437) даёт с белым всего 2.7:1, поэтому
-под мелкий текст и кнопки заведён затемнённый `--olive-ink` (#5F6B22, 6.2:1).
-Не меняйте их местами.
-
-## Про `npm audit`
-
-После установки аудит показывает 3 high — обе находки внутри самого Next и нами
-не устранимы:
-
-* `postcss 8.4.31` — вложенная копия в `node_modules/next/node_modules`. Наш
-  собственный postcss обновлён до 8.5.x и чист. Форсировать версию внутри Next
-  через `overrides` не стоит: это его сборочный конвейер.
-* `sharp` — опциональная зависимость оптимизации картинок. Лендинг её не
-  использует: все изображения выводятся обычным `<img>`, `next/image` нигде нет,
-  так что код sharp не выполняется.
-
-`npm audit fix --force` предлагает откатить Next до 9.3.3 — не делайте этого.
-Правильное лечение — плановое обновление Next, когда он подтянет свежий postcss.
-
-## Открытые вопросы к заказчику
-
-1. **`SPHAGNUM AE` или `Sphagnum Eco`.** В ТЗ строка логотипа — `SPHAGNUM AE`,
-   но в разделе 8, в FAQ и в подвале — `Sphagnum Eco`. Сейчас сделано буквально
-   по ТЗ. Правится в `sphagnum-landing.tsx` (два места: шапка и мобильное меню).
-2. **Разделы 9 и 10 отсутствуют** — нумерация в ТЗ идёт 8 → 11 → 12.
-3. **Фон героя почти не читается** под затемняющей подложкой. Либо ослабить
-   градиент (тогда нужен локальный скрим под текстовой колонкой ради контраста),
-   либо снять более светлый кадр.
-4. **Форма никуда не отправляется** — `onSubmit` только показывает
-   подтверждение. Приём заявок нужно подключить отдельно.
+Почему визуал и сборка устроены именно так — в [DECISIONS.md](DECISIONS.md).
