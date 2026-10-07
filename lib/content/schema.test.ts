@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { validateGallery, validateSiteContent } from "./schema.ts";
+import { checkMediaPath, validateGallery, validateSiteContent } from "./schema.ts";
 
 const readJson = (name: string) => JSON.parse(readFileSync(new URL(`../../content/${name}`, import.meta.url), "utf8"));
 // Каждый тест портит свою копию.
@@ -134,4 +134,48 @@ test("site: все картинки из site.json лежат в public", () => 
   walk(site());
   assert.ok(paths.length >= 9);
   for (const path of paths) assert.ok(existsSync(new URL(`../../public/${path}`, import.meta.url)), `нет файла public/${path}`);
+});
+
+test("checkMediaPath: пропускает файлы из media/, uploads/, instagram/", () => {
+  for (const ok of ["media/hero.webp", "uploads/3f9a1c.jpg", "instagram/archive/a b.mp4"]) {
+    assert.equal(checkMediaPath(ok), null, ok);
+  }
+});
+
+test("checkMediaPath: отказ на внешние, абсолютные и выходящие из public пути", () => {
+  const bad = [
+    "",
+    "https://evil.example/x.jpg",
+    "javascript:alert(1)",
+    "data:image/png;base64,AAAA",
+    "//evil.example/x.jpg",
+    "/media/hero.webp",
+    "media/../../etc/passwd",
+    "uploads/./x.jpg",
+    "media\\hero.webp",
+    "media//hero.webp",
+    "media/hero.webp?x=1",
+    "components/assets/logo.png",
+    "media",
+  ];
+  for (const value of bad) assert.notEqual(checkMediaPath(value), null, value);
+});
+
+test("site и gallery: недопустимые пути попадают в список ошибок", () => {
+  const content = site();
+  content.hero.image.src = "https://evil.example/x.jpg";
+  content.fuscum.image.src = "media/../secret.webp";
+  const siteErrors = validateSiteContent(content);
+  assert.equal(siteErrors.length, 2);
+  assert.match(siteErrors[0], /^hero\.image\.src: /);
+  assert.match(siteErrors[1], /^fuscum\.image\.src: /);
+
+  const items = gallery();
+  items[0].src = "/instagram/x.webp";
+  items[1].poster = "../x.webp";
+  items[2].poster = "";
+  const galleryErrors = validateGallery(items);
+  assert.equal(galleryErrors.length, 2);
+  assert.match(galleryErrors[0], /^gallery\[0\]\.src: /);
+  assert.match(galleryErrors[1], /^gallery\[1\]\.poster: /);
 });

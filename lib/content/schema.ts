@@ -253,6 +253,28 @@ const SITE_SHAPE: Shape = {
 
 const ICON_SET = new Set<string>(ICON_NAMES);
 
+/** Папки в public, из которых контент может брать файлы. */
+export const MEDIA_DIRS = ["media", "uploads", "instagram"] as const;
+
+/* Путь к файлу из public: только относительный и только внутри MEDIA_DIRS.
+   Без этого через админку можно подставить внешний URL, javascript: или выйти
+   из public через "..". Возвращает текст ошибки или null. */
+export function checkMediaPath(value: string): string | null {
+  if (!value.trim()) return "пустой путь";
+  if (/^[a-z][a-z0-9+.-]*:/i.test(value) || value.startsWith("/") || value.includes("\\")) {
+    return `«${value}»: нужен относительный путь внутри public`;
+  }
+  if (/[\u0000-\u001f?#]/.test(value)) return `«${value}»: недопустимые символы в пути`;
+  const segments = value.split("/");
+  if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
+    return `«${value}»: недопустимый путь`;
+  }
+  if (segments.length < 2 || !(MEDIA_DIRS as readonly string[]).includes(segments[0])) {
+    return `«${value}»: файл должен лежать в ${MEDIA_DIRS.map((dir) => `${dir}/`).join(", ")}`;
+  }
+  return null;
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -264,7 +286,10 @@ function check(value: unknown, shape: Shape, path: string, errors: string[]) {
   }
   if (shape === "path") {
     if (typeof value !== "string") errors.push(`${path}: ожидается путь к файлу`);
-    else if (!value.trim()) errors.push(`${path}: пустой путь`);
+    else {
+      const problem = checkMediaPath(value);
+      if (problem) errors.push(`${path}: ${problem}`);
+    }
     return;
   }
   if (shape === "icon") {
@@ -319,9 +344,19 @@ export function validateGallery(value: unknown): string[] {
       else if (seen.has(item.id)) errors.push(`${at}.id: повторяется «${item.id}»`);
       seen.add(item.id);
     }
-    if (typeof item.src === "string" && !item.src) errors.push(`${at}.src: пустой путь`);
+    if (typeof item.src === "string") {
+      const problem = checkMediaPath(item.src);
+      if (problem) errors.push(`${at}.src: ${problem}`);
+    }
     if (item.type !== "image" && item.type !== "video") errors.push(`${at}.type: ожидается "image" или "video"`);
-    if ("poster" in item && typeof item.poster !== "string") errors.push(`${at}.poster: ожидается строка`);
+    if ("poster" in item) {
+      if (typeof item.poster !== "string") errors.push(`${at}.poster: ожидается строка`);
+      // Пустой постер допустим: плитка просто покажет первый кадр.
+      else if (item.poster) {
+        const problem = checkMediaPath(item.poster);
+        if (problem) errors.push(`${at}.poster: ${problem}`);
+      }
+    }
     if (typeof item.date === "string" && !DATE_RE.test(item.date)) errors.push(`${at}.date: ожидается дата YYYY-MM-DD`);
   });
   return errors;
