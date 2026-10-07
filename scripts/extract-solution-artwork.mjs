@@ -1,9 +1,12 @@
+// Пересобирает иллюстрации карточек «Our solutions» (public/media/solution-*.webp)
+// из картинки, извлечённой из PDF макета:
+//   node scripts/extract-solution-artwork.mjs <путь к image-002.jpg из PDF>
+// Мягкая альфа-кромка проходит по пустому фону, а не по растениям, —
+// так в кадр не попадает текст, впечатанный в PDF рядом с картинкой.
 import sharp from "sharp";
 
-// Extract original PDF pixels, excluding adjacent baked-in text. The soft
-// extraction boundary lies in the empty background, not across the plants.
 const source = process.argv[2];
-if (!source) throw new Error("Pass the extracted PDF image-002.jpg path");
+if (!source) throw new Error("Укажите путь к image-002.jpg, извлечённому из PDF");
 const pieces = [
   { name: "moss", left: 460, top: 430, width: 353, height: 450 },
   { name: "soil", left: 1260, top: 410, width: 351, height: 450 },
@@ -20,5 +23,5 @@ for (const { name, ...region } of pieces) {
   }
   await sharp(source).extract(region).composite([
     { input: alpha, raw: { width, height, channels: 4 }, blend: "dest-in" },
-  ]).webp({ lossless: true }).toFile(`components/assets/reference/crops/solution-${name}-original.webp`);
+  ]).webp({ lossless: true }).toFile(`public/media/solution-${name}.webp`);
 }
