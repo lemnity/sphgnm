@@ -34,8 +34,8 @@ export const ICON_NAMES = [
 
 export type IconName = (typeof ICON_NAMES)[number];
 
-/** Картинка блока. src появится, когда картинки переедут в public/media. */
-export type ImageRef = { alt: string };
+/** Картинка блока. src — путь от public без ведущего слэша («media/…», «uploads/…»). */
+export type ImageRef = { src: string; alt: string };
 
 export type IconText = { icon: IconName; title: string; text: string };
 
@@ -49,7 +49,7 @@ export type SiteContent = {
     openMenuLabel: string;
     closeMenuLabel: string;
   };
-  hero: { title: string; subtitle: string; ctaLabel: string; bullets: string[] };
+  hero: { title: string; subtitle: string; ctaLabel: string; bullets: string[]; image: ImageRef };
   strip: {
     intro: { text: string; linkLabel: string; linkHref: string };
     cards: { icon: IconName; text: string }[];
@@ -61,7 +61,7 @@ export type SiteContent = {
     lead: string;
     featuresLabel: string;
     /** В title перенос строки (\n) — место принудительного переноса в заголовке карточки. */
-    solutions: { icon: IconName; kicker: string; title: string; lead: string; features: string[] }[];
+    solutions: { icon: IconName; kicker: string; title: string; lead: string; features: string[]; image: ImageRef }[];
   };
   fuscum: { kicker: string; areaValue: string; areaUnit: string; areaCaption: string; image: ImageRef };
   wetland: { text: string; facts: { icon: IconName; value: string; text: string }[]; wallImage: ImageRef };
@@ -134,6 +134,8 @@ export type SiteContent = {
     };
   };
   footer: { copyright: string };
+  /** Экран загрузки: label — aria-метка, srLabel — скрытая подпись, phrases — бегущие фразы. */
+  loader: { label: string; srLabel: string; phrases: string[] };
 };
 
 /** Элемент галереи. Пути — относительно public, без ведущего слэша. date — YYYY-MM-DD. */
@@ -150,9 +152,9 @@ export type GalleryItem = {
 /* Описание формы site.json для проверки. Держать в паре с типом SiteContent:
    тест прогоняет через него настоящий content/site.json, так что расхождение
    вылезет сразу. */
-type Shape = "string" | "icon" | Shape[] | { [key: string]: Shape };
+type Shape = "string" | "path" | "icon" | Shape[] | { [key: string]: Shape };
 
-const IMAGE: Shape = { alt: "string" };
+const IMAGE: Shape = { src: "path", alt: "string" };
 const ICON_TEXT: Shape = { icon: "icon", title: "string", text: "string" };
 
 const SITE_SHAPE: Shape = {
@@ -164,7 +166,7 @@ const SITE_SHAPE: Shape = {
     openMenuLabel: "string",
     closeMenuLabel: "string",
   },
-  hero: { title: "string", subtitle: "string", ctaLabel: "string", bullets: ["string"] },
+  hero: { title: "string", subtitle: "string", ctaLabel: "string", bullets: ["string"], image: IMAGE },
   strip: {
     intro: { text: "string", linkLabel: "string", linkHref: "string" },
     cards: [{ icon: "icon", text: "string" }],
@@ -175,7 +177,7 @@ const SITE_SHAPE: Shape = {
     title: "string",
     lead: "string",
     featuresLabel: "string",
-    solutions: [{ icon: "icon", kicker: "string", title: "string", lead: "string", features: ["string"] }],
+    solutions: [{ icon: "icon", kicker: "string", title: "string", lead: "string", features: ["string"], image: IMAGE }],
   },
   fuscum: { kicker: "string", areaValue: "string", areaUnit: "string", areaCaption: "string", image: IMAGE },
   wetland: { text: "string", facts: [{ icon: "icon", value: "string", text: "string" }], wallImage: IMAGE },
@@ -246,6 +248,7 @@ const SITE_SHAPE: Shape = {
     },
   },
   footer: { copyright: "string" },
+  loader: { label: "string", srLabel: "string", phrases: ["string"] },
 };
 
 const ICON_SET = new Set<string>(ICON_NAMES);
@@ -257,6 +260,11 @@ function isObject(value: unknown): value is Record<string, unknown> {
 function check(value: unknown, shape: Shape, path: string, errors: string[]) {
   if (shape === "string") {
     if (typeof value !== "string") errors.push(`${path}: ожидается строка`);
+    return;
+  }
+  if (shape === "path") {
+    if (typeof value !== "string") errors.push(`${path}: ожидается путь к файлу`);
+    else if (!value.trim()) errors.push(`${path}: пустой путь`);
     return;
   }
   if (shape === "icon") {

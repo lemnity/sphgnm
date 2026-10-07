@@ -11,22 +11,11 @@ import { useEffect, useState } from "react";
    Лоадер есть в статическом HTML с первого байта и прячется по window.load —
    когда догрузились картинки первого экрана. Страховка: не дольше MAX_MS. */
 
-const PHRASES = [
-  "Hydrating sphagnum",
-  "Measuring moisture retention",
-  "Balancing substrate pH",
-  "Lightening the roof load",
-  "Planting the living wall",
-  "Cooling the rooftop",
-  "Harvesting peat moss",
-  "Growing root zones",
-];
-
 const MIN_MS = 700;
 const MAX_MS = 6000;
 const STEP_MS = 2200;
 
-export function SphagnumLoader() {
+export function SphagnumLoader({ label, srLabel, phrases }: { label: string; srLabel: string; phrases: string[] }) {
   const [step, setStep] = useState(0);
   const [hiding, setHiding] = useState(false);
   const [gone, setGone] = useState(false);
@@ -60,7 +49,7 @@ export function SphagnumLoader() {
     <div
       role="status"
       aria-live="polite"
-      aria-label="Loading"
+      aria-label={label}
       className={`sph-loader${hiding ? " is-hiding" : ""}`}
       onTransitionEnd={(event) => {
         if (hiding && event.target === event.currentTarget) setGone(true);
@@ -96,11 +85,11 @@ export function SphagnumLoader() {
       <div className="sph-loader__messages" aria-hidden>
         {visible.map((index, position) => (
           <p key={index} data-pos={visible.length === 3 ? position : position + 1}>
-            {PHRASES[index % PHRASES.length]}
+            {phrases[index % phrases.length] ?? ""}
           </p>
         ))}
       </div>
-      <span className="sph-loader__sr">Loading Sphagnum Eco</span>
+      <span className="sph-loader__sr">{srLabel}</span>
     </div>
   );
 }

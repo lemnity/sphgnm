@@ -41,23 +41,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-// Статический импорт, а не путь /plants-wall-reception.webp из public: на GitHub
-// Pages сайт живёт в подпапке (basePath /sphgnm), и абсолютный путь к public
-// улетел бы в корень домена и вернул 404. Импорт отдаёт уже пре­фиксованный URL.
-import receptionWall from "./assets/plants-wall-reception.webp";
-import solutionMoss from "./assets/reference/crops/solution-moss-original.webp";
-import solutionSoil from "./assets/reference/crops/solution-soil-original.webp";
-import wetlandLandscape from "./assets/reference/crops/wetland-landscape.webp";
-import livingWallWide from "./assets/reference/crops/living-wall-wide.jpg";
-import rootZoneStrip from "./assets/reference/crops/root-zone-soil-strip.webp";
+// Декор (лозы, точки, ботаника) — статические импорты: их не правят из админки.
 import portfolioBotanical from "./assets/reference/crops/portfolio-botanical-original.webp";
 import portfolioDots from "./assets/reference/crops/portfolio-dots-original.webp";
-import applicationRoof from "./assets/reference/crops/application-green-roof-layers.webp";
-import applicationWall from "./assets/reference/crops/application-vertical-garden.webp";
-import applicationArid from "./assets/reference/crops/application-moisture-retaining-mat.webp";
 import solutionsHangingVines from "./assets/reference/crops/solutions-hanging-vines-transparent.png";
 import type { GalleryItem, IconName, SiteContent } from "@/lib/content/schema";
 import type { InstagramPost } from "@/lib/content/load";
+import { withBase } from "@/lib/media";
 import { InstagramGallery, type GalleryPhoto } from "./instagram-gallery";
 import { SphagnumLoader } from "./sphagnum-loader";
 import { SphagnumLogo } from "./sphagnum-logo";
@@ -70,8 +60,8 @@ import { LivingWall, MossTexture } from "./sphagnum-visuals";
  * (целевой рынок ОАЭ/КСА) и приходит пропсами из content/site.json;
  * комментарии в коде остаются русскими.
  *
- * Визуальный ряд собран из оптимизированных локальных assets, извлечённых из
- * согласованного макета; статические imports сохраняют basePath GitHub Pages.
+ * Контентные картинки лежат в public/media и приходят путями из site.json
+ * (префикс подпапки GitHub Pages — withBase); декор импортируется из assets.
  */
 
 /**
@@ -120,8 +110,6 @@ const ICONS = {
   waves: Waves,
 } satisfies Record<IconName, LucideIcon>;
 
-const SOLUTION_IMAGES = [solutionMoss, solutionSoil] as const;
-const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const DATE_FORMAT: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" };
 
 /* Что показывает галерея. Живые посты Instagram кладёт в public/instagram скрипт
@@ -137,8 +125,8 @@ function galleryPhotos(posts: InstagramPost[], items: GalleryItem[], profileUrl:
       return {
         id: post.id,
         href: post.permalink,
-        image: `${BASE_PATH}/${post.image}`,
-        video: post.video ? `${BASE_PATH}/${post.video}` : null,
+        image: withBase(post.image),
+        video: post.video ? withBase(post.video) : null,
         title,
         text: rest.join(" "),
         date: new Date(post.timestamp).toLocaleDateString("en-GB", DATE_FORMAT),
@@ -151,16 +139,14 @@ function galleryPhotos(posts: InstagramPost[], items: GalleryItem[], profileUrl:
     return {
       id: item.id,
       href: profileUrl,
-      image: poster ? `${BASE_PATH}/${poster}` : "",
-      video: video ? `${BASE_PATH}/${item.src}` : null,
+      image: poster ? withBase(poster) : "",
+      video: video ? withBase(item.src) : null,
       title: item.title,
       text: "",
       date: new Date(`${item.date}T00:00:00Z`).toLocaleDateString("en-GB", DATE_FORMAT),
     };
   });
 }
-
-const APPLICATION_IMAGES = [applicationRoof, applicationWall, applicationArid] as const;
 
 const VINE_BRANCHES = [
   { clipPath: "inset(0 87% 72% 5%)", anchor: 0.09, x: 0.62, y: 0.82, rotate: 0.72, duration: 430 },
@@ -546,9 +532,9 @@ function PdfAlignedSections({
                   </ul>
                 </div>
                 <img
-                  src={SOLUTION_IMAGES[index % SOLUTION_IMAGES.length].src}
-                  alt=""
-                  aria-hidden
+                  src={withBase(solution.image.src)}
+                  alt={solution.image.alt}
+                  aria-hidden={solution.image.alt ? undefined : true}
                   data-solution-image
                   className="relative -mr-7 ml-auto mt-8 h-[280px] w-full object-contain object-bottom object-right mix-blend-multiply transition-transform duration-700 group-hover:scale-[1.03] sm:-mr-8 xl:absolute xl:bottom-0 xl:right-0 xl:mr-0 xl:mt-0 xl:h-[80%] xl:w-[58%]"
                 />
@@ -565,7 +551,7 @@ function PdfAlignedSections({
             <span className="mt-5 block h-0.5 w-12 bg-[color:var(--brand-moss)]" aria-hidden />
             <p className="mt-12 whitespace-nowrap text-[52px] font-bold leading-none tracking-[-.055em] sm:text-[76px] lg:text-[88px]">{fuscum.areaValue} <span className="text-[.42em] tracking-normal text-[#5f792a]">{fuscum.areaUnit}</span></p>
             <p className="mt-3 text-[28px] font-bold leading-none sm:text-[34px]">{fuscum.areaCaption}</p>
-            <img src={wetlandLandscape.src} alt={fuscum.image.alt} className="absolute inset-x-0 bottom-0 h-[44%] w-full object-cover" />
+            <img src={withBase(fuscum.image.src)} alt={fuscum.image.alt} className="absolute inset-x-0 bottom-0 h-[44%] w-full object-cover" />
           </div>
           <div className="p-8 sm:p-12 lg:pt-16">
             <p className="text-[16px] leading-relaxed text-[color:var(--brand-ink-85)]">{wetland.text}</p>
@@ -584,7 +570,7 @@ function PdfAlignedSections({
 
       <section className="bg-[#fafafa] pb-20 lg:pb-[143px]">
         <figure className="pdf-grid living-wall-frame">
-          <img src={livingWallWide.src} alt={wetland.wallImage.alt} className="block h-auto w-full object-contain" />
+          <img src={withBase(wetland.wallImage.src)} alt={wetland.wallImage.alt} className="block h-auto w-full object-contain" />
         </figure>
       </section>
 
@@ -609,7 +595,7 @@ function PdfAlignedSections({
             ))}
           </div>
         </div>
-        <img data-reference-visual="root-zone-scene" src={rootZoneStrip.src} alt={platform.rootZoneImage.alt} className="absolute inset-x-0 bottom-0 h-auto w-full object-contain object-bottom [mask-image:linear-gradient(to_bottom,transparent_0%,#000_32%,#000_100%)]" />
+        <img data-reference-visual="root-zone-scene" src={withBase(platform.rootZoneImage.src)} alt={platform.rootZoneImage.alt} className="absolute inset-x-0 bottom-0 h-auto w-full object-contain object-bottom [mask-image:linear-gradient(to_bottom,transparent_0%,#000_32%,#000_100%)]" />
       </section>
 
       <section data-reference-surface="benefits" className="w-full bg-[#fbfaf8]">
@@ -649,7 +635,7 @@ function PdfAlignedSections({
             {applications.items.map((application, index) => (
               <Reveal key={index} anim={index % 2 ? "right" : "left"}>
                 <article className={`grid items-center gap-10 lg:gap-16 ${index === 0 ? "lg:min-h-[700px] lg:grid-cols-[1.08fr_.92fr]" : index === 1 ? "lg:min-h-[760px] lg:grid-cols-[.88fr_1.12fr]" : "lg:min-h-[780px] lg:grid-cols-[.96fr_1.04fr]"}`}>
-                  <figure className={`overflow-hidden rounded-[18px] bg-white shadow-[0_18px_50px_rgba(20,24,22,.07)] ${index > 0 ? "lg:order-2" : ""}`}><img src={APPLICATION_IMAGES[index % APPLICATION_IMAGES.length].src} alt={application.image.alt} className="h-auto w-full object-contain" /></figure>
+                  <figure className={`overflow-hidden rounded-[18px] bg-white shadow-[0_18px_50px_rgba(20,24,22,.07)] ${index > 0 ? "lg:order-2" : ""}`}><img src={withBase(application.image.src)} alt={application.image.alt} className="h-auto w-full object-contain" /></figure>
                   <div><p className="label text-[11px] text-[color:var(--brand-moss)]">{applications.itemKicker}</p><span className="mt-4 block h-px w-10 bg-[color:var(--brand-moss)]" /><span className="mt-8 block text-[13px] font-bold text-[#5f792a]">{ordinal(index)}</span><h3 className="mt-3 text-[33px] font-bold leading-[1.08] lg:text-[40px]">{application.title}</h3><p className="mt-5 text-[15px] leading-relaxed text-[color:var(--brand-muted)]">{application.text}</p>
                     <ul className={`mt-8 grid gap-4 ${application.benefits.length === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
                       {application.benefits.map((benefit, benefitIndex) => <li key={benefitIndex} className="min-w-0"><span className="grid size-12 place-items-center rounded-xl bg-[#edf3e6] text-[color:var(--brand-moss)]"><Icon name={benefit.icon} /></span><span className="mt-3 block text-[13px] font-bold leading-tight">{benefit.title}</span>{benefit.text ? <span className="mt-1 block text-[12px] leading-snug text-[color:var(--brand-muted)]">{benefit.text}</span> : null}</li>)}
@@ -732,7 +718,7 @@ export default function SphagnumLanding({
   return (
     <div className="sph scroll-smooth">
       <SphagnumStyles />
-      <SphagnumLoader />
+      <SphagnumLoader {...content.loader} />
 
       {/*
         ═══════════ ШАПКА (фиксированная) ═══════════
@@ -920,7 +906,7 @@ export default function SphagnumLanding({
           // меняйте и там, иначе холст прыгнет относительно подложки.
           className="absolute inset-0 bg-cover bg-left-bottom bg-no-repeat lg:bg-right-bottom"
           style={{
-            backgroundImage: `url("${receptionWall.src}")`,
+            backgroundImage: `url("${withBase(hero.image.src)}")`,
             filter: HERO_BG_FILTER,
           }}
           aria-hidden
@@ -937,7 +923,7 @@ export default function SphagnumLanding({
           pointer-events:none, да и ловить надо движение над всем первым экраном.
         */}
         <LivingWall
-          src={receptionWall.src}
+          src={withBase(hero.image.src)}
           pointerTargetRef={heroRef}
           className="absolute inset-0"
           style={{ filter: HERO_BG_FILTER }}

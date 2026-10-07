@@ -53,7 +53,11 @@
       "Live sphagnum moss for interiors and shaded outdoor spaces",
       "Lightweight substrates for green roofs and podium decks",
       "Fertile growing media for parks, streetscapes and urban planting"
-    ]
+    ],
+    "image": {
+      "src": "media/hero-reception.webp",
+      "alt": ""
+    }
   },
   "strip": {
     "intro": {
@@ -100,7 +104,11 @@
           "97% porosity for aeration and moisture retention",
           "12–16× lighter than soil",
           "Naturally antimicrobial; no chemical treatment"
-        ]
+        ],
+        "image": {
+          "src": "media/solution-moss.webp",
+          "alt": ""
+        }
       },
       {
         "icon": "roof",
@@ -112,7 +120,11 @@
           "Bulk density from 625 kg/m³ at natural moisture",
           "Resists compaction; premium pH approximately 6.5",
           "Economy, Standard and Premium versions"
-        ]
+        ],
+        "image": {
+          "src": "media/solution-soil.webp",
+          "alt": ""
+        }
       }
     ]
   },
@@ -122,6 +134,7 @@
     "areaUnit": "km²",
     "areaCaption": "of pristine wetland",
     "image": {
+      "src": "media/fuscum-wetland.webp",
       "alt": "Living sphagnum wetlands in Western Siberia"
     }
   },
@@ -145,6 +158,7 @@
       }
     ],
     "wallImage": {
+      "src": "media/wetland-living-wall.jpg",
       "alt": "Wide framed living wall composed of mosses, ferns and trailing plants"
     }
   },
@@ -170,6 +184,7 @@
       }
     ],
     "rootZoneImage": {
+      "src": "media/platform-root-zone.webp",
       "alt": "Moss, seedlings and mineral substrate forming a healthy root-zone layer"
     },
     "benefitsTitle": "Benefits",
@@ -249,6 +264,7 @@
         "title": "Green roofs and podium decks",
         "text": "For intensive and extensive roofs, accessible podium decks and parking-garage gardens. The substrate can lower roof-surface temperatures, reduce cooling demand and help extend waterproofing life.",
         "image": {
+          "src": "media/application-green-roof.webp",
           "alt": "Cross-section of a green roof build-up: vegetation, sphagnum substrate, filter and drainage, waterproofing, structural deck"
         },
         "benefits": [
@@ -273,6 +289,7 @@
         "title": "Vertical gardens and green walls",
         "text": "For interior and façade green walls, ceiling gardens and mobile partitions. Sphagnum Fuscum is 12–16× lighter than soil, enabling designs that conventional substrates cannot support. It also contributes to air filtration, passive humidification and cooling.",
         "image": {
+          "src": "media/application-vertical-garden.webp",
           "alt": "A grid of green-wall modules with one module lifted out of the wall, showing that the system is demountable"
         },
         "benefits": [
@@ -297,6 +314,7 @@
         "title": "Parks, streetscapes and arid landscaping",
         "text": "Moisture-retaining mats improve tree and shrub survival in sandy soils and can reduce irrigation by 60–80%. Suitable for desert landscaping, erosion control, cooler surfaces and soil restoration.",
         "image": {
+          "src": "media/application-moisture-mat.webp",
           "alt": "Cross-section of a tree planted in sandy soil with a moisture-retaining moss mat around the root zone"
         },
         "benefits": [
@@ -454,5 +472,19 @@
   },
   "footer": {
     "copyright": "© 2026 Sphagnum Eco · Natural Substrates · All rights reserved."
+  },
+  "loader": {
+    "label": "Loading",
+    "srLabel": "Loading Sphagnum Eco",
+    "phrases": [
+      "Hydrating sphagnum",
+      "Measuring moisture retention",
+      "Balancing substrate pH",
+      "Lightening the roof load",
+      "Planting the living wall",
+      "Cooling the rooftop",
+      "Harvesting peat moss",
+      "Growing root zones"
+    ]
   }
 }

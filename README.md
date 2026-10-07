@@ -61,8 +61,10 @@ app/
   page.tsx        читает контент и рендерит лендинг
   globals.css     только @tailwind base/components/utilities
 content/
-  site.json              ВЕСЬ ТЕКСТ сайта по блокам, alt картинок
+  site.json              ВЕСЬ ТЕКСТ сайта по блокам, пути и alt картинок, фразы загрузчика
   gallery.json           элементы галереи (пока нет живых постов Instagram)
+public/media/            контентные картинки (в site.json — путь «media/…»)
+lib/media.ts             withBase: префикс подпапки GitHub Pages
 lib/content/
   schema.ts              типы контента и проверка структуры JSON
   load.ts                чтение content/ на сервере

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { validateGallery, validateSiteContent } from "./schema.ts";
 
 const readJson = (name: string) => JSON.parse(readFileSync(new URL(`../../content/${name}`, import.meta.url), "utf8"));
@@ -101,4 +101,37 @@ test("gallery: повторяющийся и пустой id", () => {
 
 test("gallery: элемент не объект", () => {
   assert.deepEqual(validateGallery(["строка"]), ["gallery[0]: ожидается объект"]);
+});
+
+test("site: у картинок обязателен непустой src", () => {
+  const content = site();
+  delete content.hero.image.src;
+  content.fuscum.image.src = "  ";
+  content.applications.items[0].image.src = 5;
+  assert.deepEqual(validateSiteContent(content), [
+    "hero.image.src: нет обязательного поля",
+    "fuscum.image.src: пустой путь",
+    "applications.items[0].image.src: ожидается путь к файлу",
+  ]);
+});
+
+test("site: фразы загрузчика — список строк", () => {
+  const content = site();
+  content.loader.phrases = "одна";
+  assert.deepEqual(validateSiteContent(content), ["loader.phrases: ожидается список"]);
+});
+
+test("site: все картинки из site.json лежат в public", () => {
+  const paths: string[] = [];
+  const walk = (node: unknown) => {
+    if (Array.isArray(node)) node.forEach(walk);
+    else if (node && typeof node === "object") {
+      const record = node as Record<string, unknown>;
+      if (typeof record.src === "string") paths.push(record.src);
+      Object.values(record).forEach(walk);
+    }
+  };
+  walk(site());
+  assert.ok(paths.length >= 9);
+  for (const path of paths) assert.ok(existsSync(new URL(`../../public/${path}`, import.meta.url)), `нет файла public/${path}`);
 });
