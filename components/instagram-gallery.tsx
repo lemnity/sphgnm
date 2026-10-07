@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, ArrowUpRight, Instagram, Play, X } from "lucide-react";
+import type { SiteContent } from "@/lib/content/schema";
 
 export type GalleryPhoto = {
   id: string;
@@ -52,7 +53,7 @@ const INITIAL = 16;
    колонки фото в их собственных пропорциях (1:1, 4:5), без обрезки в квадрат.
    Высота плиток разная, порядок — по рядам слева направо.
    По клику — просмотр на весь экран с листанием по всем фото. */
-export function InstagramGallery({ photos, profile, username }: { photos: GalleryPhoto[]; profile: string; username: string }) {
+export function InstagramGallery({ photos, text }: { photos: GalleryPhoto[]; text: SiteContent["gallery"] }) {
   const [open, setOpen] = useState<number | null>(null);
   const [expanded, setExpanded] = useState(false);
   const current = open === null ? null : photos[open];
@@ -97,12 +98,12 @@ export function InstagramGallery({ photos, profile, username }: { photos: Galler
     <div className="relative">
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[rgba(215,177,94,.35)] pb-5">
         <div>
-          <p className="label inline-block border border-[color:var(--brand-gold)] px-3 py-2 text-[10px] text-[color:var(--brand-gold)]">Gallery</p>
-          <h2 className="portfolio-title mt-6 text-[38px] leading-[1.02] sm:text-[48px]">Our <span className="text-[color:var(--brand-gold)]">Gallery</span></h2>
+          <p className="label inline-block border border-[color:var(--brand-gold)] px-3 py-2 text-[10px] text-[color:var(--brand-gold)]">{text.kicker}</p>
+          <h2 className="portfolio-title mt-6 text-[38px] leading-[1.02] sm:text-[48px]">{text.title} <span className="text-[color:var(--brand-gold)]">{text.titleAccent}</span></h2>
         </div>
-        <a href={profile} target="_blank" rel="noopener noreferrer" className="label inline-flex items-center gap-2 border border-[color:var(--brand-gold)] px-4 py-3 text-[10px] text-[color:var(--brand-gold)] transition-colors hover:bg-[color:var(--brand-gold)] hover:text-[color:var(--brand-ink)]">
+        <a href={text.profileUrl} target="_blank" rel="noopener noreferrer" className="label inline-flex items-center gap-2 border border-[color:var(--brand-gold)] px-4 py-3 text-[10px] text-[color:var(--brand-gold)] transition-colors hover:bg-[color:var(--brand-gold)] hover:text-[color:var(--brand-ink)]">
           <Instagram className="size-4" strokeWidth={1.6} aria-hidden />
-          Follow @{username}
+          {text.followLabel} @{text.username}
         </a>
       </div>
 
@@ -114,7 +115,7 @@ export function InstagramGallery({ photos, profile, username }: { photos: Galler
                 <button
                   type="button"
                   onClick={() => setOpen(index)}
-                  aria-label={`Open: ${photo.title}`}
+                  aria-label={`${text.openLabel}: ${photo.title}`}
                   className="group relative block w-full overflow-hidden rounded-lg bg-[#082117] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--brand-gold)]"
                 >
                   {photo.video ? (
@@ -140,7 +141,7 @@ export function InstagramGallery({ photos, profile, username }: { photos: Galler
       {photos.length > INITIAL ? (
         <div className="mt-6 flex justify-center">
           <button type="button" onClick={() => setExpanded((value) => !value)} className="label border border-[color:var(--brand-gold)] px-6 py-3 text-[10px] text-[color:var(--brand-gold)] transition-colors hover:bg-[color:var(--brand-gold)] hover:text-[color:var(--brand-ink)]">
-            {expanded ? "Show less" : `Show more (${photos.length - INITIAL})`}
+            {expanded ? text.showLessLabel : `${text.showMoreLabel} (${photos.length - INITIAL})`}
           </button>
         </div>
       ) : null}
@@ -161,13 +162,13 @@ export function InstagramGallery({ photos, profile, username }: { photos: Galler
               {current.text ? <p className="mt-4 whitespace-pre-line text-[13.5px] leading-relaxed text-[color:var(--brand-cream-72)]">{current.text}</p> : null}
               <span className="label mt-auto pt-6 text-[10px] text-[color:var(--brand-cream-72)]">{open! + 1} / {photos.length}</span>
               <a href={current.href} target="_blank" rel="noopener noreferrer" className="label mt-3 inline-flex items-center gap-2 text-[10px] text-[color:var(--brand-gold)]">
-                View on Instagram <ArrowUpRight className="size-4" />
+                {text.viewOnInstagramLabel} <ArrowUpRight className="size-4" />
               </a>
             </div>
           </div>
-          <button type="button" onClick={() => setOpen(null)} aria-label="Close" className="absolute right-4 top-4 grid size-11 place-items-center border border-[color:var(--brand-gold)] text-[color:var(--brand-gold)]"><X /></button>
-          <button type="button" onClick={(event) => { event.stopPropagation(); step(-1); }} aria-label="Previous photo" className="absolute left-2 top-1/2 grid size-11 -translate-y-1/2 place-items-center border border-[color:var(--brand-gold)] bg-[rgba(0,11,7,.6)] text-[color:var(--brand-gold)] sm:left-4"><ArrowLeft /></button>
-          <button type="button" onClick={(event) => { event.stopPropagation(); step(1); }} aria-label="Next photo" className="absolute right-2 top-1/2 grid size-11 -translate-y-1/2 place-items-center bg-[color:var(--brand-gold)] text-[color:var(--brand-ink)] sm:right-4"><ArrowRight /></button>
+          <button type="button" onClick={() => setOpen(null)} aria-label={text.closeLabel} className="absolute right-4 top-4 grid size-11 place-items-center border border-[color:var(--brand-gold)] text-[color:var(--brand-gold)]"><X /></button>
+          <button type="button" onClick={(event) => { event.stopPropagation(); step(-1); }} aria-label={text.previousLabel} className="absolute left-2 top-1/2 grid size-11 -translate-y-1/2 place-items-center border border-[color:var(--brand-gold)] bg-[rgba(0,11,7,.6)] text-[color:var(--brand-gold)] sm:left-4"><ArrowLeft /></button>
+          <button type="button" onClick={(event) => { event.stopPropagation(); step(1); }} aria-label={text.nextLabel} className="absolute right-2 top-1/2 grid size-11 -translate-y-1/2 place-items-center bg-[color:var(--brand-gold)] text-[color:var(--brand-ink)] sm:right-4"><ArrowRight /></button>
         </div>
       ) : null}
     </div>

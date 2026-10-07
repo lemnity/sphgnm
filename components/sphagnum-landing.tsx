@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -38,6 +38,7 @@ import {
   Star,
   ThermometerSun,
   Waves,
+  type LucideIcon,
 } from "lucide-react";
 
 // Статический импорт, а не путь /plants-wall-reception.webp из public: на GitHub
@@ -55,41 +56,19 @@ import applicationRoof from "./assets/reference/crops/application-green-roof-lay
 import applicationWall from "./assets/reference/crops/application-vertical-garden.webp";
 import applicationArid from "./assets/reference/crops/application-moisture-retaining-mat.webp";
 import solutionsHangingVines from "./assets/reference/crops/solutions-hanging-vines-transparent.png";
-import instagramArchive from "./instagram-archive.json";
-import instagramFeed from "./instagram-feed.json";
-import { InstagramGallery } from "./instagram-gallery";
+import type { GalleryItem, IconName, SiteContent } from "@/lib/content/schema";
+import type { InstagramPost } from "@/lib/content/load";
+import { InstagramGallery, type GalleryPhoto } from "./instagram-gallery";
 import { SphagnumLoader } from "./sphagnum-loader";
 import { SphagnumLogo } from "./sphagnum-logo";
 import { SphagnumStyles } from "./sphagnum-styles";
 import { LivingWall, MossTexture } from "./sphagnum-visuals";
-import {
-  ADVANTAGES,
-  APPLICATIONS,
-  CONTACT,
-  FAQ,
-  HERO_BULLETS,
-  // HERO_DESIGNED_FOR больше не выводится: ряд чипов дублировал HERO_BULLETS.
-  // Данные оставлены в sphagnum-data.ts — пригодятся в секции ниже.
-  HERO_WORDS,
-  NAV_LINKS,
-  PLATFORM_BENEFITS,
-  PLATFORM_PILLARS,
-  PRODUCT_LINE,
-  PROJECT_TYPES,
-  CONTACT_DELIVERABLES,
-  SOLUTIONS,
-  STRIP_CARDS,
-  STRIP_PANEL_1,
-  STRIP_PANEL_3,
-  TAGS,
-  VOLUME_RANGES,
-  WETLAND_FACTS,
-} from "./sphagnum-data";
 
 /**
  * SPHAGNUM ECO — Natural Substrates. Одностраничный лендинг по ТЗ
  * «Struktura-saita_EN_shortened». Весь пользовательский текст — английский
- * (целевой рынок ОАЭ/КСА); комментарии в коде остаются русскими.
+ * (целевой рынок ОАЭ/КСА) и приходит пропсами из content/site.json;
+ * комментарии в коде остаются русскими.
  *
  * Визуальный ряд собран из оптимизированных локальных assets, извлечённых из
  * согласованного макета; статические imports сохраняют basePath GitHub Pages.
@@ -139,55 +118,49 @@ const ICONS = {
   star: Star,
   thermometerSun: ThermometerSun,
   waves: Waves,
-} as const;
+} satisfies Record<IconName, LucideIcon>;
 
 const SOLUTION_IMAGES = [solutionMoss, solutionSoil] as const;
-/* Посты Instagram кладёт в public/instagram скрипт scripts/sync-instagram.mjs
-   (его гоняет workflow instagram-sync по расписанию). Файлы из public — не
-   статические импорты, basePath к ним Next сам не допишет: добавляем вручную. */
-type InstagramFeed = {
-  username: string;
-  profile: string;
-  posts: { id: string; permalink: string; caption: string; timestamp: string; mediaType: string; image: string; video?: string }[];
-};
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-const INSTAGRAM_FEED: InstagramFeed = instagramFeed;
 const DATE_FORMAT: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" };
-const INSTAGRAM_POSTS = INSTAGRAM_FEED.posts.map((post) => {
-  const [first = "", ...rest] = post.caption.split(/\n+/).map((line) => line.trim()).filter(Boolean);
-  const title = first.length > 70 ? `${first.slice(0, 67).trimEnd()}…` : first || "Sphagnum Eco";
-  return {
-    id: post.id,
-    href: post.permalink,
-    image: `${BASE_PATH}/${post.image}`,
-    video: post.video ? `${BASE_PATH}/${post.video}` : null,
-    title,
-    text: rest.join(" "),
-    date: new Date(post.timestamp).toLocaleDateString("en-GB", DATE_FORMAT),
-  };
-});
-/* Архив профиля, выгруженный вручную: кадры постов (в том числе каждый слайд
-   каруселей) и рилсы (mp4 + постер) лежат в public/instagram/archive, подписи — в
-   components/instagram-archive.json. Галерея показывает его, пока синхронизация
-   с Instagram не принесла живые посты. Ссылок на сами посты в выгрузке нет —
+
+/* Что показывает галерея. Живые посты Instagram кладёт в public/instagram скрипт
+   scripts/sync-instagram.mjs (workflow instagram-sync по расписанию); пока их нет,
+   показываем content/gallery.json. Пути — от public: basePath Next к ним сам
+   не допишет, добавляем вручную. У элементов галереи ссылок на посты нет —
    ведём в профиль. */
-// Сначала обложки постов (новые → старые), за ними внутренние слайды каруселей:
-// в первых рядах — лица постов, а не текстовые карточки из середины каруселей.
-const ARCHIVE_PHOTOS = [0, 1].flatMap((pass) => instagramArchive.flatMap((post) =>
-  (pass === 0 ? post.slides.slice(0, 1) : post.slides.slice(1)).map((slide) => ({
-    id: slide,
-    href: INSTAGRAM_FEED.profile,
-    image: `${BASE_PATH}/${slide}`,
-    video: post.video ? `${BASE_PATH}/${post.video}` : null,
-    title: post.title,
-    text: "",
-    date: new Date(`${post.date}T00:00:00Z`).toLocaleDateString("en-GB", DATE_FORMAT),
-  })),
-));
-const GALLERY_PHOTOS = INSTAGRAM_POSTS.length > 0 ? INSTAGRAM_POSTS : ARCHIVE_PHOTOS;
+function galleryPhotos(posts: InstagramPost[], items: GalleryItem[], profileUrl: string): GalleryPhoto[] {
+  if (posts.length > 0) {
+    return posts.map((post) => {
+      const [first = "", ...rest] = post.caption.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+      const title = first.length > 70 ? `${first.slice(0, 67).trimEnd()}…` : first || "Sphagnum Eco";
+      return {
+        id: post.id,
+        href: post.permalink,
+        image: `${BASE_PATH}/${post.image}`,
+        video: post.video ? `${BASE_PATH}/${post.video}` : null,
+        title,
+        text: rest.join(" "),
+        date: new Date(post.timestamp).toLocaleDateString("en-GB", DATE_FORMAT),
+      };
+    });
+  }
+  return items.map((item) => {
+    const video = item.type === "video";
+    const poster = video ? item.poster : item.src;
+    return {
+      id: item.id,
+      href: profileUrl,
+      image: poster ? `${BASE_PATH}/${poster}` : "",
+      video: video ? `${BASE_PATH}/${item.src}` : null,
+      title: item.title,
+      text: "",
+      date: new Date(`${item.date}T00:00:00Z`).toLocaleDateString("en-GB", DATE_FORMAT),
+    };
+  });
+}
 
 const APPLICATION_IMAGES = [applicationRoof, applicationWall, applicationArid] as const;
-const TAG_ICONS = ["moss", "refresh", "circleOff", "flask", "hand", "globe"] as const;
 
 const VINE_BRANCHES = [
   { clipPath: "inset(0 87% 72% 5%)", anchor: 0.09, x: 0.62, y: 0.82, rotate: 0.72, duration: 430 },
@@ -258,18 +231,20 @@ function SectionHead({
   title,
   lead,
   light,
+  leafMark,
 }: {
   kicker?: string;
   title: string;
   lead?: string;
   light?: boolean;
+  /** Листок после надзага — у разделов про продукт. */
+  leafMark?: boolean;
 }) {
-  const hasLeafMark = kicker === "Our solutions" || kicker === "Substrate platform for outdoors";
   return (
     <div className="max-w-3xl">
       {kicker ? (
         <p className={`mb-3 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.14em] ${light ? "text-[color:var(--brand-sage)]" : "text-[color:var(--brand-moss)]"}`}>
-          {kicker}{hasLeafMark ? <Leaf className="size-4" strokeWidth={1.8} aria-hidden /> : null}
+          {kicker}{leafMark ? <Leaf className="size-4" strokeWidth={1.8} aria-hidden /> : null}
         </p>
       ) : null}
       <h2
@@ -286,30 +261,10 @@ function SectionHead({
   );
 }
 
-function LeadForm({ id, compact }: { id: string; compact?: boolean }) {
-  const [sent, setSent] = useState(false);
+type FormText = SiteContent["contact"]["form"];
 
-  const select = (key: string, label: string, options: readonly string[], placeholder: string) => (
-    <div className="grid gap-1.5">
-      <label htmlFor={`${id}-${key}`} className="text-[13px] font-semibold text-[color:var(--brand-ink)]">
-        {label}
-      </label>
-      <select
-        id={`${id}-${key}`}
-        defaultValue=""
-        className="h-12 w-full rounded-none border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] px-3.5 text-[15px] outline-none focus-visible:border-[color:var(--brand-moss)] focus-visible:ring-2 focus-visible:ring-[color:var(--brand-moss-40)]"
-      >
-        <option value="" disabled>
-          {placeholder}
-        </option>
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
+function LeadForm({ id, text }: { id: string; text: FormText }) {
+  const [sent, setSent] = useState(false);
 
   return (
     <form
@@ -319,55 +274,61 @@ function LeadForm({ id, compact }: { id: string; compact?: boolean }) {
         setSent(true);
       }}
       className="grid gap-4"
-      aria-label="Request a sample or quote"
+      aria-label={text.ariaLabel}
     >
       {/* Короткие поля парами: семь полей подряд читались как анкета и отпугивали.
           На узком экране пары схлопываются в одну колонку. */}
-      {compact ? null : (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field id={`${id}-name`} label="Name and company" required />
-            <Field id={`${id}-email`} label="Email" type="email" required />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field id={`${id}-phone`} label="Phone / WhatsApp" type="tel" />
-            <Field id={`${id}-region`} label="Region / country" />
-          </div>
-        </>
-      )}
-
-      {/* Виджет в шапке спрашивает объём списком (бриф: «[ Area, m² ▾ ]»),
-          развёрнутая форма — свободным полем («Estimated area (m²)»). */}
-      <div className={compact ? "grid gap-4" : "grid gap-4 sm:grid-cols-2"}>
-        {select("type", "Project type", PROJECT_TYPES, "Select project type")}
-        {compact ? (
-          select("volume", "Area, m²", VOLUME_RANGES, "Select area")
-        ) : (
-          <Field id={`${id}-area`} label="Estimated area (m²)" type="text" />
-        )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field id={`${id}-name`} label={text.nameLabel} required />
+        <Field id={`${id}-email`} label={text.emailLabel} type="email" required />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field id={`${id}-phone`} label={text.phoneLabel} type="tel" />
+        <Field id={`${id}-region`} label={text.regionLabel} />
       </div>
 
-      {compact ? null : (
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="grid gap-1.5">
-          <label htmlFor={`${id}-msg`} className="text-[13px] font-semibold text-[color:var(--brand-ink)]">
-            Message <span className="font-normal text-[color:var(--brand-muted)]">— optional</span>
+          <label htmlFor={`${id}-type`} className="text-[13px] font-semibold text-[color:var(--brand-ink)]">
+            {text.projectTypeLabel}
           </label>
-          <textarea
-            id={`${id}-msg`}
-            rows={3}
-            className="w-full resize-y rounded-none border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] px-3.5 py-2.5 text-[15px] outline-none focus-visible:border-[color:var(--brand-moss)] focus-visible:ring-2 focus-visible:ring-[color:var(--brand-moss-40)]"
-          />
+          <select
+            id={`${id}-type`}
+            defaultValue=""
+            className="h-12 w-full rounded-none border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] px-3.5 text-[15px] outline-none focus-visible:border-[color:var(--brand-moss)] focus-visible:ring-2 focus-visible:ring-[color:var(--brand-moss-40)]"
+          >
+            <option value="" disabled>
+              {text.projectTypePlaceholder}
+            </option>
+            {text.projectTypes.map((o, i) => (
+              <option key={i} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
         </div>
-      )}
+        <Field id={`${id}-area`} label={text.areaLabel} type="text" />
+      </div>
+
+      <div className="grid gap-1.5">
+        <label htmlFor={`${id}-msg`} className="text-[13px] font-semibold text-[color:var(--brand-ink)]">
+          {text.messageLabel} <span className="font-normal text-[color:var(--brand-muted)]">{text.messageHint}</span>
+        </label>
+        <textarea
+          id={`${id}-msg`}
+          rows={3}
+          className="w-full resize-y rounded-none border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] px-3.5 py-2.5 text-[15px] outline-none focus-visible:border-[color:var(--brand-moss)] focus-visible:ring-2 focus-visible:ring-[color:var(--brand-moss-40)]"
+        />
+      </div>
 
       <button type="submit" className="btn btn-primary mt-1 flex w-full text-[13px]">
-        {compact ? "Request" : "Submit Enquiry"}
+        {text.submitLabel}
         <ArrowRight className="size-4" strokeWidth={2} />
       </button>
 
       {/* aria-live: скринридер должен услышать результат, не теряя фокус */}
       <p aria-live="polite" className="min-h-[20px] text-[13px] font-medium text-[color:var(--brand-moss)]">
-        {sent ? "Enquiry sent — we will respond within 24 hours." : ""}
+        {sent ? text.successMessage : ""}
       </p>
     </form>
   );
@@ -403,7 +364,27 @@ function Field({
   );
 }
 
-function PdfAlignedSections() {
+/** Переносы строк из JSON (\n) — в <br />: так в заголовках задаётся принудительный перенос. */
+function Lines({ text }: { text: string }) {
+  return text.split("\n").map((line, index) => (
+    <Fragment key={index}>
+      {index > 0 ? <br /> : null}
+      {line}
+    </Fragment>
+  ));
+}
+
+/** Номер пункта по порядку: 01, 02, … */
+const ordinal = (index: number) => String(index + 1).padStart(2, "0");
+
+function PdfAlignedSections({
+  content,
+  gallery,
+}: {
+  content: SiteContent;
+  gallery: GalleryPhoto[];
+}) {
+  const { product, fuscum, wetland, platform, applications, advantages } = content;
   const productSectionRef = useRef<HTMLElement | null>(null);
   const vinesRef = useRef<HTMLDivElement | null>(null);
 
@@ -537,12 +518,12 @@ function PdfAlignedSections() {
         </div>
         <div className="pdf-grid relative">
           <Reveal>
-            <SectionHead kicker="Our solutions" title="Two solutions for urban greening at every scale" lead="Two product lines for roofs and urban landscapes." />
+            <SectionHead leafMark kicker={product.kicker} title={product.title} lead={product.lead} />
           </Reveal>
         </div>
         <div data-solution-grid className="solutions-reference-grid relative mt-12 grid gap-6 xl:grid-cols-2 xl:gap-10">
-          {SOLUTIONS.map((solution, index) => (
-            <Reveal key={solution.title} delay={index * 0.08} className="solution-frame h-full">
+          {product.solutions.map((solution, index) => (
+            <Reveal key={index} delay={index * 0.08} className="solution-frame h-full">
               <article className="group relative h-full overflow-hidden rounded-[22px] border border-[color:var(--brand-line)] bg-[#fbfaf6] p-7 shadow-[0_18px_55px_rgba(20,24,22,.07)] sm:p-8 xl:min-h-[560px]">
                 <div data-solution-copy className="relative z-10">
                   <div className="flex items-center gap-7 xl:max-w-[74%]">
@@ -550,14 +531,14 @@ function PdfAlignedSections() {
                     <p data-solution-kicker className="label text-[13px] leading-relaxed text-[color:var(--brand-moss)]">{solution.kicker}</p>
                   </div>
                   <h3 className="mt-5 text-[30px] font-bold leading-[1.08] xl:max-w-[58%] xl:text-[34px]">
-                    {index === 0 ? <>Live Sphagnum<br />Fuscum</> : <>Substrate platform<br />for roofs and landscape</>}
+                    <Lines text={solution.title} />
                   </h3>
                   <span className="mt-6 block h-0.5 w-10 bg-[color:var(--brand-lime)]" aria-hidden />
                   <p className="mt-6 text-[15px] leading-[1.55] text-[color:var(--brand-muted)] xl:max-w-[62%] xl:text-[16px]">{solution.lead}</p>
-                  <p className="label mt-9 text-[13px] text-[color:var(--brand-moss)] xl:max-w-[62%]">Key properties</p>
+                  <p className="label mt-9 text-[13px] text-[color:var(--brand-moss)] xl:max-w-[62%]">{product.featuresLabel}</p>
                   <ul className="mt-4 grid gap-3 xl:max-w-[62%]">
-                    {solution.features.map((feature) => (
-                      <li key={feature} className="flex gap-3 text-[14px] leading-snug xl:text-[15px]">
+                    {solution.features.map((feature, featureIndex) => (
+                      <li key={featureIndex} className="flex gap-3 text-[14px] leading-snug xl:text-[15px]">
                         <Leaf className="mt-0.5 size-[18px] shrink-0 text-[color:var(--brand-moss)]" strokeWidth={1.7} aria-hidden />
                         {feature}
                       </li>
@@ -565,7 +546,7 @@ function PdfAlignedSections() {
                   </ul>
                 </div>
                 <img
-                  src={SOLUTION_IMAGES[index].src}
+                  src={SOLUTION_IMAGES[index % SOLUTION_IMAGES.length].src}
                   alt=""
                   aria-hidden
                   data-solution-image
@@ -580,18 +561,18 @@ function PdfAlignedSections() {
       <section id="fuscum" className="bg-[#f8f7f3] pb-16 lg:pb-24">
         <div className="pdf-grid grid overflow-hidden rounded-[24px] border border-[color:var(--brand-line)] bg-[#faf9f7] lg:min-h-[608px] lg:grid-cols-[1.08fr_.92fr]">
           <div className="relative min-h-[470px] overflow-hidden p-8 sm:p-12 lg:min-h-[608px]">
-            <h2 className="label flex items-center gap-2 text-[12px] text-[color:var(--brand-moss)]"><Leaf className="size-5" strokeWidth={1.8} aria-hidden />Raw-material base</h2>
+            <h2 className="label flex items-center gap-2 text-[12px] text-[color:var(--brand-moss)]"><Leaf className="size-5" strokeWidth={1.8} aria-hidden />{fuscum.kicker}</h2>
             <span className="mt-5 block h-0.5 w-12 bg-[color:var(--brand-moss)]" aria-hidden />
-            <p className="mt-12 whitespace-nowrap text-[52px] font-bold leading-none tracking-[-.055em] sm:text-[76px] lg:text-[88px]">53,000 <span className="text-[.42em] tracking-normal text-[#5f792a]">km²</span></p>
-            <p className="mt-3 text-[28px] font-bold leading-none sm:text-[34px]">of pristine wetland</p>
-            <img src={wetlandLandscape.src} alt="Living sphagnum wetlands in Western Siberia" className="absolute inset-x-0 bottom-0 h-[44%] w-full object-cover" />
+            <p className="mt-12 whitespace-nowrap text-[52px] font-bold leading-none tracking-[-.055em] sm:text-[76px] lg:text-[88px]">{fuscum.areaValue} <span className="text-[.42em] tracking-normal text-[#5f792a]">{fuscum.areaUnit}</span></p>
+            <p className="mt-3 text-[28px] font-bold leading-none sm:text-[34px]">{fuscum.areaCaption}</p>
+            <img src={wetlandLandscape.src} alt={fuscum.image.alt} className="absolute inset-x-0 bottom-0 h-[44%] w-full object-cover" />
           </div>
           <div className="p-8 sm:p-12 lg:pt-16">
-            <p className="text-[16px] leading-relaxed text-[color:var(--brand-ink-85)]">The Vasyugan wetlands of Western Siberia form the world&rsquo;s largest wetland system and the base of our raw material. Harvesting is deliberately shallow: the bog closes over and the same field is cut again a few years later. That is what makes it renewable, unlike peat, which takes thousands of years to form.</p>
+            <p className="text-[16px] leading-relaxed text-[color:var(--brand-ink-85)]">{wetland.text}</p>
             <dl className="mt-8">
-              {WETLAND_FACTS.map((fact, index) => (
-                <div key={fact.value} className="grid grid-cols-[48px_82px_1fr] items-center gap-3 border-b border-[color:var(--brand-line)] py-4 last:border-b-0 sm:grid-cols-[54px_100px_1fr] sm:gap-4">
-                  <span className="grid size-12 place-items-center rounded-xl bg-[#f1f4e9] text-[color:var(--brand-moss)]"><Icon name={index === 0 ? "shovel" : index === 1 ? "refresh" : "hand"} /></span>
+              {wetland.facts.map((fact, index) => (
+                <div key={index} className="grid grid-cols-[48px_82px_1fr] items-center gap-3 border-b border-[color:var(--brand-line)] py-4 last:border-b-0 sm:grid-cols-[54px_100px_1fr] sm:gap-4">
+                  <span className="grid size-12 place-items-center rounded-xl bg-[#f1f4e9] text-[color:var(--brand-moss)]"><Icon name={fact.icon} /></span>
                   <dt className="text-[19px] font-bold text-[#5f792a] sm:text-[21px]">{fact.value}</dt>
                   <dd className="border-l border-[color:var(--brand-line)] pl-3 text-[13px] leading-snug text-[color:var(--brand-muted)] sm:pl-4 sm:text-[14px]">{fact.text}</dd>
                 </div>
@@ -603,7 +584,7 @@ function PdfAlignedSections() {
 
       <section className="bg-[#fafafa] pb-20 lg:pb-[143px]">
         <figure className="pdf-grid living-wall-frame">
-          <img src={livingWallWide.src} alt="Wide framed living wall composed of mosses, ferns and trailing plants" className="block h-auto w-full object-contain" />
+          <img src={livingWallWide.src} alt={wetland.wallImage.alt} className="block h-auto w-full object-contain" />
         </figure>
       </section>
 
@@ -615,12 +596,12 @@ function PdfAlignedSections() {
         }}
       >
         <div className="pdf-grid relative z-10 pb-40 lg:pb-[373px]">
-          <Reveal><SectionHead kicker="Substrate platform for outdoors" title="Engineered root-zone performance" lead="Science-backed substrate technology for healthy plants and lasting green spaces." /></Reveal>
+          <Reveal><SectionHead leafMark kicker={platform.kicker} title={platform.title} lead={platform.lead} /></Reveal>
           <div className="mt-12 grid gap-5 lg:grid-cols-3">
-            {PLATFORM_PILLARS.map((pillar, index) => (
-              <Reveal key={pillar.title} delay={index * 0.08}>
+            {platform.pillars.map((pillar, index) => (
+              <Reveal key={index} delay={index * 0.08}>
                 <article className="h-full rounded-[18px] border border-[color:var(--brand-line)] bg-white/90 p-7 shadow-[0_14px_38px_rgba(20,24,22,.06)] backdrop-blur">
-                  <div className="flex items-start justify-between"><span className="grid size-12 place-items-center rounded-xl bg-[#edf3e6] text-[color:var(--brand-moss)]"><Icon name={pillar.icon} className="size-6" /></span><span className="text-[13px] font-semibold text-[color:var(--brand-line)]">0{index + 1}</span></div>
+                  <div className="flex items-start justify-between"><span className="grid size-12 place-items-center rounded-xl bg-[#edf3e6] text-[color:var(--brand-moss)]"><Icon name={pillar.icon} className="size-6" /></span><span className="text-[13px] font-semibold text-[color:var(--brand-line)]">{ordinal(index)}</span></div>
                   <h3 className="mt-5 text-[20px] font-bold">{pillar.title}</h3>
                   <p className="mt-3 text-[14px] leading-relaxed text-[color:var(--brand-muted)]">{pillar.text}</p>
                 </article>
@@ -628,27 +609,27 @@ function PdfAlignedSections() {
             ))}
           </div>
         </div>
-        <img data-reference-visual="root-zone-scene" src={rootZoneStrip.src} alt="Moss, seedlings and mineral substrate forming a healthy root-zone layer" className="absolute inset-x-0 bottom-0 h-auto w-full object-contain object-bottom [mask-image:linear-gradient(to_bottom,transparent_0%,#000_32%,#000_100%)]" />
+        <img data-reference-visual="root-zone-scene" src={rootZoneStrip.src} alt={platform.rootZoneImage.alt} className="absolute inset-x-0 bottom-0 h-auto w-full object-contain object-bottom [mask-image:linear-gradient(to_bottom,transparent_0%,#000_32%,#000_100%)]" />
       </section>
 
       <section data-reference-surface="benefits" className="w-full bg-[#fbfaf8]">
         <div className="pdf-grid py-14 lg:py-40">
-          <h3 className="text-[28px] font-bold">Benefits</h3><span className="mt-4 block h-0.5 w-12 bg-[color:var(--brand-moss)]" aria-hidden />
+          <h3 className="text-[28px] font-bold">{platform.benefitsTitle}</h3><span className="mt-4 block h-0.5 w-12 bg-[color:var(--brand-moss)]" aria-hidden />
           <div className="mt-7 grid sm:grid-cols-2 lg:grid-cols-3">
-            {PLATFORM_BENEFITS.map((benefit, index) => (
-              <article key={benefit.title} className="grid grid-cols-[48px_1fr] gap-4 border-b border-[color:var(--brand-line)] py-7 sm:px-5 lg:border-r lg:[&:nth-child(3n)]:border-r-0">
-                <span className="grid size-11 place-items-center rounded-lg bg-[#f1f3ec] text-[color:var(--brand-moss)]"><Icon name={["shield", "droplet", "moss", "weight", "flask", "moss"][index]} /></span>
-                <div><span className="text-[12px] font-semibold text-[color:var(--brand-moss)]">0{index + 1}</span><h4 className="mt-1 text-[16px] font-bold">{benefit.title}</h4><p className="mt-2 text-[13.5px] leading-relaxed text-[color:var(--brand-muted)]">{benefit.text}</p></div>
+            {platform.benefits.map((benefit, index) => (
+              <article key={index} className="grid grid-cols-[48px_1fr] gap-4 border-b border-[color:var(--brand-line)] py-7 sm:px-5 lg:border-r lg:[&:nth-child(3n)]:border-r-0">
+                <span className="grid size-11 place-items-center rounded-lg bg-[#f1f3ec] text-[color:var(--brand-moss)]"><Icon name={benefit.icon} /></span>
+                <div><span className="text-[12px] font-semibold text-[color:var(--brand-moss)]">{ordinal(index)}</span><h4 className="mt-1 text-[16px] font-bold">{benefit.title}</h4><p className="mt-2 text-[13.5px] leading-relaxed text-[color:var(--brand-muted)]">{benefit.text}</p></div>
               </article>
             ))}
           </div>
-          <h3 className="mt-12 text-[28px] font-bold">Product range</h3><span className="mt-4 block h-0.5 w-12 bg-[color:var(--brand-moss)]" aria-hidden />
+          <h3 className="mt-12 text-[28px] font-bold">{platform.rangeTitle}</h3><span className="mt-4 block h-0.5 w-12 bg-[color:var(--brand-moss)]" aria-hidden />
           <div className="mt-7 grid gap-4 lg:grid-cols-3">
-            {PRODUCT_LINE.map((product, index) => (
-              <article key={product.name} className="flex gap-5 rounded-xl border border-[color:var(--brand-line)] p-6"><span className="grid size-14 shrink-0 place-items-center rounded-full bg-[#f1f3ec] text-[color:var(--brand-moss)]"><Icon name={["moss", "shield", "star"][index]} /></span><div><h4 className="text-[17px] font-bold">{product.name}</h4><p className="mt-2 text-[13.5px] leading-relaxed text-[color:var(--brand-muted)]">{product.text}</p><ArrowRight className="mt-4 size-4 text-[color:var(--brand-moss)]" aria-hidden /></div></article>
+            {platform.range.map((item, index) => (
+              <article key={index} className="flex gap-5 rounded-xl border border-[color:var(--brand-line)] p-6"><span className="grid size-14 shrink-0 place-items-center rounded-full bg-[#f1f3ec] text-[color:var(--brand-moss)]"><Icon name={item.icon} /></span><div><h4 className="text-[17px] font-bold">{item.name}</h4><p className="mt-2 text-[13.5px] leading-relaxed text-[color:var(--brand-muted)]">{item.text}</p><ArrowRight className="mt-4 size-4 text-[color:var(--brand-moss)]" aria-hidden /></div></article>
             ))}
           </div>
-          <a href="#contact" className="btn btn-primary mt-7 inline-flex text-[13px]">Request Technical Details <ArrowUpRight className="size-4" /></a>
+          <a href="#contact" className="btn btn-primary mt-7 inline-flex text-[13px]">{platform.ctaLabel} <ArrowUpRight className="size-4" /></a>
         </div>
       </section>
 
@@ -657,21 +638,21 @@ function PdfAlignedSections() {
         <img data-reference-visual="portfolio-dots" src={portfolioDots.src} alt="" aria-hidden className="pointer-events-none absolute bottom-2 left-[191.25px] hidden h-auto w-[212.5px] mix-blend-lighten lg:block" />
         <div data-reference-visual="portfolio-baseline" aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-2 bg-[linear-gradient(to_bottom,#8d782d_0%,#c4a239_45%,#c4a239_100%)]" />
         <div className="pdf-grid">
-          <InstagramGallery photos={GALLERY_PHOTOS} profile={INSTAGRAM_FEED.profile} username={INSTAGRAM_FEED.username} />
+          <InstagramGallery photos={gallery} text={content.gallery} />
         </div>
       </section>
 
       <section id="applications" className="bg-[#f7f4ef] py-20 lg:pb-[136px] lg:pt-28">
         <div className="pdf-grid">
-          <Reveal><SectionHead kicker="Applications" title="Where our solutions perform" /></Reveal>
+          <Reveal><SectionHead kicker={applications.kicker} title={applications.title} /></Reveal>
           <div className="mt-14 grid gap-20 lg:gap-28">
-            {APPLICATIONS.map((application, index) => (
-              <Reveal key={application.title} anim={index % 2 ? "right" : "left"}>
+            {applications.items.map((application, index) => (
+              <Reveal key={index} anim={index % 2 ? "right" : "left"}>
                 <article className={`grid items-center gap-10 lg:gap-16 ${index === 0 ? "lg:min-h-[700px] lg:grid-cols-[1.08fr_.92fr]" : index === 1 ? "lg:min-h-[760px] lg:grid-cols-[.88fr_1.12fr]" : "lg:min-h-[780px] lg:grid-cols-[.96fr_1.04fr]"}`}>
-                  <figure className={`overflow-hidden rounded-[18px] bg-white shadow-[0_18px_50px_rgba(20,24,22,.07)] ${index > 0 ? "lg:order-2" : ""}`}><img src={APPLICATION_IMAGES[index].src} alt={application.diagramAlt} className="h-auto w-full object-contain" /></figure>
-                  <div><p className="label text-[11px] text-[color:var(--brand-moss)]">Applications</p><span className="mt-4 block h-px w-10 bg-[color:var(--brand-moss)]" /><span className="mt-8 block text-[13px] font-bold text-[#5f792a]">0{index + 1}</span><h3 className="mt-3 text-[33px] font-bold leading-[1.08] lg:text-[40px]">{application.title}</h3><p className="mt-5 text-[15px] leading-relaxed text-[color:var(--brand-muted)]">{application.text}</p>
+                  <figure className={`overflow-hidden rounded-[18px] bg-white shadow-[0_18px_50px_rgba(20,24,22,.07)] ${index > 0 ? "lg:order-2" : ""}`}><img src={APPLICATION_IMAGES[index % APPLICATION_IMAGES.length].src} alt={application.image.alt} className="h-auto w-full object-contain" /></figure>
+                  <div><p className="label text-[11px] text-[color:var(--brand-moss)]">{applications.itemKicker}</p><span className="mt-4 block h-px w-10 bg-[color:var(--brand-moss)]" /><span className="mt-8 block text-[13px] font-bold text-[#5f792a]">{ordinal(index)}</span><h3 className="mt-3 text-[33px] font-bold leading-[1.08] lg:text-[40px]">{application.title}</h3><p className="mt-5 text-[15px] leading-relaxed text-[color:var(--brand-muted)]">{application.text}</p>
                     <ul className={`mt-8 grid gap-4 ${application.benefits.length === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
-                      {application.benefits.map((benefit) => <li key={benefit.title} className="min-w-0"><span className="grid size-12 place-items-center rounded-xl bg-[#edf3e6] text-[color:var(--brand-moss)]"><Icon name={benefit.icon} /></span><span className="mt-3 block text-[13px] font-bold leading-tight">{benefit.title}</span>{"text" in benefit ? <span className="mt-1 block text-[12px] leading-snug text-[color:var(--brand-muted)]">{benefit.text}</span> : null}</li>)}
+                      {application.benefits.map((benefit, benefitIndex) => <li key={benefitIndex} className="min-w-0"><span className="grid size-12 place-items-center rounded-xl bg-[#edf3e6] text-[color:var(--brand-moss)]"><Icon name={benefit.icon} /></span><span className="mt-3 block text-[13px] font-bold leading-tight">{benefit.title}</span>{benefit.text ? <span className="mt-1 block text-[12px] leading-snug text-[color:var(--brand-muted)]">{benefit.text}</span> : null}</li>)}
                     </ul>
                   </div>
                 </article>
@@ -683,18 +664,32 @@ function PdfAlignedSections() {
 
       <section id="advantages" className="bg-[#0f1314] py-20 text-[color:var(--brand-cream)] lg:py-28">
         <div className="pdf-grid">
-          <div className="grid gap-8 border-b border-[rgba(215,177,94,.55)] pb-8 lg:grid-cols-[1.2fr_.8fr] lg:items-end"><div><p className="label text-[11px] text-[color:var(--brand-gold)]">Why us</p><span className="mt-3 block h-px w-12 bg-[color:var(--brand-gold)]" aria-hidden /><h2 className="mt-5 text-[38px] font-bold leading-[1.03] sm:text-[52px]">Sphagnum Eco — <span className="block text-[color:var(--brand-gold)]">advantages</span></h2></div><p className="max-w-[42ch] text-[15px] leading-relaxed text-[color:var(--brand-cream-72)]">From raw material to finished substrate, we ensure quality, consistency, and support you can rely on for every project.</p></div>
+          <div className="grid gap-8 border-b border-[rgba(215,177,94,.55)] pb-8 lg:grid-cols-[1.2fr_.8fr] lg:items-end"><div><p className="label text-[11px] text-[color:var(--brand-gold)]">{advantages.kicker}</p><span className="mt-3 block h-px w-12 bg-[color:var(--brand-gold)]" aria-hidden /><h2 className="mt-5 text-[38px] font-bold leading-[1.03] sm:text-[52px]">{advantages.title} <span className="block text-[color:var(--brand-gold)]">{advantages.titleAccent}</span></h2></div><p className="max-w-[42ch] text-[15px] leading-relaxed text-[color:var(--brand-cream-72)]">{advantages.lead}</p></div>
           <div className="mt-8 grid gap-4 md:grid-cols-2">
-            {ADVANTAGES.map((advantage) => <article key={advantage.num} className="grid gap-5 rounded-xl border border-[color:var(--brand-cream-15)] p-6 sm:grid-cols-[84px_1fr]"><span className="grid size-20 place-items-center rounded-full border border-[rgba(215,177,94,.45)] text-[color:var(--brand-gold)]"><Icon name={advantage.icon} className="size-9" /></span><div><span className="text-[13px] font-semibold text-[color:var(--brand-gold)]">{advantage.num}</span><h3 className="mt-1 text-[20px] font-bold">{advantage.title}</h3><span className="mt-3 block h-px w-10 bg-[color:var(--brand-gold)]" /><p className="mt-3 text-[13.5px] leading-relaxed text-[color:var(--brand-cream-72)]">{advantage.text}</p></div></article>)}
+            {advantages.items.map((advantage, index) => <article key={index} className="grid gap-5 rounded-xl border border-[color:var(--brand-cream-15)] p-6 sm:grid-cols-[84px_1fr]"><span className="grid size-20 place-items-center rounded-full border border-[rgba(215,177,94,.45)] text-[color:var(--brand-gold)]"><Icon name={advantage.icon} className="size-9" /></span><div><span className="text-[13px] font-semibold text-[color:var(--brand-gold)]">{ordinal(index)}</span><h3 className="mt-1 text-[20px] font-bold">{advantage.title}</h3><span className="mt-3 block h-px w-10 bg-[color:var(--brand-gold)]" /><p className="mt-3 text-[13.5px] leading-relaxed text-[color:var(--brand-cream-72)]">{advantage.text}</p></div></article>)}
           </div>
-          <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">{TAGS.map((tag, index) => <span key={tag} data-advantage-tag className="flex items-center justify-center gap-3 rounded-full border border-[rgba(215,177,94,.42)] px-4 py-2.5 text-[13px] text-[color:var(--brand-cream-85)]"><Icon name={TAG_ICONS[index]} className="size-5 shrink-0 text-[color:var(--brand-gold)]" />{tag}</span>)}</div>
+          <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">{advantages.tags.map((tag, index) => <span key={index} data-advantage-tag className="flex items-center justify-center gap-3 rounded-full border border-[rgba(215,177,94,.42)] px-4 py-2.5 text-[13px] text-[color:var(--brand-cream-85)]"><Icon name={tag.icon} className="size-5 shrink-0 text-[color:var(--brand-gold)]" />{tag.label}</span>)}</div>
         </div>
       </section>
     </>
   );
 }
 
-export default function SphagnumLanding() {
+/** tel:-ссылка из номера в том виде, как он показан на странице. */
+const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
+
+export default function SphagnumLanding({
+  content,
+  gallery,
+  instagramPosts,
+}: {
+  content: SiteContent;
+  gallery: GalleryItem[];
+  instagramPosts: InstagramPost[];
+}) {
+  const { contacts, nav, hero, strip, faq, contact, footer } = content;
+  const phoneHref = telHref(contacts.phone);
+  const photos = galleryPhotos(instagramPosts, gallery, content.gallery.profileUrl);
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
@@ -703,9 +698,9 @@ export default function SphagnumLanding() {
 
   // Автокарусель нижней полосы героя — 3500 мс, как в референсе.
   useEffect(() => {
-    const id = window.setInterval(() => setStripCard((c) => (c + 1) % STRIP_CARDS.length), 3500);
+    const id = window.setInterval(() => setStripCard((c) => (c + 1) % Math.max(1, strip.cards.length)), 3500);
     return () => window.clearInterval(id);
-  }, []);
+  }, [strip.cards.length]);
 
   useEffect(() => {
     const onScroll = () => {
@@ -772,20 +767,20 @@ export default function SphagnumLanding() {
         >
           <div className="flex items-center justify-end gap-7 py-2.5 pdf-grid">
             <a
-              href={CONTACT.phoneHref}
+              href={phoneHref}
               className={`text-[13px] font-medium transition-colors ${
                 scrolled ? "text-[color:var(--brand-muted)] hover:text-[color:var(--brand-ink)]" : "text-[color:var(--brand-cream-72)] hover:text-[color:var(--brand-cream)]"
               }`}
             >
-              {CONTACT.phone}
+              {contacts.phone}
             </a>
             <a
-              href={`mailto:${CONTACT.email}`}
+              href={`mailto:${contacts.email}`}
               className={`text-[13px] font-medium transition-colors ${
                 scrolled ? "text-[color:var(--brand-muted)] hover:text-[color:var(--brand-ink)]" : "text-[color:var(--brand-cream-72)] hover:text-[color:var(--brand-cream)]"
               }`}
             >
-              {CONTACT.email}
+              {contacts.email}
             </a>
             {/* Переключатель языка убран: сайт одноязычный (EN), а кнопка, которая
                 ни на что не переключает, — дефект, а не украшение. Вернуть, когда
@@ -812,10 +807,10 @@ export default function SphagnumLanding() {
           </a>
 
           <nav className="a-in d4 ml-auto hidden items-center gap-5 xl:flex 2xl:gap-6">
-            {NAV_LINKS.map((l) => (
+            {nav.links.map((l, i) => (
               <a
-                key={l.id}
-                href={`#${l.id}`}
+                key={i}
+                href={`#${l.target}`}
                 className={`whitespace-nowrap text-[14px] font-medium transition-colors ${
                   scrolled ? "text-[color:var(--brand-muted)] hover:text-[color:var(--brand-ink)]" : "text-[color:var(--brand-cream-85)] hover:text-[color:var(--brand-cream)]"
                 }`}
@@ -832,7 +827,7 @@ export default function SphagnumLanding() {
             href="#contact"
             className="btn btn-moss a-right d3 ml-auto hidden shrink-0 whitespace-nowrap text-[12px] md:inline-flex lg:text-[13px] xl:ml-0"
           >
-            Get Expert Advice
+            {nav.ctaLabel}
             <ArrowRight className="size-4" strokeWidth={2} />
           </a>
 
@@ -843,7 +838,7 @@ export default function SphagnumLanding() {
           <button
             type="button"
             onClick={() => setMenuOpen(true)}
-            aria-label="Open menu"
+            aria-label={nav.openMenuLabel}
             className={`ml-auto md:ml-5 xl:hidden ${
               scrolled ? "text-[color:var(--brand-ink)]" : "text-[color:var(--brand-cream)]"
             }`}
@@ -860,17 +855,17 @@ export default function SphagnumLanding() {
             <button
               type="button"
               onClick={() => setMenuOpen(false)}
-              aria-label="Close menu"
+              aria-label={nav.closeMenuLabel}
               className="ml-auto text-[color:var(--brand-cream)]"
             >
               <X className="size-6" strokeWidth={1.6} />
             </button>
           </div>
           <nav className="mt-10 flex flex-col gap-5">
-            {NAV_LINKS.map((l) => (
+            {nav.links.map((l, i) => (
               <a
-                key={l.id}
-                href={`#${l.id}`}
+                key={i}
+                href={`#${l.target}`}
                 onClick={() => setMenuOpen(false)}
                 className="display text-2xl font-bold text-[color:var(--brand-cream)]"
               >
@@ -885,7 +880,7 @@ export default function SphagnumLanding() {
             onClick={() => setMenuOpen(false)}
             className="btn btn-sage mt-auto flex w-full text-[14px]"
           >
-            Get Expert Advice <ArrowRight className="size-4" strokeWidth={2} />
+            {nav.ctaLabel} <ArrowRight className="size-4" strokeWidth={2} />
           </a>
         </div>
       ) : null}
@@ -1014,25 +1009,25 @@ export default function SphagnumLanding() {
                 Антиква в нормальном регистре. Прежний вариант был в капсе, и
                 часть слов гасилась до 45% белого — гасились при этом не
                 служебные слова, а существительные («roofs, vertical»), из-за
-                чего фраза читалась обрывками. Поле `dim` в HERO_WORDS осталось
-                в данных, но больше не используется: заголовок одноцветный.
+                чего фраза читалась обрывками. Теперь заголовок одноцветный и
+                приходит одной строкой; слова режем здесь, ради пословной анимации.
               */}
               <h1
                 className="brand-serif leading-[1.08] text-[32px] text-[color:var(--brand-cream)] sm:text-[42px] md:text-[50px] lg:text-[56px] xl:text-[64px]"
               >
-                {HERO_WORDS.map((w, i) => (
+                {hero.title.split(/\s+/).filter(Boolean).map((word, i) => (
                   // Пробел настоящим текстовым узлом: margin-left между словами
                   // сдвигал вправо ПЕРВОЕ слово каждой перенесённой строки.
-                  <span key={`${w.text}-${i}`}>
+                  <span key={i}>
                     <span className="word">
-                      <span style={{ animationDelay: `${0.3 + i * 0.06}s` }}>{w.text}</span>
+                      <span style={{ animationDelay: `${0.3 + i * 0.06}s` }}>{word}</span>
                     </span>{" "}
                   </span>
                 ))}
               </h1>
 
               <p className="a-in d6 mt-5 text-base font-medium text-[color:var(--brand-sage)] sm:text-lg lg:mt-6">
-                Resilient greenery in any climate
+                {hero.subtitle}
               </p>
 
               {/*
@@ -1047,7 +1042,7 @@ export default function SphagnumLanding() {
                   href="#contact"
                   className="btn btn-gold inline-flex w-full whitespace-nowrap text-[13px] sm:w-auto sm:px-9 lg:py-[18px] lg:text-[14px]"
                 >
-                  Get Expert Advice
+                  {hero.ctaLabel}
                   <ArrowUpRight className="size-5" strokeWidth={1.8} />
                 </a>
               </div>
@@ -1059,9 +1054,9 @@ export default function SphagnumLanding() {
                 Оставлена одна пара: что продаём, без повтора зачем.
               */}
               <ul className="a-up d8 mt-9 grid gap-3 border-t border-[color:var(--brand-cream-15)] pt-7 lg:mt-11 lg:grid-cols-3 lg:gap-x-8">
-                {HERO_BULLETS.map((b) => (
+                {hero.bullets.map((b, i) => (
                   <li
-                    key={b}
+                    key={i}
                     className="flex gap-2.5 text-[14px] leading-snug text-[color:var(--brand-cream-85)]"
                   >
                     <CheckCircle2
@@ -1093,25 +1088,25 @@ export default function SphagnumLanding() {
           {/* Панель 1 */}
           <div className="a-up d8 relative flex flex-col justify-between overflow-hidden bg-[color:var(--brand-cream)] p-7 text-[color:var(--brand-ink)] lg:p-9">
             <p className="brand-serif max-w-[350px] text-xl leading-[1.12] sm:text-[24px] lg:text-[28px]">
-              {STRIP_PANEL_1.text}
+              {strip.intro.text}
             </p>
             <a
-              href={STRIP_PANEL_1.linkHref}
+              href={strip.intro.linkHref}
               className="mt-5 inline-block text-base underline underline-offset-4 hover:text-[color:var(--brand-moss)] lg:text-lg"
               style={{ letterSpacing: "-0.03em" }}
             >
-              {STRIP_PANEL_1.linkLabel}
+              {strip.intro.linkLabel}
             </a>
           </div>
 
           {/* Панель 2 — автокарусель */}
           <div className="a-up d8 flex flex-col justify-between bg-[color:var(--brand-cream)] p-7 text-[color:var(--brand-ink)] md:border-l md:border-[color:var(--brand-ink-10)] lg:p-8">
             <div className="relative min-h-[84px] flex-1 sm:min-h-[96px]">
-              {STRIP_CARDS.map((c, i) => {
+              {strip.cards.map((c, i) => {
                 const active = i === stripCard;
                 return (
                   <div
-                    key={c.text}
+                    key={i}
                     aria-hidden={!active}
                     // Уходящая гаснет вдвое быстрее приходящей — иначе два текста
                     // накладываются и полсекунды нечитаемы.
@@ -1123,10 +1118,8 @@ export default function SphagnumLanding() {
                       active ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-4 opacity-0"
                     }`}
                   >
-                    {/* Кружок всегда Moss. Поле `circle` в данных задавало cyan и
-                        amber — цвета вне фирменной палитры, а «кодировка типа
-                        свойства цветом» всё равно не считывалась: легенды нет,
-                        и по §«не только цветом» смысл обязан быть в тексте. */}
+                    {/* Кружок всегда Moss: цвет по типу свойства (cyan, amber) выходил
+                        за фирменную палитру и без легенды не считывался. */}
                     <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[color:var(--brand-moss)] text-[color:var(--brand-cream)] sm:size-12">
                       <Icon name={c.icon} className="size-[18px]" />
                     </span>
@@ -1141,9 +1134,9 @@ export default function SphagnumLanding() {
               })}
             </div>
             <div className="mt-5 flex gap-1.5" aria-hidden>
-              {STRIP_CARDS.map((c, i) => (
+              {strip.cards.map((c, i) => (
                 <span
-                  key={c.text}
+                  key={i}
                   className={`h-0.5 flex-1 rounded-full transition-colors duration-500 ${
                     i === stripCard ? "bg-[color:var(--brand-ink)]" : "bg-[color:var(--brand-ink-20)]"
                   }`}
@@ -1156,32 +1149,32 @@ export default function SphagnumLanding() {
               брендовому Ink уже 5.8:1; поднято до 75%, чтобы держать запас. */}
           <div className="a-up d8 flex items-center gap-5 bg-[color:var(--brand-ink)] p-7 lg:gap-7 lg:p-9">
             <p className="brand-serif shrink-0 text-2xl text-[color:var(--brand-cream)] sm:text-3xl lg:text-[35px]">
-              {STRIP_PANEL_3.value}
+              {strip.fact.value}
             </p>
             <p className="text-sm leading-[1.3] text-[color:var(--brand-cream-72)] sm:text-base lg:text-lg">
-              {STRIP_PANEL_3.text}
+              {strip.fact.text}
             </p>
           </div>
         </div>
         </div>
       </section>
-      <PdfAlignedSections />
+      <PdfAlignedSections content={content} gallery={photos} />
 
 
       {/* ═══════════ РАЗДЕЛ 11 — FAQ ═══════════ */}
       <section id="faq" className="bg-[color:var(--brand-cream)] py-24 lg:py-36">
         <div className="pdf-grid">
           <Reveal>
-            <SectionHead kicker="FAQ" title="Frequently asked questions" />
+            <SectionHead kicker={faq.kicker} title={faq.title} />
           </Reveal>
 
           {/* Ширина строки для чтения — здесь, а не на контейнере: иначе левый
               край секции не совпадал с остальной страницей. */}
           <div className="mt-10 max-w-[860px] lg:mt-14">
-            {FAQ.map((f, i) => {
+            {faq.items.map((f, i) => {
               const open = openFaq === i;
               return (
-                <Reveal key={f.q} delay={0.04}>
+                <Reveal key={i} delay={0.04}>
                   <div className="border-b border-[color:var(--brand-line)]">
                     <h3>
                       <button
@@ -1191,7 +1184,7 @@ export default function SphagnumLanding() {
                         aria-controls={`faq-panel-${i}`}
                         className="flex w-full items-start gap-4 py-5 text-left"
                       >
-                        <span className="normal-case-h flex-1 text-[16px] font-bold leading-snug sm:text-[17px]">{f.q}</span>
+                        <span className="normal-case-h flex-1 text-[16px] font-bold leading-snug sm:text-[17px]">{f.question}</span>
                         <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-[color:var(--brand-cream)] text-[color:var(--brand-moss)]">
                           {open ? <Minus className="size-4" strokeWidth={2.2} /> : <Plus className="size-4" strokeWidth={2.2} />}
                         </span>
@@ -1205,7 +1198,7 @@ export default function SphagnumLanding() {
                       style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
                     >
                       <div className="overflow-hidden">
-                        <p className="pb-5 pr-11 text-[15px] leading-relaxed text-[color:var(--brand-muted)]">{f.a}</p>
+                        <p className="pb-5 pr-11 text-[15px] leading-relaxed text-[color:var(--brand-muted)]">{f.answer}</p>
                       </div>
                     </div>
                   </div>
@@ -1230,9 +1223,9 @@ export default function SphagnumLanding() {
             <Reveal anim="left">
               <SectionHead
                 light
-                kicker="Contact"
-                title="Let’s discuss your project"
-                lead="Send us your enquiry and we will recommend the right substrate, provide a technical passport and arrange a trial delivery. We respond within 24 hours."
+                kicker={contact.kicker}
+                title={contact.title}
+                lead={contact.lead}
               />
             </Reveal>
 
@@ -1240,8 +1233,8 @@ export default function SphagnumLanding() {
                 что снимает возражение «а что я получу, если оставлю заявку». */}
             <Reveal anim="left" delay={0.08}>
               <ul className="mt-10 grid gap-5 lg:mt-12">
-                {CONTACT_DELIVERABLES.map((d) => (
-                  <li key={d.title} className="flex gap-4 border-t border-[color:var(--brand-cream-15)] pt-5">
+                {contact.deliverables.map((d, i) => (
+                  <li key={i} className="flex gap-4 border-t border-[color:var(--brand-cream-15)] pt-5">
                     <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-[color:var(--brand-sage)]" strokeWidth={1.7} aria-hidden />
                     <span>
                       <span className="block text-[15.5px] font-bold">{d.title}</span>
@@ -1255,22 +1248,22 @@ export default function SphagnumLanding() {
             <Reveal anim="left" delay={0.16}>
               <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4 border-t border-[color:var(--brand-cream-15)] pt-7">
                 <div>
-                  <p className="display text-[16px] leading-none">{CONTACT.person}</p>
-                  <p className="mt-1.5 text-[13.5px] text-[color:var(--brand-cream-72)]">{CONTACT.role}</p>
+                  <p className="display text-[16px] leading-none">{contacts.person}</p>
+                  <p className="mt-1.5 text-[13.5px] text-[color:var(--brand-cream-72)]">{contacts.role}</p>
                 </div>
                 <a
-                  href={CONTACT.phoneHref}
+                  href={phoneHref}
                   className="flex items-center gap-2.5 text-[15px] font-semibold transition-colors hover:text-[color:var(--brand-sage)]"
                 >
                   <Phone className="size-[18px] text-[color:var(--brand-sage)]" strokeWidth={1.7} aria-hidden />
-                  {CONTACT.phone}
+                  {contacts.phone}
                 </a>
                 <a
-                  href={`mailto:${CONTACT.email}`}
+                  href={`mailto:${contacts.email}`}
                   className="flex items-center gap-2.5 text-[15px] font-semibold transition-colors hover:text-[color:var(--brand-sage)]"
                 >
                   <Mail className="size-[18px] text-[color:var(--brand-sage)]" strokeWidth={1.7} aria-hidden />
-                  {CONTACT.email}
+                  {contacts.email}
                 </a>
               </div>
             </Reveal>
@@ -1278,14 +1271,13 @@ export default function SphagnumLanding() {
 
           <Reveal anim="right" delay={0.12}>
             <div className="bg-[color:var(--brand-cream)] p-7 text-[color:var(--brand-ink)] shadow-2xl sm:p-9">
-              <p className="display text-[19px] leading-tight text-[color:var(--brand-ink)]">Send an enquiry</p>
+              <p className="display text-[19px] leading-tight text-[color:var(--brand-ink)]">{contact.formTitle}</p>
               <p className="mb-6 mt-2 text-[13.5px] leading-snug text-[color:var(--brand-muted)]">
-                We reply within 24 hours with a commercial offer.
+                {contact.formLead}
               </p>
-              <LeadForm id="contact" />
+              <LeadForm id="contact" text={contact.form} />
               <p className="mt-1 border-t border-[color:var(--brand-line)] pt-4 text-[12.5px] leading-snug text-[color:var(--brand-muted)]">
-                By submitting this form you consent to the processing of your personal data. We never share your
-                contact details with third parties.
+                {contact.consent}
               </p>
             </div>
           </Reveal>
@@ -1295,9 +1287,9 @@ export default function SphagnumLanding() {
       {/* ═══════════ ПОДВАЛ ═══════════ */}
       <footer className="bg-[color:var(--brand-ink)] py-8 text-[color:var(--brand-cream-72)]">
         <div className="flex flex-col gap-2 text-[13px] sm:flex-row sm:items-center pdf-grid">
-          <p>© 2026 Sphagnum Eco · Natural Substrates · All rights reserved.</p>
-          <a href={`mailto:${CONTACT.email}`} className="hover:text-[color:var(--brand-cream)] sm:ml-auto">
-            {CONTACT.email}
+          <p>{footer.copyright}</p>
+          <a href={`mailto:${contacts.email}`} className="hover:text-[color:var(--brand-cream)] sm:ml-auto">
+            {contacts.email}
           </a>
         </div>
       </footer>

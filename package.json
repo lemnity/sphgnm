@@ -8,6 +8,7 @@
     "build": "next build",
     "preview": "npx --yes serve out",
     "typecheck": "tsc --noEmit",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"lib/**/*.test.ts\"",
     "verify:layout": "node scripts/verify-layout.mjs",
     "sync:instagram": "node --env-file-if-exists=.env.local scripts/sync-instagram.mjs"
   },
