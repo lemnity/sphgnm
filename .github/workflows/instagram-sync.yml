@@ -28,11 +28,9 @@ jobs:
         with:
           node-version: 22
 
-      # Долгоживущий токен Instagram живёт 60 дней. Раз в неделю (понедельник,
-      # 03:15 UTC) продлеваем его и перезаписываем секрет. Писать секреты
-      # GITHUB_TOKEN не умеет — нужен PAT в секрете GH_SECRETS_TOKEN
-      # (fine-grained, доступ к этому репозиторию, Secrets: Read and write).
-      # Без него шаг пропускается, и токен придётся обновлять руками.
+      # Токен Instagram живёт 60 дней — продлеваем раз в неделю. Секреты GITHUB_TOKEN
+      # писать не умеет: нужен PAT в GH_SECRETS_TOKEN (fine-grained, Secrets: Read
+      # and write). Без него шаг пропускается, и токен придётся обновлять руками.
       - name: Refresh Instagram token
         if: github.event.schedule == '15 3 * * 1'
         env:

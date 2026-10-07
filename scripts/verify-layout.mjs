@@ -298,7 +298,7 @@ try {
     invariant(Math.abs(metrics.solutionCards[0].height - metrics.solutionCards[1].height) <= 1, `Solution cards have unequal heights: ${JSON.stringify(metrics.solutionCards)}`);
     invariant(Math.abs(metrics.solutionCards[1].left - (metrics.solutionCards[0].left + metrics.solutionCards[0].width) - 40) <= 1, `Solution card gutter is not 40px: ${JSON.stringify(metrics.solutionCards)}`);
     invariant(metrics.solutionCards.every((card) => Math.abs(card.padding - 32) <= 1 && Math.abs(card.radius - 22) <= 1), `Solution card padding or radius differs from the source artwork: ${JSON.stringify(metrics.solutionCards)}`);
-    // The original PDF strip spans 353 / 750 of a card; preserve that scale.
+    // В PDF картинка занимает 353 из 750 px ширины карточки — держим этот масштаб.
     invariant(metrics.solutionCards.every((card) => card.imageWidth / card.width >= 0.46 && card.imageWidth / card.width <= 0.48 && card.imageHeight / card.height >= 0.80), `Original solution artwork scale differs from the PDF: ${JSON.stringify(metrics.solutionCards)}`);
     invariant(metrics.solutionCards.every((card) => card.iconWidth >= 62 && card.iconWidth <= 66 && Math.abs(card.iconCenterY - card.kickerCenterY) <= 2), `Solution icon and kicker are not aligned in one row: ${JSON.stringify(metrics.solutionCards)}`);
     invariant(metrics.solutionCards.every((card) => card.kickerHeight <= card.kickerLineHeight * 1.2), `Solution kicker wraps unlike the source artwork: ${JSON.stringify(metrics.solutionCards)}`);

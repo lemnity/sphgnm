@@ -29,23 +29,16 @@ jobs:
 
       - run: npm ci
 
-      # Сборка ИДЁТ ПЕРВОЙ, и это не косметика. Типы для импорта картинок
-      # (import png from "./assets/...") объявлены в next-env.d.ts, а он в
-      # .gitignore — в чистом клоне его нет, создаёт его сам `next build`.
-      # Пока typecheck стоял раньше сборки, CI падал на TS2307 «Cannot find
-      # module ./assets/moss-ledge.png», хотя локально всё проходило: там файл
-      # оставался от прошлых сборок.
-      #
-      # GITHUB_PAGES включает basePath /sphgnm — сайт отдаётся из подпапки.
+      # Сборка идёт до typecheck: типы для импорта картинок лежат в next-env.d.ts,
+      # который в .gitignore и появляется только после `next build` (иначе TS2307).
+      # GITHUB_PAGES включает статическую сборку и basePath /sphgnm.
       - run: npm run build
         env:
           GITHUB_PAGES: "true"
 
       - run: npm run typecheck
 
-      # Pages при публикации через Actions Jekyll не запускает, но файл кладём:
-      # если деплой когда-нибудь переключат на ветку, Jekyll выкинет папку _next
-      # (всё, что начинается с подчёркивания) и сайт останется без стилей и JS.
+      # Страховка на случай публикации из ветки: Jekyll выкинул бы папку _next.
       - run: touch out/.nojekyll
 
       - uses: actions/configure-pages@v5

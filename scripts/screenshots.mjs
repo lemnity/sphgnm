@@ -1,13 +1,6 @@
-/**
- * Снимает лендинг целиком и по секциям в ./screenshots.
- *
- * Playwright НЕ объявлен в зависимостях: он тянет ~300 МБ браузеров, а нужен
- * раз в несколько правок. Перед запуском:
- *   npm i -D playwright && npx playwright install chromium
- *
- * Затем, при поднятом `npm run dev`:
- *   node scripts/screenshots.mjs
- */
+// Снимки лендинга целиком (1440 / 834 / 390 px) и по секциям в ./screenshots;
+// заодно печатает горизонтальное переполнение, ошибки JS и упавшие запросы.
+// Один раз: npx playwright install chromium. Затем при `npm run dev`: node scripts/screenshots.mjs
 import { chromium } from "playwright";
 
 const OUT = "screenshots";
