@@ -1,0 +1,319 @@
+"use client";
+
+// Медиатека (окно со списком загруженных файлов) и поле выбора файла с превью.
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { describeUsage } from "@/lib/admin/fields";
+import { withBase } from "@/lib/media";
+import { ApiError, deleteMedia, formatDateTime, formatSize, listMedia, mediaKind, uploadFile, type MediaFile } from "./api";
+import { Dialog, useUi } from "./ui";
+
+export type Accept = "image" | "video" | "any";
+
+export const ACCEPT_ATTR: Record<Accept, string> = {
+  image: "image/jpeg,image/png,image/webp,image/avif,image/gif",
+  video: "video/mp4,video/webm",
+  any: "image/jpeg,image/png,image/webp,image/avif,image/gif,video/mp4,video/webm",
+};
+
+const KIND_LABEL: Record<Accept, string> = { image: "Картинки", video: "Видео", any: "Все" };
+
+type LibraryRequest = { accept: Accept; resolve: (path: string | null) => void } | { accept: "any"; resolve: null };
+
+const LibraryContext = createContext<{ pick: (accept: Accept) => Promise<string | null>; manage: () => void } | null>(null);
+
+export function useLibrary() {
+  const value = useContext(LibraryContext);
+  if (!value) throw new Error("useLibrary вне MediaLibraryProvider");
+  return value;
+}
+
+/** Загрузка одного файла с прогрессом и понятной ошибкой. */
+export function useUpload() {
+  const { toast } = useUi();
+  const [progress, setProgress] = useState<number | null>(null);
+  const upload = useCallback(
+    async (file: File): Promise<string | null> => {
+      setProgress(0);
+      try {
+        const { path } = await uploadFile(file, setProgress);
+        return path;
+      } catch (error) {
+        toast("error", `«${file.name}»: ${error instanceof Error ? error.message : "не загружен"}`);
+        return null;
+      } finally {
+        setProgress(null);
+      }
+    },
+    [toast],
+  );
+  return { upload, progress };
+}
+
+/**
+ * isUsedInDraft — путь стоит в несохранённых правках. Сервер про них не знает и
+ * разрешил бы удалить файл, на который уже ссылается черновик.
+ */
+export function MediaLibraryProvider({ children, isUsedInDraft }: { children: ReactNode; isUsedInDraft: (path: string) => boolean }) {
+  const [request, setRequest] = useState<LibraryRequest | null>(null);
+
+  const pick = useCallback((accept: Accept) => new Promise<string | null>((resolve) => setRequest({ accept, resolve })), []);
+  const manage = useCallback(() => setRequest({ accept: "any", resolve: null }), []);
+
+  const close = (path: string | null) => {
+    request?.resolve?.(path);
+    setRequest(null);
+  };
+
+  return (
+    <LibraryContext.Provider value={{ pick, manage }}>
+      {children}
+      <Dialog open={request !== null} onClose={() => close(null)} title={request?.resolve ? "Выбрать файл" : "Загруженные файлы"} size="large">
+        {request ? (
+          <Library accept={request.accept} onSelect={request.resolve ? (path) => close(path) : null} isUsedInDraft={isUsedInDraft} />
+        ) : null}
+      </Dialog>
+    </LibraryContext.Provider>
+  );
+}
+
+function Library({
+  accept,
+  onSelect,
+  isUsedInDraft,
+}: {
+  accept: Accept;
+  onSelect: ((path: string) => void) | null;
+  isUsedInDraft: (path: string) => boolean;
+}) {
+  const { toast, confirm } = useUi();
+  const [files, setFiles] = useState<MediaFile[] | null>(null);
+  const [filter, setFilter] = useState<Accept>(accept);
+  const [failed, setFailed] = useState<string | null>(null);
+  const [fresh, setFresh] = useState<string | null>(null);
+  const { upload, progress } = useUpload();
+  const input = useRef<HTMLInputElement>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      setFiles((await listMedia()).files);
+      setFailed(null);
+    } catch (error) {
+      setFailed(error instanceof Error ? error.message : "Не удалось загрузить список");
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const onFiles = async (list: FileList | null) => {
+    for (const file of Array.from(list ?? [])) {
+      const path = await upload(file);
+      if (path) setFresh(path);
+    }
+    await refresh();
+  };
+
+  const remove = async (file: MediaFile) => {
+    const name = file.path.split("/").pop();
+    if (isUsedInDraft(file.path)) {
+      toast("error", `«${name}» выбран в несохранённых правках — сначала замените его там.`);
+      return;
+    }
+    const ok = await confirm({
+      title: "Удалить файл?",
+      text: <p>Файл «{name}» будет удалён с сервера навсегда.</p>,
+      confirmLabel: "Удалить",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteMedia(file.path);
+      toast("success", "Файл удалён");
+      await refresh();
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        const usedIn = Array.isArray(error.data.usedIn) ? (error.data.usedIn as string[]) : [];
+        toast("error", "Файл используется на сайте — сначала замените его:", usedIn.map(describeUsage));
+      } else toast("error", error instanceof Error ? error.message : "Не удалось удалить");
+    }
+  };
+
+  const shown = (files ?? []).filter((file) => filter === "any" || file.kind === filter);
+  const filters: Accept[] = accept === "any" ? ["any", "image", "video"] : [accept];
+
+  return (
+    <div className="adm-library">
+      <div className="adm-library__bar">
+        {filters.length > 1 ? (
+          <div className="adm-segmented" role="group" aria-label="Тип файлов">
+            {filters.map((kind) => (
+              <button key={kind} type="button" aria-pressed={filter === kind} onClick={() => setFilter(kind)}>
+                {KIND_LABEL[kind]}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="adm-muted">{accept === "image" ? "Показаны картинки" : "Показаны ролики"}</p>
+        )}
+        <div className="adm-library__upload">
+          {progress !== null ? <Progress value={progress} /> : null}
+          <button type="button" className="adm-btn adm-btn--primary" onClick={() => input.current?.click()} disabled={progress !== null}>
+            Загрузить файлы
+          </button>
+          <input
+            ref={input}
+            type="file"
+            hidden
+            multiple
+            accept={ACCEPT_ATTR[accept]}
+            onChange={(event) => {
+              void onFiles(event.target.files);
+              event.target.value = "";
+            }}
+          />
+        </div>
+      </div>
+      <p className="adm-hint">
+        Здесь файлы, загруженные через кабинет. Картинки: jpg, png, webp, avif, gif до 15 МБ; видео: mp4, webm до 150 МБ.
+      </p>
+      {failed ? <p className="adm-error-text">{failed}</p> : null}
+      {files === null && !failed ? <p className="adm-muted">Загружаем список…</p> : null}
+      {files !== null && shown.length === 0 ? <p className="adm-empty">Пока здесь пусто. Загрузите файл кнопкой выше.</p> : null}
+      <ul className="adm-library__grid">
+        {shown.map((file) => {
+          const name = file.path.split("/").pop();
+          return (
+            <li key={file.path} className={`adm-tile${fresh === file.path ? " adm-tile--fresh" : ""}`}>
+              <MediaPreview path={file.path} />
+              <div className="adm-tile__meta">
+                <span className="adm-tile__name" title={name}>
+                  {name}
+                </span>
+                <span className="adm-muted">
+                  {formatSize(file.size)} · {formatDateTime(file.modifiedAt)}
+                </span>
+              </div>
+              <div className="adm-tile__actions">
+                {onSelect ? (
+                  <button type="button" className="adm-btn adm-btn--primary adm-btn--small" onClick={() => onSelect(file.path)}>
+                    Выбрать
+                  </button>
+                ) : null}
+                <button type="button" className="adm-btn adm-btn--small adm-btn--ghost-danger" onClick={() => void remove(file)} aria-label={`Удалить ${name}`}>
+                  Удалить
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+export function Progress({ value }: { value: number }) {
+  const percent = Math.round(value * 100);
+  return (
+    <span className="adm-progress" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label="Загрузка файла">
+      <span style={{ width: `${percent}%` }} />
+      <em>{percent}%</em>
+    </span>
+  );
+}
+
+/** Превью файла из public. Ролик без постера показывает первый кадр. */
+export function MediaPreview({ path, poster, className = "adm-preview" }: { path: string; poster?: string; className?: string }) {
+  if (!path) return <div className={`${className} ${className}--empty`}>Нет файла</div>;
+  if (mediaKind(path) === "video") {
+    return (
+      <div className={className}>
+        <video src={withBase(path)} poster={poster ? withBase(poster) : undefined} muted playsInline preload="metadata" />
+        <span className="adm-badge">Видео</span>
+      </div>
+    );
+  }
+  return (
+    <div className={className}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={withBase(path)} alt="" loading="lazy" />
+    </div>
+  );
+}
+
+/**
+ * Поле файла: превью, «Загрузить/Заменить», «Выбрать из загруженных», при optional — «Убрать».
+ * Значение — путь от public ("uploads/…").
+ */
+export function MediaPathControl({
+  value,
+  onChange,
+  accept,
+  optional = false,
+  label,
+  describedBy,
+}: {
+  value: string;
+  onChange: (path: string) => void;
+  accept: Exclude<Accept, "any">;
+  optional?: boolean;
+  label: string;
+  describedBy?: string;
+}) {
+  const { upload, progress } = useUpload();
+  const { pick } = useLibrary();
+  const { toast } = useUi();
+  const input = useRef<HTMLInputElement>(null);
+
+  return (
+    <div className="adm-media" aria-describedby={describedBy}>
+      <MediaPreview path={value} />
+      <div className="adm-media__side">
+        <code className="adm-media__path">{value || "файл не выбран"}</code>
+        <div className="adm-media__buttons">
+          <button type="button" className="adm-btn adm-btn--small" onClick={() => input.current?.click()} disabled={progress !== null}>
+            {value ? "Заменить" : "Загрузить"}
+            <span className="adm-sr"> — {label}</span>
+          </button>
+          <button
+            type="button"
+            className="adm-btn adm-btn--small"
+            onClick={async () => {
+              const path = await pick(accept);
+              if (path) onChange(path);
+            }}
+          >
+            Выбрать из загруженных
+            <span className="adm-sr"> — {label}</span>
+          </button>
+          {optional && value ? (
+            <button type="button" className="adm-btn adm-btn--small adm-btn--ghost-danger" onClick={() => onChange("")}>
+              Убрать
+              <span className="adm-sr"> — {label}</span>
+            </button>
+          ) : null}
+        </div>
+        {progress !== null ? <Progress value={progress} /> : null}
+        <input
+          ref={input}
+          type="file"
+          hidden
+          accept={ACCEPT_ATTR[accept]}
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (!file) return;
+            const path = await upload(file);
+            if (!path) return;
+            if (mediaKind(path) !== accept) {
+              // Сервер принял файл, но сюда нужен другой тип (ролик вместо картинки).
+              toast("error", accept === "image" ? "Сюда нужна картинка, а не ролик" : "Сюда нужен ролик, а не картинка");
+              return;
+            }
+            onChange(path);
+          }}
+        />
+      </div>
+    </div>
+  );
+}

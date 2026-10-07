@@ -151,13 +151,13 @@ export type GalleryItem = {
 
 /* Описание формы site.json для проверки. Держать в паре с типом SiteContent:
    тест прогоняет через него настоящий content/site.json, так что расхождение
-   вылезет сразу. */
-type Shape = "string" | "path" | "icon" | "href" | "anchor" | Shape[] | { [key: string]: Shape };
+   вылезет сразу. По нему же тест сверяет поля редактора (lib/admin/fields.ts). */
+export type Shape = "string" | "path" | "icon" | "href" | "anchor" | Shape[] | { [key: string]: Shape };
 
 const IMAGE: Shape = { src: "path", alt: "string" };
 const ICON_TEXT: Shape = { icon: "icon", title: "string", text: "string" };
 
-const SITE_SHAPE: Shape = {
+export const SITE_SHAPE: Shape = {
   meta: { title: "string", description: "string", shareDescription: "string" },
   contacts: { person: "string", role: "string", phone: "string", email: "string" },
   nav: {

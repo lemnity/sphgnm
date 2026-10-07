@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"lib/**/*.test.ts\"",
     "verify:layout": "node scripts/verify-layout.mjs",
+    "verify:admin": "node --env-file-if-exists=.env.local scripts/verify-admin.mjs",
     "sync:instagram": "node --env-file-if-exists=.env.local scripts/sync-instagram.mjs"
   },
   "dependencies": {
