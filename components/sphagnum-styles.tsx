@@ -8,13 +8,13 @@ export function SphagnumStyles() {
 .sph {
   --font-reference: Arial, Helvetica, sans-serif;
   /* Фирменная палитра (гайдбук, раздел «Цвет»): Cream 65% · Ink 25% · Moss 10%,
-       Sage — только акцент. Cream/Ink 16.2:1, Sage/Ink 6.6:1, Cream/Moss 7.6:1. */
+       Sage — только акцент. Cream/Ink 13.7:1, Sage/Ink 5.4:1, Cream/Moss 7.8:1. */
   --brand-ink: #102b20;
   --brand-cream: #F5F4F0;
   --brand-moss: #3E5042;
   --brand-sage: #8AA18A;
-  /* Лайм — акцент из присланной палитры. Живёт на ТЁМНОМ: по Ink это 11.4:1,
-     по Cream всего 1.5:1, так что на светлых секциях его быть не должно. */
+  /* Лайм — акцент из присланной палитры. Живёт на ТЁМНОМ: по Ink это 10.1:1,
+     по Cream всего 1.4:1, так что на светлых секциях его быть не должно. */
   --brand-lime: #BAE14B;
 
   /* Приглушённые оттенки — готовыми rgba: запись text-[color:var(--brand-cream)]/85
@@ -32,8 +32,8 @@ export function SphagnumStyles() {
   --brand-sage-45: rgba(138, 161, 138, .45);
 
   /* Золото — исключение из палитры: прорастающий знак, кнопка героя, полоса «53,000 km²».
-       Текстом — только на тёмном (по Ink 8.4:1, по Cream 1.9:1), заливкой — с тёмным
-       текстом (Ink 8.8:1). gold-light/deep — стопы градиента полосы, gold-line — её линейка. */
+       Текстом — только на тёмном (по Ink 7.4:1, по Cream 1.8:1), заливкой — с тёмным
+       текстом (Ink 7.4:1). gold-light/deep — стопы градиента полосы, gold-line — её линейка. */
   --brand-gold: #D7B15E;
   --brand-gold-62: rgba(215, 177, 94, .62);
   --brand-gold-light: #E3C079;
@@ -41,7 +41,7 @@ export function SphagnumStyles() {
   --brand-gold-line: rgba(20, 24, 22, .18);
 
   /* Производные под светлые секции — затемнения Ink, а не новые цвета. Акцент на светлом —
-       Moss (8.7:1 по Cream): Sage по Cream даёт 2.5:1 и проваливает AA. */
+       Moss (7.8:1 по Cream): Sage по Cream даёт 2.5:1 и проваливает AA. */
   --brand-muted: #4A554E;
   --brand-line: #DEDACF;
 
@@ -89,12 +89,12 @@ export function SphagnumStyles() {
   letter-spacing: -0.015em;
 }
 
-/* Кнопка на фирменном акценте: Sage-заливка, текст Ink — 6.6:1, проходит AA.
+/* Кнопка на фирменном акценте: Sage-заливка, текст Ink — 5.4:1, проходит AA.
    Белый текст по Sage дал бы 2.5:1, поэтому текст именно тёмный. */
 .sph .btn-sage { background: var(--brand-sage); color: var(--brand-ink); }
 .sph .btn-sage:hover { background: #9CB19C; }
 
-/* Кнопка героя: текст Ink по золоту 8.8:1 (Cream дал бы 1.8:1). */
+/* Кнопка героя: текст Ink по золоту 7.4:1 (Cream дал бы 1.8:1). */
 .sph .btn-gold { background: var(--brand-gold); color: var(--brand-ink); }
 .sph .btn-gold:hover { background: #E2C078; }
 

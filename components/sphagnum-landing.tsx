@@ -770,8 +770,8 @@ export default function SphagnumLanding({
               </a>
             ))}
           </nav>
-          {/* Здесь Sage, а не Moss как в шапке: Moss по Ink даёт всего 2.1:1 и на
-              тёмной подложке меню кнопка бы утонула. Sage по Ink — 6.6:1. */}
+          {/* Здесь Sage, а не Moss как в шапке: Moss по Ink даёт всего 1.8:1 и на
+              тёмной подложке меню кнопка бы утонула. Sage по Ink — 5.4:1. */}
           <a
             href="#contact"
             onClick={() => setMenuOpen(false)}
