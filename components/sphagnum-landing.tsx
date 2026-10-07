@@ -5,47 +5,21 @@ import {
   ArrowRight,
   ArrowUpRight,
   CheckCircle2,
-  Droplets,
-  Layers,
   Leaf,
   Mail,
   Menu,
   Phone,
-  Recycle,
-  ShieldCheck,
-  Sprout,
-  Sun,
-  Wind,
   X,
-  Battery,
-  Building2,
-  Ruler,
-  Weight,
-  Grid2x2,
   Plus,
   Minus,
-  Factory,
-  FlaskConical,
-  Headphones,
-  Thermometer,
-  CircleOff,
-  Flower2,
-  Globe2,
-  HandHeart,
-  Layers3,
-  RefreshCcw,
-  Shovel,
-  Star,
-  ThermometerSun,
-  Waves,
-  type LucideIcon,
 } from "lucide-react";
+import { ICONS } from "./site-icons";
 
 // Декор (лозы, точки, ботаника) — статические импорты: их не правят из админки.
 import portfolioBotanical from "./assets/reference/crops/portfolio-botanical-original.webp";
 import portfolioDots from "./assets/reference/crops/portfolio-dots-original.webp";
 import solutionsHangingVines from "./assets/reference/crops/solutions-hanging-vines-transparent.png";
-import type { GalleryItem, IconName, SiteContent } from "@/lib/content/schema";
+import type { GalleryItem, SiteContent } from "@/lib/content/schema";
 import type { InstagramPost } from "@/lib/content/load";
 import { withBase } from "@/lib/media";
 import { InstagramGallery, type GalleryPhoto } from "./instagram-gallery";
@@ -79,36 +53,6 @@ import { LivingWall, MossTexture } from "./sphagnum-visuals";
   saturate/contrast остаются: они добавляют сочности, но не съедают света.
 */
 const HERO_BG_FILTER = "brightness(1) saturate(1.20) contrast(1.08)";
-
-const ICONS = {
-  droplet: Droplets,
-  wind: Wind,
-  sprout: Sprout,
-  sun: Sun,
-  weight: Weight,
-  moss: Leaf,
-  roof: Building2,
-  battery: Battery,
-  shield: ShieldCheck,
-  recycle: Recycle,
-  layers: Layers,
-  porosity: Grid2x2,
-  stable: Ruler,
-  temperature: Thermometer,
-  factory: Factory,
-  flask: FlaskConical,
-  headset: Headphones,
-  circleOff: CircleOff,
-  flower: Flower2,
-  globe: Globe2,
-  hand: HandHeart,
-  layers3: Layers3,
-  refresh: RefreshCcw,
-  shovel: Shovel,
-  star: Star,
-  thermometerSun: ThermometerSun,
-  waves: Waves,
-} satisfies Record<IconName, LucideIcon>;
 
 const DATE_FORMAT: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" };
 
