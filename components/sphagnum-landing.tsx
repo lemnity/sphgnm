@@ -489,7 +489,8 @@ function PdfAlignedSections({
       </section>
 
       <section id="fuscum" className="bg-[#f8f7f3] pb-16 lg:pb-24">
-        <div className="pdf-grid grid overflow-hidden rounded-[24px] border border-[color:var(--brand-line)] bg-[#faf9f7] lg:min-h-[608px] lg:grid-cols-[1.08fr_.92fr]">
+        <div className="pdf-grid">
+        <div className="grid overflow-hidden rounded-[24px] border border-[color:var(--brand-line)] bg-[#faf9f7] lg:min-h-[608px] lg:grid-cols-[1.08fr_.92fr]">
           <div className="relative min-h-[470px] overflow-hidden p-8 sm:p-12 lg:min-h-[608px]">
             <h2 className="label flex items-center gap-2 text-[12px] text-[color:var(--brand-moss)]"><Leaf className="size-5" strokeWidth={1.8} aria-hidden />{fuscum.kicker}</h2>
             <span className="mt-5 block h-0.5 w-12 bg-[color:var(--brand-moss)]" aria-hidden />
@@ -509,6 +510,7 @@ function PdfAlignedSections({
               ))}
             </dl>
           </div>
+        </div>
         </div>
       </section>
 
@@ -1011,10 +1013,9 @@ export default function SphagnumLanding({
           брендовый Cream, разделённый линией, третий — Ink. Пропорция Cream/Ink
           в полосе примерно 65/35, как и требует гайд.
         */}
-        {/* Три колонки — только с lg. На планшете (834 px) средняя занимала
-            ~110 px внутренней ширины, и текст ломался по одному слову в строку.
-            Теперь на md две колонки, а третья панель растянута на всю ширину. */}
-        <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[2fr_1fr_2fr]">
+        {/* Три колонки — только с xl: уже на 1024 px средняя панель ломала текст по слову
+            в строку и наезжала на индикатор. До xl — две колонки, третья панель во всю ширину. */}
+        <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[2fr_1fr_2fr]">
           {/* Панель 1 */}
           <div className="a-up d8 relative flex flex-col justify-between overflow-hidden bg-[color:var(--brand-cream)] p-7 text-[color:var(--brand-ink)] lg:p-9">
             <p className="brand-serif max-w-[350px] text-xl leading-[1.12] sm:text-[24px] lg:text-[28px]">
@@ -1077,7 +1078,7 @@ export default function SphagnumLanding({
 
           {/* Панель 3. Подпись была на white/60 — это 6.4:1 по чёрному, но по
               брендовому Ink уже 5.8:1; поднято до 75%, чтобы держать запас. */}
-          <div className="a-up d8 flex items-center gap-5 bg-[color:var(--brand-ink)] p-7 lg:gap-7 lg:p-9">
+          <div className="a-up d8 flex items-center gap-5 bg-[color:var(--brand-ink)] p-7 md:col-span-2 lg:gap-7 lg:p-9 xl:col-span-1">
             <p className="brand-serif shrink-0 text-2xl text-[color:var(--brand-cream)] sm:text-3xl lg:text-[35px]">
               {strip.fact.value}
             </p>
