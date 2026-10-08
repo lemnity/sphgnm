@@ -10,6 +10,9 @@
     }
   },
   "contacts": {
+    "person": "",
+    "role": "",
+    "phone": "",
     "email": "sales@sphagnum.ae"
   },
   "nav": {

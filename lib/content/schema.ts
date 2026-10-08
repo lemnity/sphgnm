@@ -42,7 +42,7 @@ export type IconText = { icon: IconName; title: string; text: string };
 export type SiteContent = {
   /** siteUrl — публичный адрес сайта (для абсолютных ссылок Open Graph), image — превью при пересылке ссылки. */
   meta: { title: string; description: string; shareDescription: string; siteUrl: string; image: ImageRef };
-  contacts: { email: string };
+  contacts: { person: string; role: string; phone: string; email: string };
   nav: {
     /** target — id секции на странице, без решётки. */
     links: { label: string; target: string }[];
@@ -160,7 +160,7 @@ const ICON_TEXT: Shape = { icon: "icon", title: "string", text: "string" };
 
 export const SITE_SHAPE: Shape = {
   meta: { title: "string", description: "string", shareDescription: "string", siteUrl: "url", image: IMAGE },
-  contacts: { email: "string" },
+  contacts: { person: "string", role: "string", phone: "string", email: "string" },
   nav: {
     links: [{ label: "string", target: "anchor" }],
     ctaLabel: "string",

@@ -6,6 +6,8 @@ import {
   ArrowUpRight,
   CheckCircle2,
   Leaf,
+  Mail,
+  Phone,
   Menu,
   X,
   Plus,
@@ -588,6 +590,9 @@ function PdfAlignedSections({
 }
 
 
+/** tel:-ссылка из номера в том виде, как он показан на странице. */
+const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
+
 export default function SphagnumLanding({
   content,
   gallery,
@@ -668,6 +673,16 @@ export default function SphagnumLanding({
           }`}
         >
           <div className="flex items-center justify-end gap-7 py-2.5 pdf-grid">
+            {contacts.phone ? (
+              <a
+                href={telHref(contacts.phone)}
+                className={`text-[13px] font-medium transition-colors ${
+                  scrolled ? "text-[color:var(--brand-muted)] hover:text-[color:var(--brand-ink)]" : "text-[color:var(--brand-cream-72)] hover:text-[color:var(--brand-cream)]"
+                }`}
+              >
+                {contacts.phone}
+              </a>
+            ) : null}
             <a
               href={`mailto:${contacts.email}`}
               className={`text-[13px] font-medium transition-colors ${
@@ -1030,6 +1045,37 @@ export default function SphagnumLanding({
               </ul>
             </Reveal>
 
+            {/* Строка контактного лица появляется, только когда в кабинете заполнены имя или телефон. */}
+            {contacts.person || contacts.phone ? (
+              <Reveal anim="left" delay={0.16}>
+                <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4 border-t border-[color:var(--brand-cream-15)] pt-7">
+                  {contacts.person ? (
+                    <div>
+                      <p className="display text-[16px] leading-none">{contacts.person}</p>
+                      {contacts.role ? <p className="mt-1.5 text-[13.5px] text-[color:var(--brand-cream-72)]">{contacts.role}</p> : null}
+                    </div>
+                  ) : null}
+                  {contacts.phone ? (
+                    <a
+                      href={telHref(contacts.phone)}
+                      className="flex items-center gap-2.5 text-[15px] font-semibold transition-colors hover:text-[color:var(--brand-sage)]"
+                    >
+                      <Phone className="size-[18px] text-[color:var(--brand-sage)]" strokeWidth={1.7} aria-hidden />
+                      {contacts.phone}
+                    </a>
+                  ) : null}
+                  {contacts.email ? (
+                    <a
+                      href={`mailto:${contacts.email}`}
+                      className="flex items-center gap-2.5 text-[15px] font-semibold transition-colors hover:text-[color:var(--brand-sage)]"
+                    >
+                      <Mail className="size-[18px] text-[color:var(--brand-sage)]" strokeWidth={1.7} aria-hidden />
+                      {contacts.email}
+                    </a>
+                  ) : null}
+                </div>
+              </Reveal>
+            ) : null}
           </div>
 
           <Reveal anim="right" delay={0.12}>

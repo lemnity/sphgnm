@@ -266,8 +266,14 @@ export const BLOCKS: Block[] = [
   {
     id: "contacts",
     title: l("Контакты", "Contacts"),
-    description: l("Почта компании — в шапке и подвале сайта.", "Company email shown in the header and footer."),
+    description: l(
+      "Контактное лицо, телефон и почта. Пустые поля на сайте не показываются: заполните — и они появятся.",
+      "Contact person, phone number and email. Empty fields are hidden on the site — fill them in and they appear.",
+    ),
     fields: [
+      text("person", l("Имя", "Name"), l("Пусто — блок с контактным лицом скрыт", "Leave empty to hide the contact person")),
+      text("role", l("Должность", "Job title"), l("Показывается под именем", "Shown under the name")),
+      text("phone", l("Телефон", "Phone"), l("Пусто — телефона нет на сайте; ссылка tel: подставится сама", "Leave empty to hide the phone; the tel: link is added automatically")),
       text("email", l("Электронная почта", "Email"), l("Ссылка mailto: подставится сама", "The mailto: link is added automatically")),
     ],
   },
