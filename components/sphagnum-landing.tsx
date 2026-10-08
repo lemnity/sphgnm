@@ -496,14 +496,14 @@ function PdfAlignedSections({
         </div>
       </section>
 
-      <section className="bg-[#fafafa] pb-20 lg:pb-[143px]">
+      <section className="bg-[#fafafa] bg-[linear-gradient(to_bottom,#fafafa_0%,#fafafa_55%,#f8f9f4_100%)] pb-6 lg:pb-10">
         <figure className="pdf-grid living-wall-frame">
           <img src={withBase(wetland.wallImage.src)} alt={wetland.wallImage.alt} className="block h-auto w-full object-contain" />
         </figure>
       </section>
 
       <section
-        className="relative overflow-hidden pt-20 lg:pt-28"
+        className="relative overflow-hidden pt-12 lg:pt-16"
         style={{
           background:
             "radial-gradient(ellipse at 8% 82%, rgba(118,148,72,.24), transparent 32%), radial-gradient(ellipse at 92% 76%, rgba(151,175,91,.18), transparent 28%), #f8f9f4",

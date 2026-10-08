@@ -148,8 +148,8 @@ export function SphagnumStyles() {
 .sph .solution-frame:first-child article { background: #f5f4f0; }
 .sph .living-wall-frame { overflow: visible; }
 .sph .living-wall-frame img {
-  /* В фон секции растворяется только пустое поле под листьями. */
-  mask-image: linear-gradient(to bottom, #000 94%, transparent 100%);
+  /* Низ стены мягко растворяется в фон следующей секции — без резкого края. */
+  mask-image: linear-gradient(to bottom, #000 62%, rgba(0, 0, 0, .7) 76%, rgba(0, 0, 0, .3) 90%, transparent 100%);
 }
 @media (min-width: 1024px) {
   .sph .living-wall-frame img {
