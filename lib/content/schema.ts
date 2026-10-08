@@ -286,6 +286,10 @@ export function checkMediaPath(value: string): string | null {
   if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
     return `«${value}»: недопустимый путь`;
   }
+  // Путь попадает в CSS url("…") и атрибуты: только латиница, цифры, точка, _ и -.
+  if (segments.some((segment) => !/^[A-Za-z0-9._-]+$/.test(segment))) {
+    return `«${value}»: в имени файла и папок допустимы только латинские буквы, цифры, точка, «_» и «-»`;
+  }
   if (segments.length < 2 || !(MEDIA_DIRS as readonly string[]).includes(segments[0])) {
     return `«${value}»: файл должен лежать в ${MEDIA_DIRS.map((dir) => `${dir}/`).join(", ")}`;
   }

@@ -137,7 +137,7 @@ test("site: все картинки из site.json лежат в public", () => 
 });
 
 test("checkMediaPath: пропускает файлы из media/, uploads/, instagram/", () => {
-  for (const ok of ["media/hero.webp", "uploads/3f9a1c.jpg", "instagram/archive/a b.mp4"]) {
+  for (const ok of ["media/hero.webp", "uploads/3f9a1c.jpg", "instagram/archive/post_1.v2-x.mp4"]) {
     assert.equal(checkMediaPath(ok), null, ok);
   }
 });
@@ -157,6 +157,11 @@ test("checkMediaPath: отказ на внешние, абсолютные и в
     "media/hero.webp?x=1",
     "components/assets/logo.png",
     "media",
+    "instagram/archive/a b.mp4",
+    'media/x").evil("',
+    "media/x'y.webp",
+    "media/фото.webp",
+    "uploads/a;b.jpg",
   ];
   for (const value of bad) assert.notEqual(checkMediaPath(value), null, value);
 });
