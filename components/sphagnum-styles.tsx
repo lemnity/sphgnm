@@ -148,8 +148,15 @@ export function SphagnumStyles() {
 .sph .solution-frame:first-child article { background: #f5f4f0; }
 .sph .living-wall-frame { overflow: visible; }
 .sph .living-wall-frame img {
-  /* Низ стены мягко растворяется в фон следующей секции — без резкого края. */
-  mask-image: linear-gradient(to bottom, #000 62%, rgba(0, 0, 0, .7) 76%, rgba(0, 0, 0, .3) 90%, transparent 100%);
+  /* Верх фото проявляется из фона, низ растворяется в пустом поле под листьями —
+     без жёстких краёв на стыке с соседними секциями. */
+  mask-image: linear-gradient(to bottom, transparent 7%, rgba(0, 0, 0, .45) 12%, #000 21%, #000 94%, transparent 100%);
+}
+@media (max-width: 1023px) {
+  /* На узком экране фото невысокое — растушёвку тянем длиннее, иначе края снова резкие. */
+  .sph .living-wall-frame img {
+    mask-image: linear-gradient(to bottom, transparent 4%, rgba(0, 0, 0, .5) 13%, #000 26%, #000 78%, transparent 100%);
+  }
 }
 @media (min-width: 1024px) {
   .sph .living-wall-frame img {

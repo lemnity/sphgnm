@@ -984,7 +984,7 @@ export default function SphagnumLanding({
                         className="flex w-full items-start gap-4 py-5 text-left"
                       >
                         <span className="normal-case-h flex-1 text-[16px] font-bold leading-snug sm:text-[17px]">{f.question}</span>
-                        <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-[color:var(--brand-cream)] text-[color:var(--brand-moss)]">
+                        <span className="mr-2 mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-[color:var(--brand-cream)] text-[color:var(--brand-moss)] sm:mr-0">
                           {open ? <Minus className="size-4" strokeWidth={2.2} /> : <Plus className="size-4" strokeWidth={2.2} />}
                         </span>
                       </button>
