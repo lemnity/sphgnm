@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { checkHref, checkMediaPath, validateGallery, validateSiteContent } from "./schema.ts";
+import { SCHEMA_MESSAGES, checkHref, checkMediaPath, validateGallery, validateSiteContent } from "./schema.ts";
 
 const readJson = (name: string) => JSON.parse(readFileSync(new URL(`../../content/${name}`, import.meta.url), "utf8"));
 // Каждый тест портит свою копию.
@@ -230,4 +230,34 @@ test("site: все поля-ссылки проверяются", () => {
   assert.match(errors[1], /^nav\.links\[1\]\.target: /);
   assert.match(errors[2], /^strip\.intro\.linkHref: /);
   assert.match(errors[3], /^gallery\.profileUrl: /);
+});
+
+test("тексты проверки по-английски: тот же путь, английское сообщение", () => {
+  const content = site();
+  content.strip.intro.linkHref = "javascript:alert(1)";
+  content.hero.title = 5;
+  delete content.footer.copyright;
+  const errors = validateSiteContent(content, "en");
+  assert.deepEqual(errors, [
+    "hero.title: must be text",
+    "strip.intro.linkHref: “javascript:alert(1)”: this link isn't allowed — use http(s)://, mailto:, tel:, a #anchor or a path on the site",
+    "footer.copyright: required field is missing",
+  ]);
+  assert.deepEqual(validateSiteContent(null, "en"), ["site: must be an object"]);
+  const items = gallery();
+  items[0].date = "8.10.2026";
+  items[1].id = items[0].id;
+  assert.deepEqual(validateGallery(items, "en"), [`gallery[0].date: must be a date in YYYY-MM-DD format`, `gallery[1].id: duplicate id “${items[0].id}”`]);
+  assert.deepEqual(validateGallery({}, "en"), ["gallery: must be a list"]);
+  assert.match(checkMediaPath("media/фото.webp", "en")!, /Latin letters/);
+});
+
+test("тексты проверки: у каждого сообщения есть английский вариант с теми же параметрами, без кириллицы", () => {
+  const params = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort().join(",");
+  assert.deepEqual(Object.keys(SCHEMA_MESSAGES.en).sort(), Object.keys(SCHEMA_MESSAGES.ru).sort());
+  for (const [key, ru] of Object.entries(SCHEMA_MESSAGES.ru)) {
+    const en = SCHEMA_MESSAGES.en[key as keyof typeof SCHEMA_MESSAGES.en];
+    assert.equal(params(en), params(ru), key);
+    assert.doesNotMatch(en, /[а-яё]/i, key);
+  }
 });

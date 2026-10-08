@@ -2,13 +2,15 @@
 
 // История версий: список сохранённых копий и «Вернуть».
 import { useCallback, useEffect, useState } from "react";
-import { ApiError, formatDateTime, formatSize, listHistory, restoreHistory, type HistoryEntry } from "./api";
+import { HISTORY_LIMIT } from "@/lib/admin/limits";
+import { ApiError, listHistory, restoreHistory, type HistoryEntry } from "./api";
+import { useT } from "./i18n";
 import { useUi } from "./ui";
-
-const NAMES: Record<HistoryEntry["name"], string> = { site: "Тексты и картинки", gallery: "Галерея" };
 
 export function HistoryView({ dirty, onRestored }: { dirty: { site: boolean; gallery: boolean }; onRestored: (name: "site" | "gallery") => Promise<void> }) {
   const { toast, confirm } = useUi();
+  const { t, date, size } = useT();
+  const section = (name: HistoryEntry["name"]) => t(name === "site" ? "history.site" : "history.gallery");
   const [entries, setEntries] = useState<HistoryEntry[] | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -19,9 +21,9 @@ export function HistoryView({ dirty, onRestored }: { dirty: { site: boolean; gal
       setEntries((await listHistory()).entries);
       setFailed(null);
     } catch (error) {
-      setFailed(error instanceof Error ? error.message : "Не удалось загрузить историю");
+      setFailed(error instanceof Error ? error.message : t("history.loadFailed"));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void refresh();
@@ -29,17 +31,15 @@ export function HistoryView({ dirty, onRestored }: { dirty: { site: boolean; gal
 
   const restore = async (entry: HistoryEntry) => {
     const ok = await confirm({
-      title: "Вернуть эту версию?",
+      title: t("history.confirmTitle"),
       text: (
         <>
-          <p>
-            Раздел «{NAMES[entry.name]}» вернётся к версии от {formatDateTime(entry.savedAt)}. Изменения сразу появятся на сайте.
-          </p>
-          <p>Текущая версия не пропадёт: она тоже ляжет в историю, и её можно будет вернуть.</p>
-          {dirty[entry.name] ? <p className="adm-warning">Несохранённые правки в этом разделе будут потеряны.</p> : null}
+          <p>{t("history.confirmText", { section: section(entry.name), date: date(entry.savedAt) })}</p>
+          <p>{t("history.confirmKeep")}</p>
+          {dirty[entry.name] ? <p className="adm-warning">{t("history.confirmDirty")}</p> : null}
         </>
       ),
-      confirmLabel: "Вернуть",
+      confirmLabel: t("history.restore"),
     });
     if (!ok) return;
     setBusy(entry.id);
@@ -47,11 +47,11 @@ export function HistoryView({ dirty, onRestored }: { dirty: { site: boolean; gal
     try {
       await restoreHistory(entry.id);
       await onRestored(entry.name);
-      toast("success", `Версия от ${formatDateTime(entry.savedAt)} возвращена`);
+      toast("success", t("history.restored", { date: date(entry.savedAt) }));
       await refresh();
     } catch (error) {
       if (error instanceof ApiError && error.status === 422) setProblems(error.errors);
-      toast("error", error instanceof Error ? error.message : "Не удалось вернуть версию");
+      toast("error", error instanceof Error ? error.message : t("history.restoreFailed"));
     } finally {
       setBusy(null);
     }
@@ -60,15 +60,12 @@ export function HistoryView({ dirty, onRestored }: { dirty: { site: boolean; gal
   return (
     <section className="adm-panel" aria-labelledby="history-title">
       <header className="adm-panel__head">
-        <h2 id="history-title">История версий</h2>
-        <p className="adm-lead">
-          При каждом сохранении прежняя версия попадает сюда. Дата у строки — когда эту версию сохранили; то, что сейчас на
-          сайте, в списке не показано. Хранятся 30 последних версий текстов и столько же — галереи.
-        </p>
+        <h2 id="history-title">{t("history.title")}</h2>
+        <p className="adm-lead">{t("history.lead", { limit: HISTORY_LIMIT })}</p>
       </header>
       {problems.length ? (
         <div className="adm-summary" role="alert">
-          <p>Эта версия не подходит под текущую структуру сайта:</p>
+          <p>{t("history.problems")}</p>
           <ul>
             {problems.map((problem) => (
               <li key={problem}>{problem}</li>
@@ -77,37 +74,37 @@ export function HistoryView({ dirty, onRestored }: { dirty: { site: boolean; gal
         </div>
       ) : null}
       {failed ? <p className="adm-error-text">{failed}</p> : null}
-      {entries === null && !failed ? <p className="adm-muted">Загружаем…</p> : null}
-      {entries?.length === 0 ? <p className="adm-empty">Сохранённых версий пока нет — они появятся после первого сохранения.</p> : null}
+      {entries === null && !failed ? <p className="adm-muted">{t("history.loading")}</p> : null}
+      {entries?.length === 0 ? <p className="adm-empty">{t("history.empty")}</p> : null}
       {entries?.length ? (
         <table className="adm-table">
           <thead>
             <tr>
-              <th scope="col">Версия сохранена</th>
-              <th scope="col">Раздел</th>
-              <th scope="col">Размер</th>
+              <th scope="col">{t("history.colSaved")}</th>
+              <th scope="col">{t("history.colSection")}</th>
+              <th scope="col">{t("history.colSize")}</th>
               <th scope="col">
-                <span className="adm-sr">Действие</span>
+                <span className="adm-sr">{t("history.colAction")}</span>
               </th>
             </tr>
           </thead>
           <tbody>
             {entries.map((entry) => (
               <tr key={entry.id}>
-                <td>{formatDateTime(entry.savedAt)}</td>
+                <td>{date(entry.savedAt)}</td>
                 <td>
-                  <span className={`adm-tag adm-tag--${entry.name}`}>{NAMES[entry.name]}</span>
+                  <span className={`adm-tag adm-tag--${entry.name}`}>{section(entry.name)}</span>
                 </td>
-                <td className="adm-muted">{formatSize(entry.size)}</td>
+                <td className="adm-muted">{size(entry.size)}</td>
                 <td className="adm-table__action">
                   <button
                     type="button"
                     className="adm-btn adm-btn--small"
                     onClick={() => void restore(entry)}
                     disabled={busy !== null}
-                    aria-label={`Вернуть: ${NAMES[entry.name]}, ${formatDateTime(entry.savedAt)}`}
+                    aria-label={t("history.restoreAria", { section: section(entry.name), date: date(entry.savedAt) })}
                   >
-                    {busy === entry.id ? "Возвращаем…" : "Вернуть"}
+                    {busy === entry.id ? t("history.restoring") : t("history.restore")}
                   </button>
                 </td>
               </tr>

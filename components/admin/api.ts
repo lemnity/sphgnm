@@ -1,6 +1,14 @@
 // Запросы кабинета к /api/admin/*. Ответ с ошибкой превращается в ApiError с
 // текстом сервера; на 401 срабатывает общий обработчик (окно «войдите снова»).
+import { LANG_HEADER, translate, type AdminLang } from "@/lib/admin/i18n";
 import type { GalleryItem, SiteContent } from "@/lib/content/schema";
+
+/* Язык открытого интерфейса: уходит в заголовке, чтобы сервер ответил на нём же.
+   Ставит AdminLangProvider. */
+let apiLang: AdminLang = "ru";
+export function setApiLang(lang: AdminLang) {
+  apiLang = lang;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -9,6 +17,10 @@ export class ApiError extends Error {
     public data: Record<string, unknown> = {},
   ) {
     super(message);
+  }
+  /** Машинный код ошибки от сервера ("validation", "conflict", …). */
+  get code(): string | undefined {
+    return typeof this.data.code === "string" ? this.data.code : undefined;
   }
   get errors(): string[] {
     return Array.isArray(this.data.errors) ? (this.data.errors as string[]) : [];
@@ -22,7 +34,7 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
 
 function toError(status: number, data: unknown): ApiError {
   const record = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
-  const message = typeof record.error === "string" ? record.error : `Ошибка сервера (${status})`;
+  const message = typeof record.error === "string" ? record.error : translate(apiLang, "net.serverError", { status });
   return new ApiError(status, message, record);
 }
 
@@ -31,11 +43,15 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   try {
     response = await fetch(path, {
       ...init,
-      headers: init.body && typeof init.body === "string" ? { "Content-Type": "application/json", ...init.headers } : init.headers,
+      headers: {
+        [LANG_HEADER]: apiLang,
+        ...(init.body && typeof init.body === "string" ? { "Content-Type": "application/json" } : {}),
+        ...(init.headers as Record<string, string> | undefined),
+      },
       cache: "no-store",
     });
   } catch {
-    throw new ApiError(0, "Нет связи с сервером. Проверьте подключение и попробуйте ещё раз.");
+    throw new ApiError(0, translate(apiLang, "net.offline"));
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -68,6 +84,7 @@ export function uploadFile(file: File, onProgress?: (share: number) => void): Pr
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/admin/upload");
+    xhr.setRequestHeader(LANG_HEADER, apiLang);
     xhr.responseType = "json";
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress?.(event.loaded / event.total);
@@ -77,7 +94,7 @@ export function uploadFile(file: File, onProgress?: (share: number) => void): Pr
       if (xhr.status === 401) onUnauthorized?.();
       reject(toError(xhr.status, xhr.response));
     };
-    xhr.onerror = () => reject(new ApiError(0, "Нет связи с сервером: файл не загружен."));
+    xhr.onerror = () => reject(new ApiError(0, translate(apiLang, "net.uploadOffline")));
     const body = new FormData();
     body.append("file", file);
     xhr.send(body);
@@ -86,14 +103,4 @@ export function uploadFile(file: File, onProgress?: (share: number) => void): Pr
 
 export function mediaKind(path: string): "image" | "video" {
   return /\.(mp4|webm)$/i.test(path) ? "video" : "image";
-}
-
-export function formatSize(bytes: number): string {
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} КБ`;
-  return `${(bytes / 1024 / 1024).toFixed(1).replace(".", ",")} МБ`;
-}
-
-const DATE_TIME = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
-export function formatDateTime(iso: string): string {
-  return DATE_TIME.format(new Date(iso));
 }

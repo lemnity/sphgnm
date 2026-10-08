@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { saveContents, validateContent } from "@/lib/admin/content";
-import { PROJECT_ROOT, handleError, jsonError, requireAdmin } from "@/lib/admin/guard";
+import { PROJECT_ROOT, apiError, handleError, requestLang, requireAdmin } from "@/lib/admin/guard";
 import { readHistory } from "@/lib/admin/storage";
 
 /**
@@ -10,23 +10,24 @@ import { readHistory } from "@/lib/admin/storage";
 export async function POST(request: NextRequest) {
   const denied = requireAdmin(request);
   if (denied) return denied;
+  const lang = requestLang(request);
 
   let id: unknown;
   try {
     id = (await request.json())?.id;
   } catch {
-    return jsonError(400, "Ожидается { id }");
+    return apiError(lang, 400, "api.expectedId");
   }
-  if (typeof id !== "string") return jsonError(400, "Ожидается { id }");
+  if (typeof id !== "string") return apiError(lang, 400, "api.expectedId");
 
   try {
     const { name, data } = await readHistory(PROJECT_ROOT, id);
     // Старая версия могла быть сохранена до ужесточения схемы — проверяем как обычное сохранение.
-    const errors = validateContent(name, data);
-    if (errors.length) return jsonError(422, "Версия не проходит проверку", { errors });
+    const errors = validateContent(name, data, lang);
+    if (errors.length) return apiError(lang, 422, "api.versionInvalid", {}, { errors });
     const { [name]: saved } = await saveContents(PROJECT_ROOT, [{ name, data }]);
     return NextResponse.json({ ok: true, name, restored: id, history: saved.history, version: saved.version });
   } catch (error) {
-    return handleError(error);
+    return handleError(error, lang);
   }
 }

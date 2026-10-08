@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AdminApp } from "@/components/admin/admin-app";
-import { PROJECT_ROOT, hasAdminSession } from "@/lib/admin/guard";
+import { PROJECT_ROOT, hasAdminSession, pageLang } from "@/lib/admin/guard";
+import { translate } from "@/lib/admin/i18n";
 import { readContentWithVersion } from "@/lib/admin/storage";
 import { getInstagramPosts } from "@/lib/content/load";
 import type { GalleryItem, SiteContent } from "@/lib/content/schema";
 
-export const metadata: Metadata = { title: "Кабинет · Sphagnum Eco", robots: { index: false, follow: false } };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: translate(await pageLang(), "meta.adminTitle"), robots: { index: false, follow: false } };
+}
 export const dynamic = "force-dynamic";
 
 // Проверка сессии здесь дублирует middleware: страница не должна зависеть от matcher.
@@ -21,6 +24,7 @@ export default async function AdminPage() {
       gallery={gallery.data as GalleryItem[]}
       versions={{ site: site.version, gallery: gallery.version }}
       instagramLive={getInstagramPosts().length}
+      lang={await pageLang()}
     />
   );
 }

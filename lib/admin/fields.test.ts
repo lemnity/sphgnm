@@ -5,6 +5,7 @@ import { ICON_NAMES, SITE_SHAPE, validateSiteContent } from "../content/schema.t
 import {
   BLOCKS,
   ICON_LABELS,
+  allLabels,
   blockLeaves,
   describePath,
   describeUsage,
@@ -50,7 +51,7 @@ test("у полей есть русские подписи, ключи в гру
     const keys = fields.map((field) => field.key);
     assert.equal(new Set(keys).size, keys.length, `повтор ключа в ${at}`);
     for (const field of fields) {
-      assert.match(field.label, /[а-яё]|FAQ|SEO/i, `${at}.${field.key}: нет подписи`);
+      assert.match(field.label.ru, /[а-яё]|FAQ|SEO/i, `${at}.${field.key}: нет подписи`);
       if (field.kind === "group") walk(field.fields, `${at}.${field.key}`);
       if (field.kind === "list" && typeof field.item !== "string") walk(field.item, `${at}.${field.key}[]`);
     }
@@ -112,4 +113,22 @@ test("splitPath и describePath", () => {
 test("describeUsage: ответ 409 при удалении файла", () => {
   assert.equal(describeUsage("site: hero.image.src"), "Первый экран › Фоновая картинка › файл");
   assert.equal(describeUsage("gallery: [0].src"), "Галерея › Элемент № 1 › файл");
+});
+
+test("у каждой подписи и подсказки есть оба языка, английский — не копия русского", () => {
+  const labels = allLabels();
+  assert.ok(labels.length > 200, `подписей всего ${labels.length}`);
+  for (const { at, text } of labels) {
+    assert.ok(text.ru.trim(), `${at}: нет русского текста`);
+    assert.ok(text.en.trim(), `${at}: нет английского текста`);
+    assert.doesNotMatch(text.en, /[а-яё]/i, `${at}: кириллица в английском тексте`);
+    if (/[а-яё]/i.test(text.ru)) assert.notEqual(text.en, text.ru, `${at}: перевод совпадает с русским`);
+  }
+});
+
+test("describePath и describeUsage по-английски", () => {
+  assert.equal(describePath("site", "product.solutions[0].image.src", "en").label, "Products › Solutions › Solution #1 › Image › file");
+  assert.equal(describePath("site", "contact.form.projectTypes[2]", "en").label, "Enquiry › Form fields › Project types › Type #3");
+  assert.equal(describePath("gallery", "gallery[4].poster", "en").label, "Gallery › Item #5 › poster");
+  assert.equal(describeUsage("site: hero.image.src", "en"), "Hero › Background image › file");
 });

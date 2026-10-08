@@ -3,18 +3,33 @@
 import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { HISTORY_LIMIT } from "./limits.ts";
+import { codeOf, translate, type AdminLang, type ApiCode, type ApiKey, type Params } from "./i18n.ts";
 
 export const CONTENT_NAMES = ["site", "gallery"] as const;
 export type ContentName = (typeof CONTENT_NAMES)[number];
 
-export const HISTORY_LIMIT = 30;
+export { HISTORY_LIMIT };
 
-/** Ошибка с HTTP-статусом: роуты отдают её текст как есть. */
+/**
+ * Ошибка с HTTP-статусом. message — по-русски (логи, тесты); роут берёт key и params
+ * и отдаёт текст на языке запроса через messageIn().
+ */
 export class StorageError extends Error {
   status: number;
-  constructor(message: string, status = 400) {
-    super(message);
+  key: ApiKey;
+  params: Params;
+  constructor(key: ApiKey, status = 400, params: Params = {}) {
+    super(translate("ru", key, params));
     this.status = status;
+    this.key = key;
+    this.params = params;
+  }
+  get code(): ApiCode {
+    return codeOf(this.key);
+  }
+  messageIn(lang: AdminLang): string {
+    return translate(lang, this.key, this.params);
   }
 }
 
@@ -47,7 +62,7 @@ export async function readContentWithVersion(root: string, name: ContentName): P
   try {
     return { data: JSON.parse(raw), version: contentVersion(raw) };
   } catch (error) {
-    throw new StorageError(`content/${name}.json: невалидный JSON — ${(error as Error).message}`, 500);
+    throw new StorageError("api.brokenContent", 500, { name, detail: (error as Error).message });
   }
 }
 
@@ -55,7 +70,7 @@ export async function readContentWithVersion(root: string, name: ContentName): P
 export class ConflictError extends StorageError {
   conflict: ContentName[];
   constructor(conflict: ContentName[]) {
-    super("Сайт изменили в другой вкладке или на другом устройстве", 409);
+    super("api.conflict", 409);
     this.conflict = conflict;
   }
 }
@@ -143,12 +158,12 @@ export function writeContents(root: string, writes: ContentWrite[]): Promise<Rec
  * Версии из тела PUT: { versions: { site?: "…", gallery?: "…" } }. Для каждого
  * сохраняемого раздела версия обязательна. Возвращает версии или текст ошибки.
  */
-export function parseVersions(value: unknown, names: readonly ContentName[]): Partial<Record<ContentName, string>> | string {
+export function parseVersions(value: unknown, names: readonly ContentName[], lang: AdminLang = "ru"): Partial<Record<ContentName, string>> | string {
   const record = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
   const result: Partial<Record<ContentName, string>> = {};
   for (const name of names) {
     const version = record[name];
-    if (typeof version !== "string" || !version) return `Не указана версия раздела ${name}: обновите страницу кабинета`;
+    if (typeof version !== "string" || !version) return translate(lang, "api.missingVersion", { name });
     result[name] = version;
   }
   return result;
@@ -186,18 +201,18 @@ export async function listHistory(root: string): Promise<HistoryEntry[]> {
 /** Читает версию из истории. id проверяется по шаблону — никаких путей извне. */
 export async function readHistory(root: string, id: string): Promise<{ name: ContentName; data: unknown }> {
   const match = HISTORY_RE.exec(id);
-  if (!match) throw new StorageError("Неизвестная версия", 400);
+  if (!match) throw new StorageError("api.unknownVersion", 400);
   let raw: string;
   try {
     raw = await readFile(path.join(historyDir(root), id), "utf8");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") throw new StorageError("Версия не найдена", 404);
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") throw new StorageError("api.versionNotFound", 404);
     throw error;
   }
   try {
     return { name: match[1] as ContentName, data: JSON.parse(raw) };
   } catch {
-    throw new StorageError(`Версия ${id} повреждена`, 422);
+    throw new StorageError("api.versionBroken", 422, { id });
   }
 }
 
@@ -248,15 +263,15 @@ export type UploadInput = { name: string; type: string; bytes: Uint8Array };
 /** Сохраняет загрузку в public/uploads под случайным именем. Возвращает путь вида "uploads/<id>.<ext>". */
 export async function saveUpload(root: string, file: UploadInput): Promise<string> {
   if (/\.svgz?$/i.test(file.name) || /svg/i.test(file.type)) {
-    throw new StorageError("SVG загружать нельзя: в нём может быть исполняемый код", 415);
+    throw new StorageError("api.svgForbidden", 415);
   }
-  if (file.bytes.length === 0) throw new StorageError("Пустой файл", 400);
-  if (file.bytes.length > MAX_UPLOAD_BYTES) throw new StorageError("Файл больше 150 МБ", 413);
+  if (file.bytes.length === 0) throw new StorageError("api.emptyFile", 400);
+  if (file.bytes.length > MAX_UPLOAD_BYTES) throw new StorageError("api.fileTooBig", 413, { mb: MAX_UPLOAD_BYTES / MB });
   const ext = sniffUploadType(file.bytes);
-  if (!ext) throw new StorageError("Неподдерживаемый тип файла. Можно: jpg, png, webp, avif, gif, mp4, webm", 415);
+  if (!ext) throw new StorageError("api.unsupportedType", 415, { types: Object.keys(UPLOAD_TYPES).join(", ") });
   const { maxBytes, kind } = UPLOAD_TYPES[ext];
   if (file.bytes.length > maxBytes) {
-    throw new StorageError(`Файл слишком большой: ${kind === "image" ? "картинка" : "видео"} — до ${maxBytes / MB} МБ`, 413);
+    throw new StorageError(kind === "image" ? "api.imageTooBig" : "api.videoTooBig", 413, { mb: maxBytes / MB });
   }
   const name = `${randomBytes(8).toString("hex")}.${ext}`;
   await writeFileAtomic(path.join(uploadsDir(root), name), file.bytes);
@@ -268,10 +283,10 @@ const UPLOAD_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*\.[a-z0-9]+$/;
 /** "uploads/<имя>" → абсолютный путь. Всё, что выходит за public/uploads, отклоняется. */
 export function resolveUploadPath(root: string, relative: string): string {
   const match = /^uploads\/([^/]+)$/.exec(relative);
-  if (!match || !UPLOAD_NAME_RE.test(match[1])) throw new StorageError("Недопустимый путь к файлу", 400);
+  if (!match || !UPLOAD_NAME_RE.test(match[1])) throw new StorageError("api.badPath", 400);
   const dir = uploadsDir(root);
   const full = path.resolve(dir, match[1]);
-  if (path.dirname(full) !== dir) throw new StorageError("Недопустимый путь к файлу", 400);
+  if (path.dirname(full) !== dir) throw new StorageError("api.badPath", 400);
   return full;
 }
 
@@ -308,7 +323,7 @@ export async function deleteUpload(root: string, relative: string): Promise<void
   try {
     await unlink(file);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") throw new StorageError("Файл не найден", 404);
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") throw new StorageError("api.fileNotFound", 404);
     throw error;
   }
 }

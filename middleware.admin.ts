@@ -2,6 +2,7 @@
 // Next его не видит (см. pageExtensions в next.config.mjs), как и сами страницы админки.
 // Роуты API всё равно проверяют сессию сами (lib/admin/guard.ts).
 import { NextResponse, type NextRequest } from "next/server";
+import { LANG_COOKIE, LANG_HEADER, codeOf, pickLang, translate } from "@/lib/admin/i18n";
 import { SESSION_COOKIE, resolveSessionSecret, verifySessionToken } from "@/lib/admin/session";
 
 function isAdminRequest(request: NextRequest): boolean {
@@ -20,7 +21,12 @@ export function middleware(request: NextRequest) {
   if (authed) return NextResponse.next();
 
   if (pathname.startsWith("/api/")) {
-    return NextResponse.json({ error: "Нужно войти в админку" }, { status: 401 });
+    const lang = pickLang({
+      header: request.headers.get(LANG_HEADER),
+      cookie: request.cookies.get(LANG_COOKIE)?.value,
+      acceptLanguage: request.headers.get("accept-language"),
+    });
+    return NextResponse.json({ error: translate(lang, "api.unauthorized"), code: codeOf("api.unauthorized") }, { status: 401 });
   }
   const login = new URL("/admin/login", request.url);
   login.searchParams.set("next", pathname);

@@ -7,6 +7,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import { ICON_LABELS, ICON_NAMES, SECTION_ANCHORS, newListItem, type Field } from "@/lib/admin/fields";
 import type { IconName } from "@/lib/content/schema";
 import { ICONS } from "@/components/site-icons";
+import { useT } from "./i18n";
 import { MediaPathControl } from "./media";
 import { useUi } from "./ui";
 
@@ -36,6 +37,7 @@ export function FieldsEditor({ fields, value, update, path }: { fields: Field[];
 
 function FieldView({ field, value, update, path }: { field: Field; value: unknown; update: Update<unknown>; path: string }) {
   const errors = useContext(ErrorsContext);
+  const { pick } = useT();
   const id = fieldId(path);
   const set = (next: unknown) => {
     errors.clear(path);
@@ -86,7 +88,7 @@ function FieldView({ field, value, update, path }: { field: Field; value: unknow
     case "video":
       return (
         <Row field={field} path={path} asGroup>
-          <MediaPathControl value={String(value ?? "")} onChange={set} accept="video" label={field.label} describedBy={describedBy(field, path, errors.at(path))} />
+          <MediaPathControl value={String(value ?? "")} onChange={set} accept="video" label={pick(field.label)} describedBy={describedBy(field, path, errors.at(path))} />
         </Row>
       );
     case "image":
@@ -94,8 +96,8 @@ function FieldView({ field, value, update, path }: { field: Field; value: unknow
     case "group":
       return (
         <fieldset className="adm-group">
-          <legend>{field.label}</legend>
-          {field.hint ? <p className="adm-hint">{field.hint}</p> : null}
+          <legend>{pick(field.label)}</legend>
+          {field.hint ? <p className="adm-hint">{pick(field.hint)}</p> : null}
           <FieldsEditor fields={field.fields} value={(value ?? {}) as Obj} update={update as Update<Obj>} path={path} />
         </fieldset>
       );
@@ -112,21 +114,22 @@ function describedBy(field: Field, path: string, errors: string[]): string | und
 /** Подпись, подсказка и ошибки поля. asGroup — у контрола нет одного input, подпись не <label>. */
 function Row({ field, path, children, asGroup = false, extraErrors = [] }: { field: Field; path: string; children: ReactNode; asGroup?: boolean; extraErrors?: string[] }) {
   const errors = [...useContext(ErrorsContext).at(path), ...extraErrors];
+  const { pick } = useT();
   const id = fieldId(path);
   return (
     <div className={`adm-field${errors.length ? " adm-field--error" : ""}`} data-path={path}>
       {asGroup ? (
         <span className="adm-label" id={`${id}-label`}>
-          {field.label}
+          {pick(field.label)}
         </span>
       ) : (
         <label className="adm-label" htmlFor={id}>
-          {field.label}
+          {pick(field.label)}
         </label>
       )}
       {field.hint ? (
         <p className="adm-hint" id={`${id}-hint`}>
-          {field.hint}
+          {pick(field.hint)}
         </p>
       ) : null}
       {children}
@@ -147,17 +150,23 @@ export function FieldErrors({ id, errors }: { id: string; errors: string[] }) {
 }
 
 function AnchorNote({ value }: { value: string }) {
+  const { t, pick } = useT();
   const section = SECTION_ANCHORS.find((anchor) => anchor.id === value);
-  return <p className="adm-hint">{section ? `Ведёт к блоку «${section.label}»` : "id секции без решётки: " + SECTION_ANCHORS.map((anchor) => anchor.id).join(", ")}</p>;
+  return (
+    <p className="adm-hint">
+      {section ? t("field.anchorTarget", { label: pick(section.label) }) : t("field.anchorHelp", { ids: SECTION_ANCHORS.map((anchor) => anchor.id).join(", ") })}
+    </p>
+  );
 }
 
 /** Подсказки для полей «Раздел страницы» — один список на страницу. */
 export function AnchorDatalist() {
+  const { pick } = useT();
   return (
     <datalist id="adm-anchors">
       {SECTION_ANCHORS.map((anchor) => (
         <option key={anchor.id} value={anchor.id}>
-          {anchor.label}
+          {pick(anchor.label)}
         </option>
       ))}
     </datalist>
@@ -165,6 +174,7 @@ export function AnchorDatalist() {
 }
 
 export function IconSelect({ id, value, onChange, describedBy }: { id: string; value: string; onChange: (value: string) => void; describedBy?: string }) {
+  const { pick } = useT();
   const Icon = ICONS[value as IconName];
   return (
     <div className="adm-icon-select">
@@ -175,7 +185,7 @@ export function IconSelect({ id, value, onChange, describedBy }: { id: string; v
         {ICON_NAMES.includes(value as IconName) ? null : <option value={value}>{value || "—"}</option>}
         {ICON_NAMES.map((name) => (
           <option key={name} value={name}>
-            {ICON_LABELS[name]}
+            {pick(ICON_LABELS[name])}
           </option>
         ))}
       </select>
@@ -185,6 +195,7 @@ export function IconSelect({ id, value, onChange, describedBy }: { id: string; v
 
 function ImageView({ field, value, update, path }: { field: Extract<Field, { kind: "image" }>; value: Obj; update: Update<Obj>; path: string }) {
   const errors = useContext(ErrorsContext);
+  const { t, pick } = useT();
   const srcErrors = [...errors.at(`${path}.src`)];
   const altId = fieldId(`${path}.alt`);
   const altErrors = errors.at(`${path}.alt`);
@@ -199,20 +210,20 @@ function ImageView({ field, value, update, path }: { field: Extract<Field, { kin
           value={String(value.src ?? "")}
           onChange={(next) => setPart("src", next)}
           accept="image"
-          label={field.label}
+          label={pick(field.label)}
           describedBy={srcErrors.length ? `${fieldId(path)}-err` : undefined}
         />
         {field.alt === "unused" ? null : (
           <div className={`adm-field adm-field--inline${altErrors.length ? " adm-field--error" : ""}`}>
             <label className="adm-label adm-label--small" htmlFor={altId}>
-              Описание картинки (alt)
+              {t("field.alt")}
             </label>
             <input
               id={altId}
               className="adm-input"
               type="text"
               value={String(value.alt ?? "")}
-              placeholder="Что на картинке — для поисковиков и экранных читалок"
+              placeholder={t("field.altPlaceholder")}
               onChange={(event) => setPart("alt", event.target.value)}
             />
             <FieldErrors id={`${altId}-err`} errors={altErrors} />
@@ -242,8 +253,10 @@ function itemSummary(item: unknown, field: Extract<Field, { kind: "list" }>): st
 
 function ListView({ field, value, update, path }: { field: Extract<Field, { kind: "list" }>; value: unknown[]; update: Update<unknown[]>; path: string }) {
   const { confirm } = useUi();
+  const { t, pick } = useT();
   const errors = useContext(ErrorsContext);
   const id = fieldId(path);
+  const itemLabel = pick(field.itemLabel);
   const scalar = typeof field.item === "string";
 
   const move = (index: number, delta: -1 | 1, button: "up" | "down") => {
@@ -265,9 +278,9 @@ function ListView({ field, value, update, path }: { field: Extract<Field, { kind
     const empty = scalar ? !summary : false;
     if (!empty) {
       const ok = await confirm({
-        title: `Удалить: ${field.itemLabel.toLowerCase()} № ${index + 1}?`,
+        title: t("list.confirmRemove", { item: itemLabel.toLowerCase(), n: index + 1 }),
         text: summary ? <p>«{summary.length > 120 ? `${summary.slice(0, 120)}…` : summary}»</p> : undefined,
-        confirmLabel: "Удалить",
+        confirmLabel: t("list.removeTitle"),
         danger: true,
       });
       if (!ok) return;
@@ -287,33 +300,33 @@ function ListView({ field, value, update, path }: { field: Extract<Field, { kind
   return (
     <fieldset className={`adm-list${scalar ? " adm-list--scalar" : ""}`}>
       <legend>
-        {field.label} <span className="adm-count">{value.length}</span>
+        {pick(field.label)} <span className="adm-count">{value.length}</span>
       </legend>
-      {field.hint ? <p className="adm-hint">{field.hint}</p> : null}
+      {field.hint ? <p className="adm-hint">{pick(field.hint)}</p> : null}
       <FieldErrors id={`${id}-err`} errors={listErrors} />
-      {value.length === 0 ? <p className="adm-empty">Пока пусто.</p> : null}
+      {value.length === 0 ? <p className="adm-empty">{t("list.empty")}</p> : null}
       <ol className="adm-list__items">
         {value.map((item, index) => {
           const itemPath = `${path}[${index}]`;
           const itemId = fieldId(itemPath);
-          const number = `${field.itemLabel} № ${index + 1}`;
+          const number = t("list.number", { item: itemLabel, n: index + 1 });
           const controls = (
             <div className="adm-list__controls">
-              <button type="button" id={`${itemId}-up`} className="adm-iconbtn" aria-label={`${number}: выше`} title="Выше" disabled={index === 0} onClick={() => move(index, -1, "up")}>
+              <button type="button" id={`${itemId}-up`} className="adm-iconbtn" aria-label={t("list.up", { item: number })} title={t("list.upTitle")} disabled={index === 0} onClick={() => move(index, -1, "up")}>
                 ↑
               </button>
               <button
                 type="button"
                 id={`${itemId}-down`}
                 className="adm-iconbtn"
-                aria-label={`${number}: ниже`}
-                title="Ниже"
+                aria-label={t("list.down", { item: number })}
+                title={t("list.downTitle")}
                 disabled={index === value.length - 1}
                 onClick={() => move(index, 1, "down")}
               >
                 ↓
               </button>
-              <button type="button" className="adm-iconbtn adm-iconbtn--danger" aria-label={`${number}: удалить`} title="Удалить" onClick={() => void remove(index)}>
+              <button type="button" className="adm-iconbtn adm-iconbtn--danger" aria-label={t("list.remove", { item: number })} title={t("list.removeTitle")} onClick={() => void remove(index)}>
                 ✕
               </button>
             </div>
@@ -366,7 +379,7 @@ function ListView({ field, value, update, path }: { field: Extract<Field, { kind
         })}
       </ol>
       <button type="button" id={`${id}-add`} className="adm-btn adm-btn--add" onClick={add}>
-        + Добавить: {field.itemLabel.toLowerCase()}
+        {t("list.add", { item: itemLabel.toLowerCase() })}
       </button>
     </fieldset>
   );

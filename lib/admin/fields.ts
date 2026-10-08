@@ -1,10 +1,15 @@
-// Описание полей редактора: какие блоки есть в site.json, как называются по-русски
+// Описание полей редактора: какие блоки есть в site.json, как называются (по-русски и по-английски)
 // и каким контролом правится каждое поле. Редактор в кабинете строится только по
 // этому описанию; тест сверяет его с SITE_SHAPE, чтобы новое поле схемы не пропало
 // из кабинета молча. Модуль без зависимостей от React и next — его гоняет node --test.
 import { ICON_NAMES, type IconName, type Shape, type SiteContent } from "../content/schema.ts";
+import { translate, type AdminLang } from "./i18n.ts";
 
-type Base = { key: string; label: string; hint?: string };
+/** Подпись на двух языках кабинета. */
+export type L = { ru: string; en: string };
+const l = (ru: string, en: string): L => ({ ru, en });
+
+type Base = { key: string; label: L; hint?: L };
 
 export type Field =
   | (Base & { kind: "text" })
@@ -20,318 +25,333 @@ export type Field =
   | (Base & { kind: "video" })
   | (Base & { kind: "group"; fields: Field[] })
   /** Список: элементы — объекты с полями или просто строки. */
-  | (Base & { kind: "list"; itemLabel: string; item: Field[] | "text" | "textarea" });
+  | (Base & { kind: "list"; itemLabel: L; item: Field[] | "text" | "textarea" });
 
 export type BlockId = keyof SiteContent;
-export type Block = { id: BlockId; title: string; description: string; fields: Field[] };
+export type Block = { id: BlockId; title: L; description: L; fields: Field[] };
 
-const text = (key: string, label: string, hint?: string): Field => ({ kind: "text", key, label, hint });
-const area = (key: string, label: string, hint?: string, rows = 3): Field => ({ kind: "textarea", key, label, hint, rows });
-const icon = (key = "icon", label = "Иконка"): Field => ({ kind: "icon", key, label });
-const image = (key: string, label: string, hint?: string): Field => ({ kind: "image", key, label, hint });
-const kicker = text("kicker", "Надзаголовок", "Маленькая строка над заголовком");
+const text = (key: string, label: L, hint?: L): Field => ({ kind: "text", key, label, hint });
+const area = (key: string, label: L, hint?: L, rows = 3): Field => ({ kind: "textarea", key, label, hint, rows });
+const image = (key: string, label: L, hint?: L): Field => ({ kind: "image", key, label, hint });
+const list = (key: string, label: L, itemLabel: L, item: Field[] | "text" | "textarea", hint?: L): Field => ({ kind: "list", key, label, itemLabel, item, hint });
 
-const ICON_TEXT: Field[] = [icon(), text("title", "Заголовок"), area("text", "Текст")];
+/* Частые подписи. */
+const T = {
+  icon: l("Иконка", "Icon"),
+  title: l("Заголовок", "Heading"),
+  text: l("Текст", "Text"),
+  lead: l("Вводный текст", "Intro text"),
+  description: l("Описание", "Description"),
+  explanation: l("Пояснение", "Explanation"),
+  picture: l("Картинка", "Image"),
+  card: l("Карточка", "Card"),
+  cards: l("Карточки", "Cards"),
+  item: l("Пункт", "Item"),
+  advantage: l("Преимущество", "Advantage"),
+  advantages: l("Преимущества", "Advantages"),
+  buttonText: l("Текст кнопки", "Button text"),
+  accent: l("Заголовок, золотая часть", "Heading, gold part"),
+  srOnly: l("Для экранных читалок", "For screen readers"),
+};
+
+const icon = (key = "icon", label = T.icon): Field => ({ kind: "icon", key, label });
+const kicker = text("kicker", l("Надзаголовок", "Eyebrow"), l("Маленькая строка над заголовком", "Small line above the heading"));
+
+const ICON_TEXT: Field[] = [icon(), text("title", T.title), area("text", T.text)];
 
 /** Порядок — как на странице, служебные блоки в конце. */
 export const BLOCKS: Block[] = [
   {
     id: "hero",
-    title: "Первый экран",
-    description: "Большой заголовок, подзаголовок и пункты на первом экране.",
+    title: l("Первый экран", "Hero"),
+    description: l("Большой заголовок, подзаголовок и пункты на первом экране.", "The big headline, subheading and bullet points at the top of the page."),
     fields: [
-      area("title", "Заголовок", undefined, 2),
-      text("subtitle", "Подзаголовок"),
-      text("ctaLabel", "Текст кнопки"),
-      { kind: "list", key: "bullets", label: "Пункты", itemLabel: "Пункт", item: "text" },
-      { kind: "image", key: "image", label: "Фоновая картинка", alt: "unused", hint: "Фон первого экрана. Подпись не нужна: картинка декоративная." },
+      area("title", T.title, undefined, 2),
+      text("subtitle", l("Подзаголовок", "Subheading")),
+      text("ctaLabel", T.buttonText),
+      list("bullets", l("Пункты", "Bullet points"), l("Пункт", "Bullet"), "text"),
+      {
+        kind: "image",
+        key: "image",
+        label: l("Фоновая картинка", "Background image"),
+        alt: "unused",
+        hint: l("Фон первого экрана. Подпись не нужна: картинка декоративная.", "Background of the hero section. No description needed: the image is decorative."),
+      },
     ],
   },
   {
     id: "strip",
-    title: "Полоса",
-    description: "Полоса под первым экраном: приглашение, карточки свойств и факт.",
+    title: l("Полоса", "Highlights strip"),
+    description: l("Полоса под первым экраном: приглашение, карточки свойств и факт.", "The strip below the hero: an invitation, feature cards and a key fact."),
     fields: [
       {
         kind: "group",
         key: "intro",
-        label: "Приглашение",
+        label: l("Приглашение", "Invitation"),
         fields: [
-          area("text", "Текст", undefined, 2),
-          text("linkLabel", "Текст ссылки"),
-          { kind: "href", key: "linkHref", label: "Куда ведёт ссылка", hint: "#contact — к форме заявки; можно https://… или mailto:…" },
+          area("text", T.text, undefined, 2),
+          text("linkLabel", l("Текст ссылки", "Link text")),
+          {
+            kind: "href",
+            key: "linkHref",
+            label: l("Куда ведёт ссылка", "Link target"),
+            hint: l("#contact — к форме заявки; можно https://… или mailto:…", "#contact goes to the enquiry form; https://… or mailto:… also work"),
+          },
         ],
       },
-      { kind: "list", key: "cards", label: "Карточки", itemLabel: "Карточка", item: [icon(), area("text", "Текст", undefined, 2)] },
-      { kind: "group", key: "fact", label: "Факт", fields: [text("value", "Число"), area("text", "Пояснение", undefined, 2)] },
+      list("cards", T.cards, T.card, [icon(), area("text", T.text, undefined, 2)]),
+      { kind: "group", key: "fact", label: l("Факт", "Key fact"), fields: [text("value", l("Число", "Number")), area("text", T.explanation, undefined, 2)] },
     ],
   },
   {
     id: "product",
-    title: "Продукты",
-    description: "Блок «Our solutions» с карточками двух продуктовых линеек.",
+    title: l("Продукты", "Products"),
+    description: l("Блок «Our solutions» с карточками двух продуктовых линеек.", "The “Our solutions” section with cards for the two product lines."),
     fields: [
       kicker,
-      text("title", "Заголовок"),
-      area("lead", "Вводный текст", undefined, 2),
-      text("featuresLabel", "Подпись над списком свойств"),
-      {
-        kind: "list",
-        key: "solutions",
-        label: "Решения",
-        itemLabel: "Решение",
-        item: [
-          icon(),
-          text("kicker", "Надзаголовок"),
-          area("title", "Заголовок", "Перенос строки (Enter) — место переноса в заголовке карточки", 2),
-          area("lead", "Описание"),
-          { kind: "list", key: "features", label: "Свойства", itemLabel: "Свойство", item: "text" },
-          image("image", "Картинка"),
-        ],
-      },
+      text("title", T.title),
+      area("lead", T.lead, undefined, 2),
+      text("featuresLabel", l("Подпись над списком свойств", "Label above the feature list")),
+      list("solutions", l("Решения", "Solutions"), l("Решение", "Solution"), [
+        icon(),
+        text("kicker", l("Надзаголовок", "Eyebrow")),
+        area("title", T.title, l("Перенос строки (Enter) — место переноса в заголовке карточки", "A line break (Enter) marks where the card heading wraps"), 2),
+        area("lead", T.description),
+        list("features", l("Свойства", "Features"), l("Свойство", "Feature"), "text"),
+        image("image", T.picture),
+      ]),
     ],
   },
   {
     id: "fuscum",
-    title: "Sphagnum Fuscum",
-    description: "Сырьевая база: площадь болот и большая фотография.",
+    title: l("Sphagnum Fuscum", "Sphagnum Fuscum"),
+    description: l("Сырьевая база: площадь болот и большая фотография.", "The raw-material source: wetland area and a large photo."),
     fields: [
       kicker,
-      text("areaValue", "Площадь, число"),
-      text("areaUnit", "Единица"),
-      text("areaCaption", "Подпись к площади"),
-      image("image", "Фотография"),
+      text("areaValue", l("Площадь, число", "Area, number")),
+      text("areaUnit", l("Единица", "Unit")),
+      text("areaCaption", l("Подпись к площади", "Area caption")),
+      image("image", l("Фотография", "Photo")),
     ],
   },
   {
     id: "wetland",
-    title: "Васюганские болота",
-    description: "Текст о болотах, факты о заготовке и фото живой стены.",
+    title: l("Васюганские болота", "Vasyugan Mire"),
+    description: l("Текст о болотах, факты о заготовке и фото живой стены.", "Text about the mire, harvesting facts and a photo of the living wall."),
     fields: [
-      area("text", "Текст", undefined, 4),
-      { kind: "list", key: "facts", label: "Факты", itemLabel: "Факт", item: [icon(), text("value", "Значение"), area("text", "Пояснение", undefined, 2)] },
-      image("wallImage", "Фото живой стены"),
+      area("text", T.text, undefined, 4),
+      list("facts", l("Факты", "Facts"), l("Факт", "Fact"), [icon(), text("value", l("Значение", "Value")), area("text", T.explanation, undefined, 2)]),
+      image("wallImage", l("Фото живой стены", "Living wall photo")),
     ],
   },
   {
     id: "platform",
-    title: "Субстраты",
-    description: "Платформа субстратов: опоры, преимущества, линейка продуктов.",
+    title: l("Субстраты", "Substrates"),
+    description: l("Платформа субстратов: опоры, преимущества, линейка продуктов.", "The substrate platform: pillars, benefits and the product range."),
     fields: [
       kicker,
-      text("title", "Заголовок"),
-      area("lead", "Вводный текст", undefined, 2),
-      { kind: "list", key: "pillars", label: "Опоры", itemLabel: "Опора", item: ICON_TEXT },
-      image("rootZoneImage", "Картинка корневой зоны"),
-      text("benefitsTitle", "Заголовок преимуществ"),
-      { kind: "list", key: "benefits", label: "Преимущества", itemLabel: "Преимущество", item: ICON_TEXT },
-      text("rangeTitle", "Заголовок линейки"),
-      { kind: "list", key: "range", label: "Линейка", itemLabel: "Продукт", item: [icon(), text("name", "Название"), area("text", "Описание", undefined, 2)] },
-      text("ctaLabel", "Текст кнопки"),
+      text("title", T.title),
+      area("lead", T.lead, undefined, 2),
+      list("pillars", l("Опоры", "Pillars"), l("Опора", "Pillar"), ICON_TEXT),
+      image("rootZoneImage", l("Картинка корневой зоны", "Root zone image")),
+      text("benefitsTitle", l("Заголовок преимуществ", "Benefits heading")),
+      list("benefits", T.advantages, T.advantage, ICON_TEXT),
+      text("rangeTitle", l("Заголовок линейки", "Product range heading")),
+      list("range", l("Линейка", "Product range"), l("Продукт", "Product"), [icon(), text("name", l("Название", "Name")), area("text", T.description, undefined, 2)]),
+      text("ctaLabel", T.buttonText),
     ],
   },
   {
     id: "gallery",
-    title: "Галерея",
-    description: "Заголовок и подписи галереи. Фото и ролики — ниже, в «Элементах галереи».",
+    title: l("Галерея", "Gallery"),
+    description: l(
+      "Заголовок и подписи галереи. Фото и ролики — ниже, в «Элементах галереи».",
+      "Gallery heading and labels. Photos and videos are below, under “Gallery items”.",
+    ),
     fields: [
       kicker,
-      text("title", "Заголовок"),
-      text("titleAccent", "Заголовок, золотая часть", "Выводится после заголовка через пробел"),
-      text("username", "Имя аккаунта Instagram"),
-      { kind: "href", key: "profileUrl", label: "Ссылка на профиль" },
-      text("followLabel", "Кнопка «подписаться»"),
-      text("showMoreLabel", "Кнопка «показать ещё»"),
-      text("showLessLabel", "Кнопка «свернуть»"),
-      text("openLabel", "Подсказка «открыть»"),
-      text("viewOnInstagramLabel", "Ссылка «смотреть в Instagram»"),
-      text("closeLabel", "Кнопка «закрыть»"),
-      text("previousLabel", "Кнопка «предыдущее фото»"),
-      text("nextLabel", "Кнопка «следующее фото»"),
+      text("title", T.title),
+      text("titleAccent", T.accent, l("Выводится после заголовка через пробел", "Shown right after the heading, separated by a space")),
+      text("username", l("Имя аккаунта Instagram", "Instagram username")),
+      { kind: "href", key: "profileUrl", label: l("Ссылка на профиль", "Profile link") },
+      text("followLabel", l("Кнопка «подписаться»", "“Follow” button")),
+      text("showMoreLabel", l("Кнопка «показать ещё»", "“Show more” button")),
+      text("showLessLabel", l("Кнопка «свернуть»", "“Show less” button")),
+      text("openLabel", l("Подсказка «открыть»", "“Open” hint")),
+      text("viewOnInstagramLabel", l("Ссылка «смотреть в Instagram»", "“View on Instagram” link")),
+      text("closeLabel", l("Кнопка «закрыть»", "“Close” button")),
+      text("previousLabel", l("Кнопка «предыдущее фото»", "“Previous photo” button")),
+      text("nextLabel", l("Кнопка «следующее фото»", "“Next photo” button")),
     ],
   },
   {
     id: "applications",
-    title: "Применение",
-    description: "Где работают решения: карточки с фото и списком выгод.",
+    title: l("Применение", "Applications"),
+    description: l("Где работают решения: карточки с фото и списком выгод.", "Where the solutions are used: cards with a photo and a list of benefits."),
     fields: [
       kicker,
-      text("title", "Заголовок"),
-      text("itemKicker", "Надзаголовок карточек"),
-      {
-        kind: "list",
-        key: "items",
-        label: "Карточки",
-        itemLabel: "Карточка",
-        item: [
-          text("title", "Заголовок"),
-          area("text", "Текст"),
-          image("image", "Картинка"),
-          {
-            kind: "list",
-            key: "benefits",
-            label: "Выгоды",
-            itemLabel: "Выгода",
-            item: [icon(), text("title", "Заголовок"), area("text", "Текст", "Можно оставить пустым — тогда только заголовок", 2)],
-          },
-        ],
-      },
+      text("title", T.title),
+      text("itemKicker", l("Надзаголовок карточек", "Card eyebrow")),
+      list("items", T.cards, T.card, [
+        text("title", T.title),
+        area("text", T.text),
+        image("image", T.picture),
+        list("benefits", l("Выгоды", "Benefits"), l("Выгода", "Benefit"), [
+          icon(),
+          text("title", T.title),
+          area("text", T.text, l("Можно оставить пустым — тогда только заголовок", "Can be left empty — then only the heading is shown"), 2),
+        ]),
+      ]),
     ],
   },
   {
     id: "advantages",
-    title: "Преимущества",
-    description: "Почему мы: карточки преимуществ и ярлыки.",
+    title: T.advantages,
+    description: l("Почему мы: карточки преимуществ и ярлыки.", "Why us: advantage cards and tags."),
     fields: [
       kicker,
-      text("title", "Заголовок"),
-      text("titleAccent", "Заголовок, золотая часть"),
-      area("lead", "Вводный текст"),
-      { kind: "list", key: "items", label: "Преимущества", itemLabel: "Преимущество", item: ICON_TEXT },
-      { kind: "list", key: "tags", label: "Ярлыки", itemLabel: "Ярлык", item: [icon(), text("label", "Текст")] },
+      text("title", T.title),
+      text("titleAccent", T.accent),
+      area("lead", T.lead),
+      list("items", T.advantages, T.advantage, ICON_TEXT),
+      list("tags", l("Ярлыки", "Tags"), l("Ярлык", "Tag"), [icon(), text("label", T.text)]),
     ],
   },
   {
     id: "faq",
-    title: "FAQ",
-    description: "Частые вопросы и ответы.",
+    title: l("FAQ", "FAQ"),
+    description: l("Частые вопросы и ответы.", "Frequently asked questions and answers."),
     fields: [
       kicker,
-      text("title", "Заголовок"),
-      { kind: "list", key: "items", label: "Вопросы", itemLabel: "Вопрос", item: [text("question", "Вопрос"), area("answer", "Ответ", undefined, 4)] },
+      text("title", T.title),
+      list("items", l("Вопросы", "Questions"), l("Вопрос", "Question"), [text("question", l("Вопрос", "Question")), area("answer", l("Ответ", "Answer"), undefined, 4)]),
     ],
   },
   {
     id: "contact",
-    title: "Заявка",
-    description: "Блок с формой заявки внизу страницы.",
+    title: l("Заявка", "Enquiry"),
+    description: l("Блок с формой заявки внизу страницы.", "The enquiry form section at the bottom of the page."),
     fields: [
       kicker,
-      text("title", "Заголовок"),
-      area("lead", "Вводный текст"),
-      { kind: "list", key: "deliverables", label: "Что получит клиент", itemLabel: "Пункт", item: [text("title", "Заголовок"), area("text", "Текст", undefined, 2)] },
-      text("formTitle", "Заголовок формы"),
-      text("formLead", "Текст под заголовком формы"),
-      area("consent", "Согласие на обработку данных"),
+      text("title", T.title),
+      area("lead", T.lead),
+      list("deliverables", l("Что получит клиент", "What the client gets"), T.item, [text("title", T.title), area("text", T.text, undefined, 2)]),
+      text("formTitle", l("Заголовок формы", "Form heading")),
+      text("formLead", l("Текст под заголовком формы", "Text below the form heading")),
+      area("consent", l("Согласие на обработку данных", "Data processing consent")),
       {
         kind: "group",
         key: "form",
-        label: "Поля формы",
+        label: l("Поля формы", "Form fields"),
         fields: [
-          text("ariaLabel", "Название формы для экранных читалок"),
-          text("nameLabel", "Поле «имя»"),
-          text("emailLabel", "Поле «email»"),
-          text("phoneLabel", "Поле «телефон»"),
-          text("regionLabel", "Поле «регион»"),
-          text("projectTypeLabel", "Поле «тип проекта»"),
-          text("projectTypePlaceholder", "Подсказка в списке типов"),
-          { kind: "list", key: "projectTypes", label: "Типы проектов", itemLabel: "Тип", item: "text" },
-          text("areaLabel", "Поле «площадь»"),
-          text("messageLabel", "Поле «сообщение»"),
-          text("messageHint", "Пометка к сообщению"),
-          text("submitLabel", "Кнопка отправки"),
-          text("successMessage", "Сообщение после отправки"),
+          text("ariaLabel", l("Название формы для экранных читалок", "Form name for screen readers")),
+          text("nameLabel", l("Поле «имя»", "“Name” field")),
+          text("emailLabel", l("Поле «email»", "“Email” field")),
+          text("phoneLabel", l("Поле «телефон»", "“Phone” field")),
+          text("regionLabel", l("Поле «регион»", "“Region” field")),
+          text("projectTypeLabel", l("Поле «тип проекта»", "“Project type” field")),
+          text("projectTypePlaceholder", l("Подсказка в списке типов", "Project type placeholder")),
+          list("projectTypes", l("Типы проектов", "Project types"), l("Тип", "Type"), "text"),
+          text("areaLabel", l("Поле «площадь»", "“Area” field")),
+          text("messageLabel", l("Поле «сообщение»", "“Message” field")),
+          text("messageHint", l("Пометка к сообщению", "Note next to the message field")),
+          text("submitLabel", l("Кнопка отправки", "Submit button")),
+          text("successMessage", l("Сообщение после отправки", "Message after sending")),
         ],
       },
     ],
   },
   {
     id: "contacts",
-    title: "Контакты",
-    description: "Контактное лицо, телефон и почта.",
+    title: l("Контакты", "Contacts"),
+    description: l("Контактное лицо, телефон и почта.", "Contact person, phone number and email."),
     fields: [
-      text("person", "Имя"),
-      text("role", "Должность"),
-      text("phone", "Телефон", "Ссылка tel: подставится сама"),
-      text("email", "Электронная почта", "Ссылка mailto: подставится сама"),
+      text("person", l("Имя", "Name")),
+      text("role", l("Должность", "Job title")),
+      text("phone", l("Телефон", "Phone"), l("Ссылка tel: подставится сама", "The tel: link is added automatically")),
+      text("email", l("Электронная почта", "Email"), l("Ссылка mailto: подставится сама", "The mailto: link is added automatically")),
     ],
   },
   {
     id: "nav",
-    title: "Меню",
-    description: "Пункты верхнего меню и кнопка в шапке.",
+    title: l("Меню", "Menu"),
+    description: l("Пункты верхнего меню и кнопка в шапке.", "Top menu items and the header button."),
     fields: [
-      {
-        kind: "list",
-        key: "links",
-        label: "Пункты меню",
-        itemLabel: "Пункт",
-        item: [text("label", "Название"), { kind: "anchor", key: "target", label: "Раздел страницы" }],
-      },
-      text("ctaLabel", "Кнопка в шапке"),
-      text("openMenuLabel", "Подпись «открыть меню»", "Для экранных читалок"),
-      text("closeMenuLabel", "Подпись «закрыть меню»", "Для экранных читалок"),
+      list("links", l("Пункты меню", "Menu items"), T.item, [text("label", l("Название", "Label")), { kind: "anchor", key: "target", label: l("Раздел страницы", "Page section") }]),
+      text("ctaLabel", l("Кнопка в шапке", "Header button")),
+      text("openMenuLabel", l("Подпись «открыть меню»", "“Open menu” label"), T.srOnly),
+      text("closeMenuLabel", l("Подпись «закрыть меню»", "“Close menu” label"), T.srOnly),
     ],
   },
   {
     id: "footer",
-    title: "Подвал",
-    description: "Строка внизу страницы.",
-    fields: [text("copyright", "Копирайт")],
+    title: l("Подвал", "Footer"),
+    description: l("Строка внизу страницы.", "The line at the very bottom of the page."),
+    fields: [text("copyright", l("Копирайт", "Copyright"))],
   },
   {
     id: "loader",
-    title: "Экран загрузки",
-    description: "Фразы, которые сменяются, пока грузится страница.",
+    title: l("Экран загрузки", "Loading screen"),
+    description: l("Фразы, которые сменяются, пока грузится страница.", "Phrases that rotate while the page is loading."),
     fields: [
-      text("label", "Подпись для экранных читалок"),
-      text("srLabel", "Скрытая подпись"),
-      { kind: "list", key: "phrases", label: "Фразы", itemLabel: "Фраза", item: "text" },
+      text("label", l("Подпись для экранных читалок", "Label for screen readers")),
+      text("srLabel", l("Скрытая подпись", "Hidden label")),
+      list("phrases", l("Фразы", "Phrases"), l("Фраза", "Phrase"), "text"),
     ],
   },
   {
     id: "meta",
-    title: "SEO",
-    description: "Заголовок вкладки и описания для поисковиков и соцсетей.",
+    title: l("SEO", "SEO"),
+    description: l("Заголовок вкладки и описания для поисковиков и соцсетей.", "Browser tab title and descriptions for search engines and social networks."),
     fields: [
-      text("title", "Заголовок вкладки"),
-      area("description", "Описание для поисковиков"),
-      area("shareDescription", "Описание при пересылке ссылки", undefined, 2),
+      text("title", l("Заголовок вкладки", "Browser tab title")),
+      area("description", l("Описание для поисковиков", "Search engine description")),
+      area("shareDescription", l("Описание при пересылке ссылки", "Link preview description"), undefined, 2),
     ],
   },
 ];
 
 /** id секций лендинга — для подсказки в поле «Раздел страницы». */
-export const SECTION_ANCHORS: { id: string; label: string }[] = [
-  { id: "top", label: "Первый экран" },
-  { id: "product", label: "Продукты" },
-  { id: "applications", label: "Применение" },
-  { id: "fuscum", label: "Sphagnum Fuscum" },
-  { id: "projects", label: "Галерея" },
-  { id: "advantages", label: "Преимущества" },
-  { id: "faq", label: "FAQ" },
-  { id: "contact", label: "Заявка" },
+export const SECTION_ANCHORS: { id: string; label: L }[] = [
+  { id: "top", label: l("Первый экран", "Hero") },
+  { id: "product", label: l("Продукты", "Products") },
+  { id: "applications", label: l("Применение", "Applications") },
+  { id: "fuscum", label: l("Sphagnum Fuscum", "Sphagnum Fuscum") },
+  { id: "projects", label: l("Галерея", "Gallery") },
+  { id: "advantages", label: T.advantages },
+  { id: "faq", label: l("FAQ", "FAQ") },
+  { id: "contact", label: l("Заявка", "Enquiry") },
 ];
 
 /** Подписи иконок в выборе. */
-export const ICON_LABELS: Record<IconName, string> = {
-  droplet: "Капли",
-  wind: "Ветер",
-  sprout: "Росток",
-  sun: "Солнце",
-  weight: "Гиря",
-  moss: "Лист",
-  roof: "Здание",
-  battery: "Батарея",
-  shield: "Щит",
-  recycle: "Переработка",
-  layers: "Слои",
-  porosity: "Сетка",
-  stable: "Линейка",
-  temperature: "Термометр",
-  factory: "Завод",
-  flask: "Колба",
-  headset: "Наушники",
-  circleOff: "Запрет",
-  flower: "Цветок",
-  globe: "Глобус",
-  hand: "Рука с сердцем",
-  layers3: "Три слоя",
-  refresh: "Обновление",
-  shovel: "Лопата",
-  star: "Звезда",
-  thermometerSun: "Жара",
-  waves: "Волны",
+export const ICON_LABELS: Record<IconName, L> = {
+  droplet: l("Капли", "Droplets"),
+  wind: l("Ветер", "Wind"),
+  sprout: l("Росток", "Sprout"),
+  sun: l("Солнце", "Sun"),
+  weight: l("Гиря", "Weight"),
+  moss: l("Лист", "Leaf"),
+  roof: l("Здание", "Building"),
+  battery: l("Батарея", "Battery"),
+  shield: l("Щит", "Shield"),
+  recycle: l("Переработка", "Recycling"),
+  layers: l("Слои", "Layers"),
+  porosity: l("Сетка", "Grid"),
+  stable: l("Линейка", "Ruler"),
+  temperature: l("Термометр", "Thermometer"),
+  factory: l("Завод", "Factory"),
+  flask: l("Колба", "Flask"),
+  headset: l("Наушники", "Headset"),
+  circleOff: l("Запрет", "Prohibited"),
+  flower: l("Цветок", "Flower"),
+  globe: l("Глобус", "Globe"),
+  hand: l("Рука с сердцем", "Hand with heart"),
+  layers3: l("Три слоя", "Three layers"),
+  refresh: l("Обновление", "Refresh"),
+  shovel: l("Лопата", "Shovel"),
+  star: l("Звезда", "Star"),
+  thermometerSun: l("Жара", "Heat"),
+  waves: l("Волны", "Waves"),
 };
 
 /* ---------- листья: для сверки описания со схемой ---------- */
@@ -422,23 +442,30 @@ export function splitPath(path: string): (string | number)[] {
   return tokens;
 }
 
-const IMAGE_PARTS: Record<string, string> = { src: "файл", alt: "подпись" };
+const IMAGE_PARTS: Record<string, L> = { src: l("файл", "file"), alt: l("подпись", "alt text") };
+const GALLERY_PARTS: Record<string, L> = {
+  src: l("файл", "file"),
+  poster: l("постер", "poster"),
+  title: l("подпись", "caption"),
+  date: l("дата", "date"),
+  id: l("id", "id"),
+  type: l("тип", "type"),
+};
 
-/** Человеческое название места: "Продукты › Решения № 1 › Картинка › файл". */
-export function describePath(file: "site" | "gallery", path: string): { blockId: BlockId | null; label: string } {
+/** Человеческое название места: "Продукты › Решения › Решение № 1 › Картинка › файл". */
+export function describePath(file: "site" | "gallery", path: string, lang: AdminLang = "ru"): { blockId: BlockId | null; label: string } {
   const tokens = splitPath(path);
   if (file === "gallery") {
     const [, index, key] = tokens;
-    const parts = ["Галерея"];
-    if (typeof index === "number") parts.push(`Элемент № ${index + 1}`);
-    const names: Record<string, string> = { src: "файл", poster: "постер", title: "подпись", date: "дата", id: "id", type: "тип" };
-    if (typeof key === "string") parts.push(names[key] ?? key);
+    const parts = [BLOCKS.find((block) => block.id === "gallery")!.title[lang]];
+    if (typeof index === "number") parts.push(translate(lang, "gallery.item", { n: index + 1 }));
+    if (typeof key === "string") parts.push(GALLERY_PARTS[key]?.[lang] ?? key);
     return { blockId: "gallery", label: parts.join(" › ") };
   }
 
   const block = BLOCKS.find((candidate) => candidate.id === tokens[0]);
-  if (!block) return { blockId: null, label: path || "Контент сайта" };
-  const parts = [block.title];
+  if (!block) return { blockId: null, label: path || (lang === "en" ? "Site content" : "Контент сайта") };
+  const parts = [block.title[lang]];
   let fields: Field[] | null = block.fields;
   let i = 1;
   while (i < tokens.length && fields) {
@@ -447,17 +474,17 @@ export function describePath(file: "site" | "gallery", path: string): { blockId:
       parts.push(String(tokens[i]));
       break;
     }
-    parts.push(field.label);
+    parts.push(field.label[lang]);
     i += 1;
     if (field.kind === "group") fields = field.fields;
     else if (field.kind === "list") {
       if (typeof tokens[i] === "number") {
-        parts.push(`${field.itemLabel} № ${(tokens[i] as number) + 1}`);
+        parts.push(translate(lang, "list.number", { item: field.itemLabel[lang], n: (tokens[i] as number) + 1 }));
         i += 1;
       }
       fields = typeof field.item === "string" ? null : field.item;
     } else if (field.kind === "image") {
-      if (typeof tokens[i] === "string") parts.push(IMAGE_PARTS[tokens[i] as string] ?? String(tokens[i]));
+      if (typeof tokens[i] === "string") parts.push(IMAGE_PARTS[tokens[i] as string]?.[lang] ?? String(tokens[i]));
       fields = null;
     } else fields = null;
   }
@@ -465,11 +492,36 @@ export function describePath(file: "site" | "gallery", path: string): { blockId:
 }
 
 /** usedIn из DELETE /api/admin/media: "site: hero.image.src", "gallery: [3].poster". */
-export function describeUsage(entry: string): string {
+export function describeUsage(entry: string, lang: AdminLang = "ru"): string {
   const at = entry.indexOf(": ");
   const name = entry.slice(0, at);
   const path = entry.slice(at + 2);
-  return name === "gallery" ? describePath("gallery", `gallery${path}`).label : describePath("site", path).label;
+  return name === "gallery" ? describePath("gallery", `gallery${path}`, lang).label : describePath("site", path, lang).label;
+}
+
+/** Все подписи и подсказки описания — для проверки, что у каждой есть оба языка. */
+export function allLabels(): { at: string; text: L }[] {
+  const out: { at: string; text: L }[] = [];
+  const walk = (fields: Field[], at: string) => {
+    for (const field of fields) {
+      const here = `${at}.${field.key}`;
+      out.push({ at: here, text: field.label });
+      if (field.hint) out.push({ at: `${here}:hint`, text: field.hint });
+      if (field.kind === "group") walk(field.fields, here);
+      if (field.kind === "list") {
+        out.push({ at: `${here}:item`, text: field.itemLabel });
+        if (typeof field.item !== "string") walk(field.item, `${here}[]`);
+      }
+    }
+  };
+  for (const block of BLOCKS) {
+    out.push({ at: `${block.id}:title`, text: block.title }, { at: `${block.id}:description`, text: block.description });
+    walk(block.fields, block.id);
+  }
+  for (const anchor of SECTION_ANCHORS) out.push({ at: `#${anchor.id}`, text: anchor.label });
+  for (const [name, label] of Object.entries(ICON_LABELS)) out.push({ at: `icon:${name}`, text: label });
+  for (const [name, label] of Object.entries({ ...IMAGE_PARTS, ...GALLERY_PARTS })) out.push({ at: `part:${name}`, text: label });
+  return out;
 }
 
 export { ICON_NAMES };

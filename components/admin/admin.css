@@ -235,7 +235,25 @@
 }
 .adm-top__actions {
   display: flex;
+  align-items: center;
   gap: 8px;
+}
+
+/* ---------- переключатель языка ---------- */
+.adm-lang {
+  flex: none;
+  border: 1px solid var(--line);
+}
+.adm-segmented.adm-lang button {
+  padding: 4px 10px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+.adm-login__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 /* ---------- раскладка ---------- */

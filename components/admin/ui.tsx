@@ -4,6 +4,7 @@
 // Окна — на нативном <dialog>: фокус внутри окна, Esc и возврат фокуса браузер
 // делает сам.
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useT } from "./i18n";
 
 type ToastKind = "success" | "error" | "info";
 type Toast = { id: number; kind: ToastKind; text: string; details?: string[] };
@@ -23,6 +24,7 @@ export function useUi(): UiContextValue {
 }
 
 export function AdminUiProvider({ children }: { children: ReactNode }) {
+  const { t } = useT();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const nextId = useRef(1);
   const [pending, setPending] = useState<(ConfirmOptions & { resolve: (ok: boolean) => void }) | null>(null);
@@ -65,7 +67,7 @@ export function AdminUiProvider({ children }: { children: ReactNode }) {
                 </ul>
               ) : null}
             </div>
-            <button type="button" className="adm-iconbtn" aria-label="Закрыть уведомление" onClick={() => dismiss(item.id)}>
+            <button type="button" className="adm-iconbtn" aria-label={t("ui.closeToast")} onClick={() => dismiss(item.id)}>
               ✕
             </button>
           </div>
@@ -75,7 +77,7 @@ export function AdminUiProvider({ children }: { children: ReactNode }) {
         {pending?.text ? <div className="adm-dialog__text">{pending.text}</div> : null}
         <div className="adm-dialog__actions">
           <button type="button" className="adm-btn" onClick={() => answer(false)}>
-            Отмена
+            {t("ui.cancel")}
           </button>
           <button
             type="button"
@@ -83,7 +85,7 @@ export function AdminUiProvider({ children }: { children: ReactNode }) {
             onClick={() => answer(true)}
             autoFocus
           >
-            {pending?.confirmLabel ?? "Да"}
+            {pending?.confirmLabel ?? t("ui.yes")}
           </button>
         </div>
       </Dialog>
@@ -106,6 +108,7 @@ export function Dialog({
   size?: "small" | "medium" | "large";
   closable?: boolean;
 }) {
+  const { t } = useT();
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
@@ -135,7 +138,7 @@ export function Dialog({
           <header className="adm-dialog__head">
             <h2 id={titleId}>{title}</h2>
             {closable ? (
-              <button type="button" className="adm-iconbtn" aria-label="Закрыть" onClick={onClose}>
+              <button type="button" className="adm-iconbtn" aria-label={t("ui.close")} onClick={onClose}>
                 ✕
               </button>
             ) : null}

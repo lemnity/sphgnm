@@ -4,19 +4,24 @@
 // «сессия истекла» — просто закрывает окно, черновик остаётся.
 import { useEffect, useState } from "react";
 import { ApiError, login } from "./api";
+import { useT } from "./i18n";
 
-function messageFor(error: unknown): string {
-  if (!(error instanceof ApiError)) return "Не удалось войти. Попробуйте ещё раз.";
-  if (error.status === 401) return "Неверный пароль";
+type T = ReturnType<typeof useT>["t"];
+
+/* Тексты частых отказов — свои: «Слишком большой запрос» в форме пароля звучало бы странно. */
+function messageFor(error: unknown, t: T): string {
+  if (!(error instanceof ApiError)) return t("login.failed");
+  if (error.status === 401) return t("api.wrongPassword");
   if (error.status === 429) {
     const seconds = Number(error.data.retryAfter) || 900;
-    return `Слишком много попыток. Попробуйте через ${Math.max(1, Math.ceil(seconds / 60))} мин.`;
+    return t("api.tooManyAttempts", { minutes: Math.max(1, Math.ceil(seconds / 60)) });
   }
-  if (error.status === 413) return "Слишком длинный пароль";
+  if (error.status === 413) return t("login.passwordTooLong");
   return error.message;
 }
 
 export function LoginForm({ onSuccess, autoFocus = true }: { onSuccess: () => void; autoFocus?: boolean }) {
+  const { t } = useT();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -38,13 +43,13 @@ export function LoginForm({ onSuccess, autoFocus = true }: { onSuccess: () => vo
           await login(password);
           onSuccess();
         } catch (failure) {
-          setError(messageFor(failure));
+          setError(messageFor(failure, t));
           setBusy(false);
         }
       }}
     >
       <label className="adm-label" htmlFor="admin-password">
-        Пароль
+        {t("login.password")}
       </label>
       <input
         id="admin-password"
@@ -65,7 +70,7 @@ export function LoginForm({ onSuccess, autoFocus = true }: { onSuccess: () => vo
         </p>
       ) : null}
       <button type="submit" className="adm-btn adm-btn--primary adm-btn--block" disabled={!ready || busy}>
-        {busy ? "Входим…" : "Войти"}
+        {busy ? t("login.submitting") : t("login.submit")}
       </button>
     </form>
   );

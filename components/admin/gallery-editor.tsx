@@ -7,6 +7,7 @@ import type { GalleryItem } from "@/lib/content/schema";
 import { withBase } from "@/lib/media";
 import { mediaKind } from "./api";
 import { FieldErrors, fieldId, type ErrorsApi, type Update } from "./fields-editor";
+import { useT } from "./i18n";
 import { ACCEPT_ATTR, MediaPathControl, MediaPreview, Progress, useUpload } from "./media";
 import { useUi } from "./ui";
 
@@ -40,6 +41,7 @@ export function GalleryEditor({
   instagramLive: number;
 }) {
   const { confirm } = useUi();
+  const { t } = useT();
   const { upload, progress } = useUpload();
   const [batch, setBatch] = useState<{ index: number; total: number; name: string } | null>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -98,13 +100,9 @@ export function GalleryEditor({
   const remove = async (index: number) => {
     const item = items[index];
     const ok = await confirm({
-      title: "Убрать из галереи?",
-      text: (
-        <p>
-          «{item.title || "Без подписи"}» пропадёт с сайта после сохранения. Сам файл останется в загруженных — его можно удалить там.
-        </p>
-      ),
-      confirmLabel: "Убрать",
+      title: t("gallery.confirmTitle"),
+      text: <p>{t("gallery.confirmText", { title: item.title || t("gallery.untitled") })}</p>,
+      confirmLabel: t("gallery.removeTitle"),
       danger: true,
     });
     if (!ok) return;
@@ -120,19 +118,19 @@ export function GalleryEditor({
       <div className="adm-gallery__head">
         <div>
           <h3 id="gallery-items-title">
-            Элементы галереи <span className="adm-count">{items.length}</span>
+            {t("gallery.heading")} <span className="adm-count">{items.length}</span>
           </h3>
-          <p className="adm-hint">Можно выбрать сразу несколько файлов: картинки и ролики mp4/webm. Новые появляются первыми.</p>
+          <p className="adm-hint">{t("gallery.hint")}</p>
         </div>
         <div className="adm-gallery__upload">
           {batch ? (
             <span className="adm-muted" aria-live="polite">
-              {batch.index} из {batch.total}: {batch.name}
+              {t("gallery.batch", { index: batch.index, total: batch.total, name: batch.name })}
             </span>
           ) : null}
           {progress !== null ? <Progress value={progress} /> : null}
           <button id="gallery-upload" type="button" className="adm-btn adm-btn--primary" onClick={() => input.current?.click()} disabled={batch !== null}>
-            Загрузить фото и видео
+            {t("gallery.upload")}
           </button>
           <input
             ref={input}
@@ -150,18 +148,16 @@ export function GalleryEditor({
       </div>
 
       {instagramLive > 0 ? (
-        <p className="adm-note">
-          Сейчас на сайте показываются живые посты Instagram ({instagramLive}). Эти элементы появятся, когда лента Instagram будет пустой.
-        </p>
+        <p className="adm-note">{t("gallery.instagramLive", { count: instagramLive })}</p>
       ) : null}
       <FieldErrors id="gallery-err" errors={listErrors} />
-      {items.length === 0 ? <p className="adm-empty">В галерее пока ничего нет.</p> : null}
+      {items.length === 0 ? <p className="adm-empty">{t("gallery.empty")}</p> : null}
 
       <ol className="adm-gallery__grid">
         {items.map((item, index) => {
           const at = `gallery[${index}]`;
           const id = fieldId(at);
-          const number = `Элемент № ${index + 1}`;
+          const number = t("gallery.item", { n: index + 1 });
           const own = (key: string) => errors.at(`${at}.${key}`);
           const itemErrors = [...errors.at(at), ...own("src"), ...own("id"), ...own("type")];
           const hasErrors = itemErrors.length + own("title").length + own("date").length + own("poster").length > 0;
@@ -171,30 +167,30 @@ export function GalleryEditor({
                 <div className="adm-preview">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={withBase(item.poster)} alt="" loading="lazy" />
-                  <span className="adm-badge">Видео</span>
+                  <span className="adm-badge">{t("gallery.video")}</span>
                 </div>
               ) : (
                 <MediaPreview path={item.src} />
               )}
               <div className="adm-gcard__body">
                 <div className="adm-gcard__top">
-                  <span className="adm-gcard__num">№ {index + 1}</span>
+                  <span className="adm-gcard__num">{t("gallery.num", { n: index + 1 })}</span>
                   <div className="adm-list__controls">
-                    <button type="button" id={`${id}-prev`} className="adm-iconbtn" aria-label={`${number}: раньше`} title="Раньше" disabled={index === 0} onClick={() => move(index, -1)}>
+                    <button type="button" id={`${id}-prev`} className="adm-iconbtn" aria-label={t("gallery.earlier", { item: number })} title={t("gallery.earlierTitle")} disabled={index === 0} onClick={() => move(index, -1)}>
                       ←
                     </button>
                     <button
                       type="button"
                       id={`${id}-next`}
                       className="adm-iconbtn"
-                      aria-label={`${number}: позже`}
-                      title="Позже"
+                      aria-label={t("gallery.later", { item: number })}
+                      title={t("gallery.laterTitle")}
                       disabled={index === items.length - 1}
                       onClick={() => move(index, 1)}
                     >
                       →
                     </button>
-                    <button type="button" className="adm-iconbtn adm-iconbtn--danger" aria-label={`${number}: убрать из галереи`} title="Убрать" onClick={() => void remove(index)}>
+                    <button type="button" className="adm-iconbtn adm-iconbtn--danger" aria-label={t("gallery.remove", { item: number })} title={t("gallery.removeTitle")} onClick={() => void remove(index)}>
                       ✕
                     </button>
                   </div>
@@ -202,23 +198,23 @@ export function GalleryEditor({
                 <FieldErrors id={`${id}-err`} errors={itemErrors} />
                 <div className={`adm-field${own("title").length ? " adm-field--error" : ""}`}>
                   <label className="adm-label adm-label--small" htmlFor={`${id}-title`}>
-                    Подпись
+                    {t("gallery.caption")}
                   </label>
                   <textarea id={`${id}-title`} className="adm-input adm-textarea" rows={2} value={item.title} onChange={(event) => setField(index, "title", event.target.value)} />
                   <FieldErrors id={`${id}-title-err`} errors={own("title")} />
                 </div>
                 <div className={`adm-field${own("date").length ? " adm-field--error" : ""}`}>
                   <label className="adm-label adm-label--small" htmlFor={`${id}-date`}>
-                    Дата
+                    {t("gallery.date")}
                   </label>
                   <input id={`${id}-date`} className="adm-input" type="date" value={item.date} onChange={(event) => setField(index, "date", event.target.value)} />
                   <FieldErrors id={`${id}-date-err`} errors={own("date")} />
                 </div>
                 {item.type === "video" ? (
                   <div className={`adm-field adm-field--poster${own("poster").length ? " adm-field--error" : ""}`}>
-                    <span className="adm-label adm-label--small">Постер (обложка ролика)</span>
-                    <MediaPathControl value={item.poster ?? ""} onChange={(path) => setField(index, "poster", path)} accept="image" optional label={`постер, ${number}`} />
-                    {!item.poster ? <p className="adm-hint">Без постера покажется первый кадр ролика.</p> : null}
+                    <span className="adm-label adm-label--small">{t("gallery.poster")}</span>
+                    <MediaPathControl value={item.poster ?? ""} onChange={(path) => setField(index, "poster", path)} accept="image" optional label={t("gallery.posterLabel", { item: number })} />
+                    {!item.poster ? <p className="adm-hint">{t("gallery.noPoster")}</p> : null}
                     <FieldErrors id={`${id}-poster-err`} errors={own("poster")} />
                   </div>
                 ) : null}

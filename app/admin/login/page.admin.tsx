@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { LoginPage } from "@/components/admin/login-page";
+import { pageLang } from "@/lib/admin/guard";
+import { translate } from "@/lib/admin/i18n";
 
-export const metadata: Metadata = { title: "Вход · Sphagnum Eco", robots: { index: false, follow: false } };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: translate(await pageLang(), "meta.loginTitle"), robots: { index: false, follow: false } };
+}
 
 /* Куда вернуться после входа. Только пути кабинета: ?next=https://… не должен
    увести на чужой сайт. */
@@ -12,5 +16,5 @@ function safeNext(value: string | string[] | undefined): string {
 
 export default async function AdminLoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { next } = await searchParams;
-  return <LoginPage next={safeNext(next)} />;
+  return <LoginPage next={safeNext(next)} lang={await pageLang()} />;
 }

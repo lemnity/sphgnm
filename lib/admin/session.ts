@@ -1,6 +1,7 @@
 // Сессия админки: подписанный токен в httpOnly-cookie, без базы и без хранения на сервере.
 // Формат токена: <срок в мс>.<случайная соль>.<HMAC-SHA256 от первых двух частей, base64url>.
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { translate, type AdminLang, type ApiKey, type Params } from "./i18n.ts";
 
 export const SESSION_COOKIE = "sph_admin";
 export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -39,7 +40,8 @@ export function checkPassword(input: string, expected: string): boolean {
 
 type Env = Record<string, string | undefined>;
 
-export type SecretResult = { secret: string } | { error: string };
+/** error — текст на языке lang, key и params — чтобы роут мог отдать его на другом языке. */
+export type SecretResult = { secret: string } | { error: string; key: ApiKey; params: Params };
 
 // Модули роутов в Next собираются раздельно, поэтому общее состояние процесса держим на globalThis.
 const state = globalThis as typeof globalThis & { __sphAdminDevSecret?: string; __sphAdminShortSecretWarned?: boolean };
@@ -50,13 +52,14 @@ const state = globalThis as typeof globalThis & { __sphAdminDevSecret?: string; 
  */
 export const MIN_SECRET_LENGTH = 32;
 
-export function resolveSessionSecret(env: Env = process.env): SecretResult {
+export function resolveSessionSecret(env: Env = process.env, lang: AdminLang = "ru"): SecretResult {
+  const fail = (key: ApiKey, params: Params = {}): SecretResult => ({ error: translate(lang, key, params), key, params });
   const secret = env.ADMIN_SESSION_SECRET?.trim();
   if (secret) {
     if (secret.length >= MIN_SECRET_LENGTH) return { secret };
     // Короткий секрет подбирается перебором, а с ним — подделка любой сессии.
     if (env.NODE_ENV === "production") {
-      return { error: `ADMIN_SESSION_SECRET короче ${MIN_SECRET_LENGTH} символов: вход в админку отключён. Задайте длинную случайную строку (см. .env.example).` };
+      return fail("api.secretShort", { min: MIN_SECRET_LENGTH });
     }
     if (!state.__sphAdminShortSecretWarned) {
       state.__sphAdminShortSecretWarned = true;
@@ -65,7 +68,7 @@ export function resolveSessionSecret(env: Env = process.env): SecretResult {
     return { secret };
   }
   if (env.NODE_ENV === "production") {
-    return { error: "ADMIN_SESSION_SECRET не задан: вход в админку отключён. Задайте его в .env.local (см. .env.example)." };
+    return fail("api.secretMissing");
   }
   if (!state.__sphAdminDevSecret) {
     state.__sphAdminDevSecret = randomBytes(32).toString("hex");

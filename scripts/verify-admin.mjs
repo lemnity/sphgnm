@@ -1,5 +1,6 @@
 // Сквозная проверка кабинета в браузере: вход, правка и сохранение, ошибка
-// валидации, галерея, медиатека, откат через историю, сохранение из устаревшей вкладки, выход.
+// валидации, английский интерфейс, галерея, медиатека, откат через историю,
+// сохранение из устаревшей вкладки, выход.
 // Запуск при работающем сервере: URL=http://127.0.0.1:3041/ npm run verify:admin
 // Пароль — ADMIN_PASSWORD (npm-скрипт подхватывает .env.local).
 // Скрипт сам возвращает content/*.json и удаляет загруженные им файлы и версии истории.
@@ -44,6 +45,8 @@ async function step(name, run) {
     console.log(`PASS ${name}`);
   } catch (error) {
     failed = true;
+    // DEBUG_SHOT=<файл.png> — снимок страницы на упавшем шаге.
+    if (process.env.DEBUG_SHOT) await page.screenshot({ path: process.env.DEBUG_SHOT, fullPage: true }).catch(() => {});
     console.error(`FAIL ${name}\n  ${error instanceof Error ? error.message : error}`);
   }
 }
@@ -119,6 +122,49 @@ try {
     await input.fill(previous);
     await page.locator("#adm-summary").waitFor({ state: "detached" });
     await status.filter({ hasText: "Все изменения сохранены" }).waitFor();
+  });
+
+  await step("английский интерфейс: переключение без потери правок, ошибка API по-английски, возврат на русский", async () => {
+    await sidebar("Подвал").click();
+    const draft = `${await page.getByLabel("Копирайт").inputValue()} ${stamp}`;
+    await page.getByLabel("Копирайт").fill(draft);
+    await page.getByRole("group", { name: "Язык интерфейса" }).getByRole("button", { name: "English" }).click();
+    // Без перезагрузки: черновик на месте, подписи уже английские.
+    await page.getByRole("heading", { name: "Footer" }).waitFor();
+    invariant((await page.getByLabel("Copyright").inputValue()) === draft, "правка пропала при смене языка");
+    await status.filter({ hasText: "You have unsaved changes" }).waitFor();
+    const nav = page.getByRole("navigation", { name: "Site sections" });
+    for (const name of ["Hero", "Highlights strip", "Gallery", "Version history"]) await nav.getByRole("button", { name }).first().waitFor();
+    for (const name of ["Save", "History", "Sign out"]) await page.getByRole("button", { name, exact: true }).waitFor();
+    invariant((await page.locator(".adm").getAttribute("lang")) === "en", "у кабинета не lang=en");
+    invariant((await page.title()).startsWith("Admin"), `заголовок вкладки «${await page.title()}»`);
+    const cookie = (await context.cookies()).find((item) => item.name === "sph_admin_lang");
+    invariant(cookie?.value === "en" && cookie.sameSite === "Lax" && !cookie.httpOnly, `cookie языка: ${JSON.stringify(cookie)}`);
+    await page.getByLabel("Copyright").fill(draft.replace(` ${stamp}`, ""));
+
+    // Ошибка от API на английском: недопустимая ссылка.
+    await nav.getByRole("button", { name: "Highlights strip" }).click();
+    const field = page.locator('[data-path="strip.intro.linkHref"]');
+    await field.getByLabel("Link target").waitFor();
+    // Дальше по id: после возврата на русский подпись поля сменится.
+    const input = page.locator("#f-strip-intro-linkHref");
+    const previous = await input.inputValue();
+    await input.fill("javascript:alert(1)");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.locator("#adm-summary").filter({ hasText: "Not saved." }).waitFor();
+    await field.locator(".adm-field__errors").filter({ hasText: "this link isn't allowed" }).waitFor();
+    await toast("Not saved: there's 1 error").waitFor();
+    await page.locator("#adm-summary").getByRole("button", { name: "Highlights strip › Invitation › Link target" }).waitFor();
+
+    // Обратно на русский: ошибка у поля тоже переводится, правки на месте.
+    await page.getByRole("group", { name: "Interface language" }).getByRole("button", { name: "Русский" }).click();
+    await page.getByRole("heading", { name: "Полоса" }).waitFor();
+    await field.locator(".adm-field__errors").filter({ hasText: "недопустимая ссылка" }).waitFor();
+    invariant((await page.locator(".adm").getAttribute("lang")) === "ru", "у кабинета не lang=ru");
+    await input.fill(previous);
+    await page.locator("#adm-summary").waitFor({ state: "detached" });
+    await status.filter({ hasText: "Все изменения сохранены" }).waitFor();
+    invariant((await context.cookies()).find((item) => item.name === "sph_admin_lang")?.value === "ru", "cookie языка не вернулась к ru");
   });
 
   await step("предупреждение при уходе с несохранёнными правками", async () => {
@@ -246,6 +292,19 @@ try {
     await page.waitForURL(/\/admin\/login/);
     await page.goto(at("/admin"));
     await page.waitForURL(/\/admin\/login/);
+  });
+
+  await step("страница входа по-английски сразу из cookie, без мигания", async () => {
+    await page.getByRole("group", { name: "Язык интерфейса" }).getByRole("button", { name: "English" }).click();
+    await page.getByRole("heading", { name: "Sign in to the admin" }).waitFor();
+    // Сервер сам отдаёт английскую разметку по cookie.
+    const html = await (await context.request.get(at("/admin/login"))).text();
+    invariant(html.includes("Sign in to the admin") && html.includes("<title>Sign in · Sphagnum Eco</title>"), "сервер отдал вход не по-английски");
+    await page.reload();
+    await page.getByRole("heading", { name: "Sign in to the admin" }).waitFor();
+    await page.getByLabel("Password").waitFor();
+    await page.getByRole("button", { name: "Русский" }).click();
+    await page.getByRole("heading", { name: "Вход в кабинет" }).waitFor();
   });
 } finally {
   await browser.close();

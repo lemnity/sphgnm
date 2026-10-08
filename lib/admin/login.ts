@@ -1,4 +1,5 @@
 // Логика входа без next/*: роут только читает запрос и превращает результат в ответ.
+import { codeOf, translate, type AdminLang, type ApiCode } from "./i18n.ts";
 import type { LoginLimiter } from "./rate-limit.ts";
 import { checkPassword } from "./session.ts";
 
@@ -18,7 +19,10 @@ export function rateLimitKey(headers: { get(name: string): string | null }, env:
   return forwarded?.length ? `ip:${forwarded.at(-1)}` : "direct";
 }
 
-export type LoginResult = { status: 200 } | { status: 400 | 401; error: string } | { status: 429; error: string; retryAfter: number };
+export type LoginResult =
+  | { status: 200 }
+  | { status: 400 | 401; error: string; code: ApiCode }
+  | { status: 429; error: string; code: ApiCode; retryAfter: number };
 
 /**
  * Попытка входа. Тело читается ДО проверки лимита, а проверка, сравнение пароля и запись
@@ -30,11 +34,14 @@ export async function attemptLogin({
   key,
   expected,
   limiter,
+  lang = "ru",
 }: {
   readPassword: () => Promise<unknown>;
   key: string;
   expected: string;
   limiter: LoginLimiter;
+  /** Язык текста ошибки. */
+  lang?: AdminLang;
 }): Promise<LoginResult> {
   let input: unknown;
   let parsed = true;
@@ -48,12 +55,13 @@ export async function attemptLogin({
   const wait = limiter.retryAfter(key);
   if (wait > 0) {
     const seconds = Math.ceil(wait / 1000);
-    return { status: 429, error: `Слишком много попыток. Попробуйте через ${Math.ceil(seconds / 60)} мин.`, retryAfter: seconds };
+    const error = translate(lang, "api.tooManyAttempts", { minutes: Math.ceil(seconds / 60) });
+    return { status: 429, error, code: codeOf("api.tooManyAttempts"), retryAfter: seconds };
   }
-  if (!parsed) return { status: 400, error: "Ожидается { password }" };
+  if (!parsed) return { status: 400, error: translate(lang, "api.expectedPassword"), code: codeOf("api.expectedPassword") };
   if (typeof input !== "string" || !checkPassword(input, expected)) {
     limiter.fail(key);
-    return { status: 401, error: "Неверный пароль" };
+    return { status: 401, error: translate(lang, "api.wrongPassword"), code: codeOf("api.wrongPassword") };
   }
   limiter.reset(key);
   return { status: 200 };

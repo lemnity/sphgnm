@@ -4,11 +4,13 @@
 // Черновик живёт в памяти страницы до «Сохранить»; блоки можно переключать без потерь.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BLOCKS, describePath, parseApiError, splitPath, type BlockId, type FieldError } from "@/lib/admin/fields";
-import type { GalleryItem, SiteContent } from "@/lib/content/schema";
+import type { AdminLang } from "@/lib/admin/i18n";
+import { validateGallery, validateSiteContent, type GalleryItem, type SiteContent } from "@/lib/content/schema";
 import { withBase } from "@/lib/media";
 import { ApiError, loadContent, logout, saveContent, setUnauthorizedHandler, type Versions } from "./api";
 import { AnchorDatalist, ErrorsContext, FieldsEditor, fieldId, type ErrorsApi, type Update } from "./fields-editor";
 import { GalleryEditor } from "./gallery-editor";
+import { AdminLangProvider, LangSwitch, useT } from "./i18n";
 import { HistoryView } from "./history-view";
 import { LoginForm } from "./login-form";
 import { MediaLibraryProvider, useLibrary } from "./media";
@@ -21,9 +23,18 @@ type Obj = Record<string, unknown>;
 /* Сервисные блоки — не секции страницы, а общие для всего сайта данные. */
 const SHARED_BLOCKS = new Set<BlockId>(["contacts", "nav", "footer", "loader", "meta"]);
 
-export type AdminAppProps = { site: SiteContent; gallery: GalleryItem[]; versions: Versions; instagramLive: number };
+export type AdminAppProps = { site: SiteContent; gallery: GalleryItem[]; versions: Versions; instagramLive: number; lang: AdminLang };
 
 export function AdminApp(props: AdminAppProps) {
+  return (
+    <AdminLangProvider initial={props.lang} titleKey="meta.adminTitle">
+      <AdminRoot {...props} />
+    </AdminLangProvider>
+  );
+}
+
+function AdminRoot(props: AdminAppProps) {
+  const { lang } = useT();
   const [site, setSite] = useState(props.site);
   const [gallery, setGallery] = useState(props.gallery);
   // Последнее сохранённое состояние: с ним сравнивается черновик.
@@ -43,7 +54,7 @@ export function AdminApp(props: AdminAppProps) {
   );
   const state = { site, setSite, gallery, setGallery, savedSite, setSavedSite, savedGallery, setSavedGallery };
   return (
-    <div className="adm" lang="ru">
+    <div className="adm" lang={lang}>
       <AdminUiProvider>
         <MediaLibraryProvider isUsedInDraft={usedInDraft}>
           <Cabinet instagramLive={props.instagramLive} initialVersions={props.versions} {...state} />
@@ -76,6 +87,26 @@ function errorsApi(errors: FieldError[], file: FieldError["file"], setErrors: (f
         return next.length === prev.length ? prev : next;
       }),
   };
+}
+
+/**
+ * Ошибки после смены языка: те же места, тексты заново из проверки схемы на новом языке.
+ * Место, которое проверка уже не находит (поле успели поправить, ошибка особая), остаётся как было.
+ */
+function relocalizeErrors(errors: FieldError[], site: SiteContent, gallery: GalleryItem[], lang: AdminLang): FieldError[] {
+  if (!errors.length) return errors;
+  const fresh = [...validateSiteContent(site, lang), ...validateGallery(gallery, lang)].map(parseApiError);
+  const keyOf = (error: FieldError) => `${error.file}:${error.path}`;
+  const seen = new Set<string>();
+  const result: FieldError[] = [];
+  for (const error of errors) {
+    const key = keyOf(error);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const same = fresh.filter((candidate) => keyOf(candidate) === key);
+    result.push(...(same.length ? same : errors.filter((old) => keyOf(old) === key)));
+  }
+  return result;
 }
 
 /** Прокрутка к полю с ошибкой: само поле, иначе ближайший предок по пути. */
@@ -115,6 +146,7 @@ function Cabinet({
 }: ContentState & { instagramLive: number; initialVersions: Versions }) {
   const { toast, confirm } = useUi();
   const { manage } = useLibrary();
+  const { lang, t, pick } = useT();
   const [view, setView] = useState<View>("hero");
   const [errors, setErrors] = useState<FieldError[]>([]);
   const [saving, setSaving] = useState(false);
@@ -141,11 +173,11 @@ function Cabinet({
   const errorCount = useMemo(() => {
     const counts = new Map<BlockId, number>();
     for (const error of errors) {
-      const { blockId } = describePath(error.file, error.path);
+      const { blockId } = describePath(error.file, error.path, lang);
       if (blockId) counts.set(blockId, (counts.get(blockId) ?? 0) + 1);
     }
     return counts;
-  }, [errors]);
+  }, [errors, lang]);
 
   const siteErrors = useMemo(() => errorsApi(errors, "site", setErrors), [errors]);
   const galleryErrors = useMemo(() => errorsApi(errors, "gallery", setErrors), [errors]);
@@ -171,14 +203,14 @@ function Cabinet({
      свежий контент (правки этой вкладки пропадут), «Отмена» — продолжить без сохранения. */
   const resolveConflict = useCallback(async () => {
     const ok = await confirm({
-      title: "Сайт изменили в другом месте",
+      title: t("conflict.title"),
       text: (
         <>
-          <p>Сайт изменили в другой вкладке или на другом устройстве. Обновите страницу — ваши несохранённые правки пропадут, зато вы увидите последнюю версию.</p>
-          <p>«Отмена» — остаться и продолжить редактирование. Сохранить поверх чужих изменений не получится.</p>
+          <p>{t("conflict.text")}</p>
+          <p>{t("conflict.cancelHint")}</p>
         </>
       ),
-      confirmLabel: "Обновить",
+      confirmLabel: t("conflict.confirm"),
       danger: true,
     });
     if (!ok) return;
@@ -190,11 +222,11 @@ function Cabinet({
       setSavedGallery(fresh.gallery);
       setGallery(() => fresh.gallery);
       setErrors([]);
-      toast("success", "Загружена последняя версия сайта.");
+      toast("success", t("toast.reloaded"));
     } catch (error) {
-      if (!(error instanceof ApiError && error.status === 401)) toast("error", error instanceof Error ? error.message : "Не удалось обновить");
+      if (!(error instanceof ApiError && error.status === 401)) toast("error", error instanceof Error ? error.message : t("toast.reloadError"));
     }
-  }, [confirm, toast, setSavedSite, setSite, setSavedGallery, setGallery]);
+  }, [confirm, toast, t, setSavedSite, setSite, setSavedGallery, setGallery]);
 
   const save = useCallback(async () => {
     if (!dirty || saving) return;
@@ -215,23 +247,23 @@ function Cabinet({
       if (body.site) setSavedSite(body.site);
       if (body.gallery) setSavedGallery(body.gallery);
       setErrors([]);
-      toast("success", "Сохранено. Изменения уже на сайте.");
+      toast("success", t("toast.saved"));
     } catch (error) {
-      if (error instanceof ApiError && error.status === 409) {
+      if (error instanceof ApiError && (error.code === "conflict" || error.status === 409)) {
         conflict = true;
       } else if (error instanceof ApiError && error.errors.length) {
         const parsed = error.errors.map(parseApiError);
         setErrors(parsed);
-        toast("error", `Не сохранено: ${parsed.length === 1 ? "одна ошибка" : `ошибок — ${parsed.length}`}. Поля отмечены красным.`);
+        toast("error", parsed.length === 1 ? t("toast.saveFailedOne") : t("toast.saveFailedMany", { count: parsed.length }));
         window.requestAnimationFrame(() => document.getElementById("adm-summary")?.focus());
       } else if (!(error instanceof ApiError && error.status === 401)) {
-        toast("error", error instanceof Error ? error.message : "Не удалось сохранить");
+        toast("error", error instanceof Error ? error.message : t("toast.saveError"));
       }
     } finally {
       setSaving(false);
     }
     if (conflict) await resolveConflict();
-  }, [dirty, saving, siteDirty, galleryDirty, site, gallery, toast, resolveConflict]);
+  }, [dirty, saving, siteDirty, galleryDirty, site, gallery, toast, t, resolveConflict]);
 
   // Ctrl/Cmd+S — сохранить, а не «сохранить страницу как».
   useEffect(() => {
@@ -271,9 +303,9 @@ function Cabinet({
   const signOut = async () => {
     if (dirty) {
       const ok = await confirm({
-        title: "Выйти без сохранения?",
-        text: <p>Несохранённые правки пропадут.</p>,
-        confirmLabel: "Выйти",
+        title: t("signOut.title"),
+        text: <p>{t("signOut.text")}</p>,
+        confirmLabel: t("top.signOut"),
         danger: true,
       });
       if (!ok) return;
@@ -294,8 +326,8 @@ function Cabinet({
   };
 
   const groups = [
-    { title: "Страница", blocks: BLOCKS.filter((candidate) => !SHARED_BLOCKS.has(candidate.id)) },
-    { title: "Общее", blocks: BLOCKS.filter((candidate) => SHARED_BLOCKS.has(candidate.id)) },
+    { id: "page", title: t("side.page"), blocks: BLOCKS.filter((candidate) => !SHARED_BLOCKS.has(candidate.id)) },
+    { id: "shared", title: t("side.shared"), blocks: BLOCKS.filter((candidate) => SHARED_BLOCKS.has(candidate.id)) },
   ];
 
   return (
@@ -307,32 +339,35 @@ function Cabinet({
           </span>
           <span>
             <strong>Sphagnum Eco</strong>
-            <span className="adm-top__sub">Кабинет</span>
+            <span className="adm-top__sub">{t("brand.sub")}</span>
           </span>
         </div>
         <p className={`adm-status${dirty ? " adm-status--dirty" : ""}`} role="status" aria-live="polite">
-          {saving ? "Сохраняем…" : dirty ? "Есть несохранённые изменения" : "Все изменения сохранены"}
+          {saving ? t("top.saving") : dirty ? t("top.dirty") : t("top.clean")}
         </p>
         <div className="adm-top__actions">
+          {/* Смена языка без перезагрузки: черновик остаётся в памяти страницы. */}
+          <LangSwitch onChange={(next) => setErrors((prev) => relocalizeErrors(prev, site, gallery, next))} />
           <button type="button" className="adm-btn adm-btn--primary" onClick={() => void save()} disabled={!dirty || saving} title="Ctrl+S / ⌘S">
-            {saving ? "Сохраняем…" : "Сохранить"}
+            {saving ? t("top.saving") : t("top.save")}
           </button>
           <a className="adm-btn" href={withBase("/")} target="_blank" rel="noopener">
-            Открыть сайт<span className="adm-sr"> (в новой вкладке)</span>
+            {t("top.openSite")}
+            <span className="adm-sr">{t("top.newTab")}</span>
           </a>
           <button type="button" className="adm-btn" aria-pressed={view === "history"} onClick={() => open(view === "history" ? "hero" : "history")}>
-            История
+            {t("top.history")}
           </button>
           <button type="button" className="adm-btn adm-btn--quiet" onClick={() => void signOut()}>
-            Выйти
+            {t("top.signOut")}
           </button>
         </div>
       </header>
 
       <div className="adm-body">
-        <nav className="adm-side" aria-label="Разделы сайта">
+        <nav className="adm-side" aria-label={t("side.label")}>
           {groups.map((group) => (
-            <div key={group.title} className="adm-side__group">
+            <div key={group.id} className="adm-side__group">
               <p className="adm-side__title">{group.title}</p>
               <ul>
                 {group.blocks.map((item) => {
@@ -340,14 +375,14 @@ function Cabinet({
                   return (
                     <li key={item.id}>
                       <button type="button" className="adm-side__item" aria-current={view === item.id ? "page" : undefined} onClick={() => open(item.id)}>
-                        <span>{item.title}</span>
+                        <span>{pick(item.title)}</span>
                         {count ? (
-                          <span className="adm-side__errors" aria-label={`ошибок: ${count}`}>
+                          <span className="adm-side__errors" aria-label={t("side.errors", { count })}>
                             {count}
                           </span>
                         ) : dirtyBlocks.has(item.id) ? (
-                          <span className="adm-side__dot" title="Есть несохранённые изменения">
-                            <span className="adm-sr">есть несохранённые изменения</span>
+                          <span className="adm-side__dot" title={t("top.dirty")}>
+                            <span className="adm-sr">{t("side.unsavedSr")}</span>
                           </span>
                         ) : null}
                       </button>
@@ -358,16 +393,16 @@ function Cabinet({
             </div>
           ))}
           <div className="adm-side__group">
-            <p className="adm-side__title">Файлы</p>
+            <p className="adm-side__title">{t("side.files")}</p>
             <ul>
               <li>
                 <button type="button" className="adm-side__item" onClick={manage}>
-                  <span>Загруженные файлы</span>
+                  <span>{t("side.uploads")}</span>
                 </button>
               </li>
               <li>
                 <button type="button" className="adm-side__item" aria-current={view === "history" ? "page" : undefined} onClick={() => open("history")}>
-                  <span>История версий</span>
+                  <span>{t("side.history")}</span>
                 </button>
               </li>
             </ul>
@@ -378,11 +413,11 @@ function Cabinet({
           {errors.length ? (
             <div className="adm-summary" id="adm-summary" tabIndex={-1} role="alert">
               <p>
-                <strong>Не сохранено.</strong> Исправьте {errors.length === 1 ? "ошибку" : `ошибки (${errors.length})`} и нажмите «Сохранить» ещё раз:
+                <strong>{t("summary.notSaved")}</strong> {errors.length === 1 ? t("summary.fixOne") : t("summary.fixMany", { count: errors.length })}
               </p>
               <ul>
                 {errors.map((error, index) => {
-                  const where = describePath(error.file, error.path);
+                  const where = describePath(error.file, error.path, lang);
                   return (
                     <li key={`${error.file}:${error.path}:${index}`}>
                       <button
@@ -406,7 +441,7 @@ function Cabinet({
           {view === "history" ? (
             <>
               <h1 className="adm-sr" id="adm-view-title" tabIndex={-1}>
-                История версий
+                {t("side.history")}
               </h1>
               <HistoryView dirty={{ site: siteDirty, gallery: galleryDirty }} onRestored={onRestored} />
             </>
@@ -415,10 +450,10 @@ function Cabinet({
               <section className="adm-panel" aria-labelledby="adm-view-title">
                 <header className="adm-panel__head">
                   <h1 id="adm-view-title" tabIndex={-1}>
-                    {block.title}
-                    {dirtyBlocks.has(block.id) ? <span className="adm-pill">не сохранено</span> : null}
+                    {pick(block.title)}
+                    {dirtyBlocks.has(block.id) ? <span className="adm-pill">{t("panel.unsaved")}</span> : null}
                   </h1>
-                  <p className="adm-lead">{block.description}</p>
+                  <p className="adm-lead">{pick(block.description)}</p>
                 </header>
                 <FieldsEditor fields={block.fields} value={site[block.id] as unknown as Obj} update={updateBlock} path={block.id} />
               </section>
@@ -431,12 +466,12 @@ function Cabinet({
       </div>
       <AnchorDatalist />
 
-      <Dialog open={sessionLost} onClose={() => {}} closable={false} title="Сессия истекла" size="small">
-        <p className="adm-dialog__text">Войдите снова — несохранённые правки останутся на месте.</p>
+      <Dialog open={sessionLost} onClose={() => {}} closable={false} title={t("session.title")} size="small">
+        <p className="adm-dialog__text">{t("session.text")}</p>
         <LoginForm
           onSuccess={() => {
             setSessionLost(false);
-            toast("success", "Вы снова вошли. Можно сохранять.");
+            toast("success", t("toast.signedInAgain"));
           }}
         />
       </Dialog>
