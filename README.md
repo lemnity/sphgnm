@@ -29,7 +29,7 @@ npm run dev                     # http://localhost:3000, кабинет — /adm
 | `npm test` | тесты схемы контента и логики кабинета (`node --test`; нужен Node, который сам снимает типы TypeScript: 24 или 22.18+) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run verify:layout` | проверка вёрстки в браузере: порядок блоков, сетка, переполнение, мобильное меню. Нужен запущенный сервер: `URL=http://127.0.0.1:3000/ npm run verify:layout` |
-| `npm run verify:admin` | сквозная проверка кабинета: вход, правка, ошибки, галерея, медиатека, история, выход. `URL=… npm run verify:admin`, пароль берётся из `.env.local`. Контент и загрузки после прогона возвращаются как были |
+| `npm run verify:admin` | сквозная проверка кабинета: вход, правка, ошибки, галерея, медиатека, история, выход. `URL=… npm run verify:admin`, пароль берётся из `.env.local`. Контент и загрузки после прогона возвращаются как были. **Только против локального dev-сервера, никогда против боевого сайта**: скрипт правит живой контент |
 | `npm run sync:instagram` | подтянуть посты @sphagnum_eco (нужен `INSTAGRAM_ACCESS_TOKEN`) |
 | `npm run preview` | раздать статическую сборку из `out/` |
 
@@ -106,6 +106,9 @@ scripts/                        проверки, синхронизация Ins
   схема; при ошибке ничего не сохраняется, а поля с ошибками подсвечиваются.
 - **История версий.** Каждое сохранение кладёт прежний файл в
   `content/.history/` (последние 30 версий каждого файла), любую можно вернуть.
+  Дата у версии — когда её сохранили.
+- **Две вкладки.** Если сайт успели изменить в другой вкладке или на другом
+  устройстве, сохранение не затрёт эти правки: кабинет предложит обновить контент.
 - **Загруженные файлы** — медиатека `public/uploads`. Файл, который ещё стоит на
   сайте, удалить нельзя.
 
@@ -124,7 +127,7 @@ scripts/                        проверки, синхронизация Ins
 
 | Переменная | Зачем |
 |---|---|
-| `ADMIN_PASSWORD` | пароль кабинета. Без него вход отключён |
+| `ADMIN_PASSWORD` | пароль кабинета. Без него вход отключён. Длинный и случайный — от 12 символов: кабинет открыт в интернет |
 | `ADMIN_SESSION_SECRET` | ключ подписи cookie входа, случайная строка **не короче 32 символов**: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. В production обязателен. Смена ключа разлогинивает всех |
 | `ADMIN_TRUST_PROXY=1` | ставить, когда сайт открыт только через nginx и тот передаёт `proxy_set_header X-Real-IP $remote_addr;`. Тогда лимит попыток входа считается по IP |
 | `ADMIN_COOKIE_SECURE=false` | только пока у сервера нет HTTPS: иначе cookie с флагом Secure браузер по http не сохранит и вход молча не сработает. Работает только точное значение `false` |
@@ -138,26 +141,51 @@ scripts/                        проверки, синхронизация Ins
 
 ## Запуск на своём сервере (VDS)
 
-1. Node.js 22+, nginx, git. Склонировать репозиторий, например в `/srv/sphagnum`.
-2. `npm ci && npm run build`.
+1. Node.js 22+, nginx, git. Отдельный пользователь `sphagnum`; склонировать
+   репозиторий от его имени, например в `/srv/sphagnum`.
+2. `npm ci && npm run build` (тоже от `sphagnum`).
 3. `.env.local`:
    ```
-   ADMIN_PASSWORD=…
+   ADMIN_PASSWORD=…              # от 12 символов, случайный
    ADMIN_SESSION_SECRET=…        # 64 hex-символа из команды выше
    ADMIN_TRUST_PROXY=1
    # ADMIN_COOKIE_SECURE=false   # только пока нет HTTPS
    ```
-4. Права: пользователь, от которого работает Node, должен писать в `content/`
-   (включая `content/.history/`) и `public/uploads/`:
+4. Права: сервис пишет только в `content/` (включая `content/.history/`) и
+   `public/uploads/` — им и отдать владельца, остальной код серверу менять незачем:
    ```bash
-   sudo chown -R sphagnum:sphagnum /srv/sphagnum/content /srv/sphagnum/public
+   sudo mkdir -p /srv/sphagnum/public/uploads
+   sudo chown -R sphagnum:sphagnum /srv/sphagnum/content /srv/sphagnum/public/uploads
    ```
+   Если клон сделан не от `sphagnum`, обновления всё равно запускайте от него
+   (`sudo -u sphagnum …`), иначе git и сборка упрутся в права или оставят файлы root.
 5. Запуск `npm start -- -H 127.0.0.1 -p 3000` под процесс-менеджером (ниже) и nginx
    перед ним.
 
-Обновление кода: `git pull && npm ci && npm run build`, затем перезапуск сервиса.
-Правки из кабинета в это время лежат в рабочей копии — закоммитьте их до `git pull`
-(см. «Pages и сервер вместе»).
+Обновление кода — от пользователя сервиса и **с остановленным сервисом**:
+`next build` перезаписывает `.next`, из которой в это время отдаёт страницы
+`next start`, и посетители получат ошибки:
+
+```bash
+sudo systemctl stop sphagnum
+sudo -u sphagnum sh -c 'cd /srv/sphagnum && git pull && npm ci && npm run build'
+sudo systemctl start sphagnum
+```
+
+Без простоя — собирать в свежий клон рядом и переключать каталог (симлинк), не
+забыв перенести `content/` и `public/uploads/`. Правки из кабинета лежат в рабочей
+копии — закоммитьте их до `git pull` (см. «Pages и сервер вместе»).
+
+`npm run verify:admin` на сервере **не запускайте**: он правит живой контент.
+
+**Instagram.** Новые посты забирает только workflow `instagram-sync.yml` в GitHub
+Actions — он коммитит их в `main`. Сервер их увидит после `git pull` и пересборки.
+Если Pages и Actions выключены, ставьте на сервер cron от `sphagnum`:
+`npm run sync:instagram` (нужен `INSTAGRAM_ACCESS_TOKEN` в `.env.local`), затем
+остановка, `npm run build`, запуск. Токен Instagram живёт 60 дней; в Actions его
+раз в неделю продлевает тот же workflow, если задан секрет `GH_SECRETS_TOKEN`
+(fine-grained PAT с правом Secrets: Read and write). Без него токен придётся
+обновлять руками.
 
 ### systemd
 
@@ -172,6 +200,9 @@ After=network.target
 User=sphagnum
 WorkingDirectory=/srv/sphagnum
 Environment=NODE_ENV=production
+# Полный путь к npm: `which npm` от пользователя sphagnum. С nvm это что-то вроде
+# /home/sphagnum/.nvm/versions/node/v22.x.x/bin/npm — и тогда нужен PATH к node:
+# Environment=PATH=/home/sphagnum/.nvm/versions/node/v22.x.x/bin:/usr/bin:/bin
 ExecStart=/usr/bin/npm start -- -H 127.0.0.1 -p 3000
 Restart=always
 
@@ -194,8 +225,20 @@ server {
     listen 80;
     server_name example.com;
 
+    # Обычные запросы — маленькие; большой лимит только для загрузки файлов.
+    client_max_body_size 2m;
+
     # Видео в кабинете — до 150 МБ.
-    client_max_body_size 160m;
+    location = /api/admin/upload {
+        client_max_body_size 160m;
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+        proxy_request_buffering off;
+    }
 
     location / {
         proxy_pass http://127.0.0.1:3000;
