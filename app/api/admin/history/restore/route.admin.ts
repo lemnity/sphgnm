@@ -1,9 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { saveContent, validateContent } from "@/lib/admin/content";
+import { saveContents, validateContent } from "@/lib/admin/content";
 import { PROJECT_ROOT, handleError, jsonError, requireAdmin } from "@/lib/admin/guard";
 import { readHistory } from "@/lib/admin/storage";
 
-/** POST { id } → версия становится текущей; текущая при этом сама уходит в историю. */
+/**
+ * POST { id } → версия становится текущей; текущая при этом сама уходит в историю.
+ * Ответ: { ok, name, restored, history, version } — version новая версия раздела.
+ */
 export async function POST(request: NextRequest) {
   const denied = requireAdmin(request);
   if (denied) return denied;
@@ -21,8 +24,8 @@ export async function POST(request: NextRequest) {
     // Старая версия могла быть сохранена до ужесточения схемы — проверяем как обычное сохранение.
     const errors = validateContent(name, data);
     if (errors.length) return jsonError(422, "Версия не проходит проверку", { errors });
-    const history = await saveContent(PROJECT_ROOT, name, data);
-    return NextResponse.json({ ok: true, name, restored: id, history });
+    const { [name]: saved } = await saveContents(PROJECT_ROOT, [{ name, data }]);
+    return NextResponse.json({ ok: true, name, restored: id, history: saved.history, version: saved.version });
   } catch (error) {
     return handleError(error);
   }

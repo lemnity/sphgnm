@@ -1,21 +1,26 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readdir, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
+  ConflictError,
   HISTORY_LIMIT,
   StorageError,
+  contentVersion,
   deleteUpload,
   findUsages,
   listHistory,
   listUploads,
+  parseVersions,
+  readContentWithVersion,
   readHistory,
   resolveUploadPath,
   saveUpload,
   sniffUploadType,
   writeContent,
+  writeContents,
 } from "./storage.ts";
 
 async function project() {
@@ -38,11 +43,16 @@ async function rejects(promise: Promise<unknown>, status: number, pattern?: RegE
   });
 }
 
+const siteFile = (root: string) => path.join(root, "content", "site.json");
+const setMtime = (file: string, iso: string) => utimes(file, new Date(iso), new Date(iso));
+
 test("запись атомарная: новый файл целиком, старая версия в истории, tmp не остаётся", async () => {
   const root = await project();
   try {
-    const id = await writeContent(root, "site", { v: 1 }, new Date("2026-10-08T12:34:56.789Z"));
-    assert.equal(id, "site-2026-10-08T12-34-56-789Z.json");
+    // Версия в истории помечена временем, когда её сохранили (mtime файла), а не временем замены.
+    await setMtime(siteFile(root), "2026-10-08T12:34:56.000Z");
+    const id = await writeContent(root, "site", { v: 1 });
+    assert.equal(id, "site-2026-10-08T12-34-56-000Z.json");
     assert.equal(await readFile(path.join(root, "content", "site.json"), "utf8"), '{\n  "v": 1\n}\n');
     assert.equal(await readFile(path.join(root, "content", ".history", id!), "utf8"), '{"v":0}\n');
     assert.deepEqual(
@@ -50,7 +60,7 @@ test("запись атомарная: новый файл целиком, ст�
       [],
     );
     const [entry] = await listHistory(root);
-    assert.deepEqual({ ...entry, size: 0 }, { id, name: "site", savedAt: "2026-10-08T12:34:56.789Z", size: 0 });
+    assert.deepEqual({ ...entry, size: 0 }, { id, name: "site", savedAt: "2026-10-08T12:34:56.000Z", size: 0 });
     assert.deepEqual(await readHistory(root, id!), { name: "site", data: { v: 0 } });
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -70,10 +80,15 @@ test("первое сохранение без прежнего файла не 
 test("история обрезается до 30 версий каждого файла, одинаковое время не затирает версии", async () => {
   const root = await project();
   try {
-    const now = new Date("2026-01-01T00:00:00.000Z");
-    for (let i = 1; i <= HISTORY_LIMIT + 5; i += 1) await writeContent(root, "site", { v: i }, now);
-    await writeContent(root, "gallery", [], now);
-    await writeContent(root, "gallery", [1], now);
+    // У всех версий одно и то же время сохранения: имена всё равно разные и идут по порядку.
+    const same = "2026-01-01T00:00:00.000Z";
+    for (let i = 1; i <= HISTORY_LIMIT + 5; i += 1) {
+      await setMtime(siteFile(root), same);
+      await writeContent(root, "site", { v: i });
+    }
+    await writeContent(root, "gallery", []);
+    await setMtime(path.join(root, "content", "gallery.json"), same);
+    await writeContent(root, "gallery", [1]);
     const entries = await listHistory(root);
     const site = entries.filter((entry) => entry.name === "site");
     assert.equal(site.length, HISTORY_LIMIT);
@@ -84,6 +99,69 @@ test("история обрезается до 30 версий каждого ф
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("строка истории — время сохранения этой версии, а не следующей", async () => {
+  const root = await project();
+  try {
+    await writeContent(root, "site", { v: 1 });
+    await setMtime(siteFile(root), "2030-03-01T10:00:00.000Z");
+    await writeContent(root, "site", { v: 2 });
+    const [latest] = await listHistory(root);
+    assert.equal(latest.savedAt, "2030-03-01T10:00:00.000Z");
+    assert.deepEqual((await readHistory(root, latest.id)).data, { v: 1 });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("версия файла: устаревшая версия → ConflictError, ничего не записано", async () => {
+  const root = await project();
+  try {
+    await writeContent(root, "gallery", []);
+    const site = await readContentWithVersion(root, "site");
+    const gallery = await readContentWithVersion(root, "gallery");
+    assert.equal(site.version, contentVersion('{"v":0}\n'));
+
+    // Другая вкладка сохранила site.
+    const [other] = Object.values(await writeContents(root, [{ name: "site", data: { v: "other" }, expected: site.version }]));
+    assert.equal(other.version, (await readContentWithVersion(root, "site")).version);
+    const historyBefore = await listHistory(root);
+
+    // Эта вкладка пишет оба раздела со старой версией site: отказ целиком, gallery тоже не тронута.
+    await assert.rejects(
+      writeContents(root, [
+        { name: "site", data: { v: "stale" }, expected: site.version },
+        { name: "gallery", data: [1], expected: gallery.version },
+      ]),
+      (error: unknown) => {
+        assert.ok(error instanceof ConflictError);
+        assert.equal(error.status, 409);
+        assert.deepEqual(error.conflict, ["site"]);
+        return true;
+      },
+    );
+    assert.deepEqual((await readContentWithVersion(root, "site")).data, { v: "other" });
+    assert.deepEqual((await readContentWithVersion(root, "gallery")).data, []);
+    assert.deepEqual(await listHistory(root), historyBefore);
+
+    // С актуальной версией сохраняется, и новая версия совпадает с тем, что отдаст GET.
+    const result = await writeContents(root, [{ name: "site", data: { v: 3 }, expected: other.version }]);
+    assert.equal(result.site.version, (await readContentWithVersion(root, "site")).version);
+    assert.notEqual(result.site.version, other.version);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("parseVersions: версия обязательна для каждого сохраняемого раздела", () => {
+  assert.deepEqual(parseVersions({ site: "a", gallery: "b" }, ["site"]), { site: "a" });
+  assert.deepEqual(parseVersions({ site: "a", gallery: "b" }, ["site", "gallery"]), { site: "a", gallery: "b" });
+  assert.equal(typeof parseVersions(undefined, ["site"]), "string");
+  assert.equal(typeof parseVersions({ site: "a" }, ["site", "gallery"]), "string");
+  assert.equal(typeof parseVersions({ site: "" }, ["site"]), "string");
+  assert.equal(typeof parseVersions({ site: 1 }, ["site"]), "string");
+  assert.equal(typeof parseVersions(["a"], ["site"]), "string");
 });
 
 test("параллельные сохранения не теряют версии", async () => {

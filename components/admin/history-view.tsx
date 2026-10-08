@@ -62,7 +62,8 @@ export function HistoryView({ dirty, onRestored }: { dirty: { site: boolean; gal
       <header className="adm-panel__head">
         <h2 id="history-title">История версий</h2>
         <p className="adm-lead">
-          Перед каждым сохранением прежняя версия попадает сюда. Хранятся 30 последних версий текстов и столько же — галереи.
+          При каждом сохранении прежняя версия попадает сюда. Дата у строки — когда эту версию сохранили; то, что сейчас на
+          сайте, в списке не показано. Хранятся 30 последних версий текстов и столько же — галереи.
         </p>
       </header>
       {problems.length ? (
@@ -82,7 +83,7 @@ export function HistoryView({ dirty, onRestored }: { dirty: { site: boolean; gal
         <table className="adm-table">
           <thead>
             <tr>
-              <th scope="col">Когда сохранено</th>
+              <th scope="col">Версия сохранена</th>
               <th scope="col">Раздел</th>
               <th scope="col">Размер</th>
               <th scope="col">

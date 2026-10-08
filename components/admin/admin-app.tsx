@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BLOCKS, describePath, parseApiError, splitPath, type BlockId, type FieldError } from "@/lib/admin/fields";
 import type { GalleryItem, SiteContent } from "@/lib/content/schema";
 import { withBase } from "@/lib/media";
-import { ApiError, loadContent, logout, saveContent, setUnauthorizedHandler } from "./api";
+import { ApiError, loadContent, logout, saveContent, setUnauthorizedHandler, type Versions } from "./api";
 import { AnchorDatalist, ErrorsContext, FieldsEditor, fieldId, type ErrorsApi, type Update } from "./fields-editor";
 import { GalleryEditor } from "./gallery-editor";
 import { HistoryView } from "./history-view";
@@ -21,7 +21,7 @@ type Obj = Record<string, unknown>;
 /* Сервисные блоки — не секции страницы, а общие для всего сайта данные. */
 const SHARED_BLOCKS = new Set<BlockId>(["contacts", "nav", "footer", "loader", "meta"]);
 
-export type AdminAppProps = { site: SiteContent; gallery: GalleryItem[]; instagramLive: number };
+export type AdminAppProps = { site: SiteContent; gallery: GalleryItem[]; versions: Versions; instagramLive: number };
 
 export function AdminApp(props: AdminAppProps) {
   const [site, setSite] = useState(props.site);
@@ -46,7 +46,7 @@ export function AdminApp(props: AdminAppProps) {
     <div className="adm" lang="ru">
       <AdminUiProvider>
         <MediaLibraryProvider isUsedInDraft={usedInDraft}>
-          <Cabinet instagramLive={props.instagramLive} {...state} />
+          <Cabinet instagramLive={props.instagramLive} initialVersions={props.versions} {...state} />
         </MediaLibraryProvider>
       </AdminUiProvider>
     </div>
@@ -111,7 +111,8 @@ function Cabinet({
   savedGallery,
   setSavedGallery,
   instagramLive,
-}: ContentState & { instagramLive: number }) {
+  initialVersions,
+}: ContentState & { instagramLive: number; initialVersions: Versions }) {
   const { toast, confirm } = useUi();
   const { manage } = useLibrary();
   const [view, setView] = useState<View>("hero");
@@ -120,6 +121,8 @@ function Cabinet({
   const [sessionLost, setSessionLost] = useState(false);
   const leaving = useRef(false);
   const mainRef = useRef<HTMLElement>(null);
+  // Версии файлов, от которых идёт правка: сервер откажет (409), если файл успели изменить.
+  const versions = useRef(initialVersions);
 
   const siteDirty = useMemo(() => JSON.stringify(site) !== JSON.stringify(savedSite), [site, savedSite]);
   const galleryDirty = useMemo(() => JSON.stringify(gallery) !== JSON.stringify(savedGallery), [gallery, savedGallery]);
@@ -164,20 +167,59 @@ function Cabinet({
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [dirty]);
 
+  /* Файл на сервере новее черновика: молча перезаписывать нельзя. «Обновить» — загрузить
+     свежий контент (правки этой вкладки пропадут), «Отмена» — продолжить без сохранения. */
+  const resolveConflict = useCallback(async () => {
+    const ok = await confirm({
+      title: "Сайт изменили в другом месте",
+      text: (
+        <>
+          <p>Сайт изменили в другой вкладке или на другом устройстве. Обновите страницу — ваши несохранённые правки пропадут, зато вы увидите последнюю версию.</p>
+          <p>«Отмена» — остаться и продолжить редактирование. Сохранить поверх чужих изменений не получится.</p>
+        </>
+      ),
+      confirmLabel: "Обновить",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      const fresh = await loadContent();
+      versions.current = fresh.versions;
+      setSavedSite(fresh.site);
+      setSite(() => fresh.site);
+      setSavedGallery(fresh.gallery);
+      setGallery(() => fresh.gallery);
+      setErrors([]);
+      toast("success", "Загружена последняя версия сайта.");
+    } catch (error) {
+      if (!(error instanceof ApiError && error.status === 401)) toast("error", error instanceof Error ? error.message : "Не удалось обновить");
+    }
+  }, [confirm, toast, setSavedSite, setSite, setSavedGallery, setGallery]);
+
   const save = useCallback(async () => {
     if (!dirty || saving) return;
-    const body: { site?: SiteContent; gallery?: GalleryItem[] } = {};
-    if (siteDirty) body.site = site;
-    if (galleryDirty) body.gallery = gallery;
+    const body: { site?: SiteContent; gallery?: GalleryItem[]; versions: Partial<Versions> } = { versions: {} };
+    if (siteDirty) {
+      body.site = site;
+      body.versions.site = versions.current.site;
+    }
+    if (galleryDirty) {
+      body.gallery = gallery;
+      body.versions.gallery = versions.current.gallery;
+    }
     setSaving(true);
+    let conflict = false;
     try {
-      await saveContent(body);
+      const result = await saveContent(body);
+      versions.current = { ...versions.current, ...result.versions };
       if (body.site) setSavedSite(body.site);
       if (body.gallery) setSavedGallery(body.gallery);
       setErrors([]);
       toast("success", "Сохранено. Изменения уже на сайте.");
     } catch (error) {
-      if (error instanceof ApiError && error.errors.length) {
+      if (error instanceof ApiError && error.status === 409) {
+        conflict = true;
+      } else if (error instanceof ApiError && error.errors.length) {
         const parsed = error.errors.map(parseApiError);
         setErrors(parsed);
         toast("error", `Не сохранено: ${parsed.length === 1 ? "одна ошибка" : `ошибок — ${parsed.length}`}. Поля отмечены красным.`);
@@ -188,7 +230,8 @@ function Cabinet({
     } finally {
       setSaving(false);
     }
-  }, [dirty, saving, siteDirty, galleryDirty, site, gallery, toast]);
+    if (conflict) await resolveConflict();
+  }, [dirty, saving, siteDirty, galleryDirty, site, gallery, toast, resolveConflict]);
 
   // Ctrl/Cmd+S — сохранить, а не «сохранить страницу как».
   useEffect(() => {
@@ -213,6 +256,8 @@ function Cabinet({
 
   const onRestored = async (name: "site" | "gallery") => {
     const fresh = await loadContent();
+    // Только версия возвращённого раздела: черновик другого раздела остаётся сверять со старой.
+    versions.current = { ...versions.current, [name]: fresh.versions[name] };
     if (name === "site") {
       setSavedSite(fresh.site);
       setSite(() => fresh.site);

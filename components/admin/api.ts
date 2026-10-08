@@ -48,14 +48,17 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 export type MediaFile = { path: string; kind: "image" | "video" | "other"; size: number; modifiedAt: string };
 export type HistoryEntry = { id: string; name: "site" | "gallery"; savedAt: string; size: number };
 
-export const loadContent = () => api<{ site: SiteContent; gallery: GalleryItem[] }>("/api/admin/content");
-export const saveContent = (body: { site?: SiteContent; gallery?: GalleryItem[] }) =>
-  api<{ ok: true; saved: string[] }>("/api/admin/content", { method: "PUT", body: JSON.stringify(body) });
+/** Версии файлов контента: сервер сверяет их при сохранении (409, если файл изменили в другом месте). */
+export type Versions = { site: string; gallery: string };
+
+export const loadContent = () => api<{ site: SiteContent; gallery: GalleryItem[]; versions: Versions }>("/api/admin/content");
+export const saveContent = (body: { site?: SiteContent; gallery?: GalleryItem[]; versions: Partial<Versions> }) =>
+  api<{ ok: true; saved: string[]; versions: Partial<Versions> }>("/api/admin/content", { method: "PUT", body: JSON.stringify(body) });
 export const listMedia = () => api<{ files: MediaFile[] }>("/api/admin/media");
 export const deleteMedia = (path: string) => api<{ ok: true }>(`/api/admin/media?path=${encodeURIComponent(path)}`, { method: "DELETE" });
 export const listHistory = () => api<{ entries: HistoryEntry[] }>("/api/admin/history");
 export const restoreHistory = (id: string) =>
-  api<{ ok: true; name: "site" | "gallery" }>("/api/admin/history/restore", { method: "POST", body: JSON.stringify({ id }) });
+  api<{ ok: true; name: "site" | "gallery"; version: string }>("/api/admin/history/restore", { method: "POST", body: JSON.stringify({ id }) });
 export const login = (password: string) => api<{ ok: true }>("/api/admin/login", { method: "POST", body: JSON.stringify({ password }) });
 export const logout = () => api<{ ok: true }>("/api/admin/logout", { method: "POST" });
 

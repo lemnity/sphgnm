@@ -1,6 +1,6 @@
 // Файлы админки: контент (content/*.json) с историей версий и загрузки (public/uploads).
 // Все функции принимают корень проекта, чтобы тесты работали во временной папке.
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -36,11 +36,27 @@ export async function writeFileAtomic(file: string, data: string | Uint8Array): 
 }
 
 export async function readContent(root: string, name: ContentName): Promise<unknown> {
+  return (await readContentWithVersion(root, name)).data;
+}
+
+/** Версия файла — хэш содержимого. По ней сервер замечает, что файл успели изменить в другой вкладке. */
+export const contentVersion = (raw: string | Uint8Array) => createHash("sha256").update(raw).digest("hex").slice(0, 32);
+
+export async function readContentWithVersion(root: string, name: ContentName): Promise<{ data: unknown; version: string }> {
   const raw = await readFile(contentFile(root, name), "utf8");
   try {
-    return JSON.parse(raw);
+    return { data: JSON.parse(raw), version: contentVersion(raw) };
   } catch (error) {
     throw new StorageError(`content/${name}.json: невалидный JSON — ${(error as Error).message}`, 500);
+  }
+}
+
+/** Файл изменился после того, как его открыли в кабинете: сохранять поверх нельзя. */
+export class ConflictError extends StorageError {
+  conflict: ContentName[];
+  constructor(conflict: ContentName[]) {
+    super("Сайт изменили в другой вкладке или на другом устройстве", 409);
+    this.conflict = conflict;
   }
 }
 
@@ -66,32 +82,81 @@ function serialize<T>(task: () => Promise<T>): Promise<T> {
   return run;
 }
 
+export type ContentWrite = {
+  name: ContentName;
+  data: unknown;
+  /** Версия, от которой шла правка. undefined — без проверки (восстановление из истории). */
+  expected?: string;
+};
+export type WriteResult = { history: string | null; version: string };
+
 /**
- * Сохраняет контент. Предыдущая версия файла уходит в content/.history/<имя>-<время>.json,
- * хранятся последние HISTORY_LIMIT версий каждого файла. Возвращает id записи истории.
+ * Сохраняет один или несколько файлов. Сначала сверяет версии всех файлов и при
+ * расхождении ничего не пишет (ConflictError). Прежняя версия файла уходит в
+ * content/.history/<имя>-<время>.json, где время — когда эту версию сохранили
+ * (mtime файла), хранятся последние HISTORY_LIMIT версий каждого файла.
  */
-export function writeContent(root: string, name: ContentName, data: unknown, now = new Date()): Promise<string | null> {
+export function writeContents(root: string, writes: ContentWrite[]): Promise<Record<string, WriteResult>> {
   return serialize(async () => {
-    const file = contentFile(root, name);
-    let historyId: string | null = null;
-    let previous: Buffer | null = null;
-    try {
-      previous = await readFile(file);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    const current = new Map<ContentName, { raw: Buffer; mtime: Date } | null>();
+    for (const { name } of writes) {
+      const file = contentFile(root, name);
+      try {
+        const [raw, info] = await Promise.all([readFile(file), stat(file)]);
+        current.set(name, { raw, mtime: info.mtime });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        current.set(name, null);
+      }
     }
-    if (previous) {
-      // Время версии строго больше последней: два сохранения в одну миллисекунду (или часы,
-      // ушедшие назад) не затрут версию и не нарушат порядок, по которому режется история.
-      const [latest] = (await listHistory(root)).filter((entry) => entry.name === name);
-      const time = Math.max(now.getTime(), latest ? Date.parse(latest.savedAt) + 1 : 0);
-      historyId = `${name}-${stamp(new Date(time))}.json`;
-      await writeFileAtomic(path.join(historyDir(root), historyId), previous);
-      await trimHistory(root, name);
+    const conflict = writes
+      .filter(({ name, expected }) => {
+        if (expected === undefined) return false;
+        const previous = current.get(name);
+        return !previous || contentVersion(previous.raw) !== expected;
+      })
+      .map(({ name }) => name);
+    if (conflict.length) throw new ConflictError(conflict);
+
+    const result: Record<string, WriteResult> = {};
+    for (const { name, data } of writes) {
+      const previous = current.get(name);
+      let history: string | null = null;
+      if (previous) {
+        // Время версии строго больше последней: два сохранения в одну миллисекунду (или часы,
+        // ушедшие назад) не затрут версию и не нарушат порядок, по которому режется история.
+        const [latest] = (await listHistory(root)).filter((entry) => entry.name === name);
+        const time = Math.max(previous.mtime.getTime(), latest ? Date.parse(latest.savedAt) + 1 : 0);
+        history = `${name}-${stamp(new Date(time))}.json`;
+        await writeFileAtomic(path.join(historyDir(root), history), previous.raw);
+        await trimHistory(root, name);
+      }
+      const text = `${JSON.stringify(data, null, 2)}\n`;
+      await writeFileAtomic(contentFile(root, name), text);
+      result[name] = { history, version: contentVersion(text) };
     }
-    await writeFileAtomic(file, `${JSON.stringify(data, null, 2)}\n`);
-    return historyId;
+    return result;
   });
+}
+
+/**
+ * Версии из тела PUT: { versions: { site?: "…", gallery?: "…" } }. Для каждого
+ * сохраняемого раздела версия обязательна. Возвращает версии или текст ошибки.
+ */
+export function parseVersions(value: unknown, names: readonly ContentName[]): Partial<Record<ContentName, string>> | string {
+  const record = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  const result: Partial<Record<ContentName, string>> = {};
+  for (const name of names) {
+    const version = record[name];
+    if (typeof version !== "string" || !version) return `Не указана версия раздела ${name}: обновите страницу кабинета`;
+    result[name] = version;
+  }
+  return result;
+}
+
+/** Один файл без проверки версии. Возвращает id записи истории. */
+export async function writeContent(root: string, name: ContentName, data: unknown): Promise<string | null> {
+  return (await writeContents(root, [{ name, data }]))[name].history;
 }
 
 async function trimHistory(root: string, name: ContentName) {

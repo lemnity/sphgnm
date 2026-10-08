@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, resolveSessionSecret, verifySessionToken } from "./session.ts";
-import { StorageError } from "./storage.ts";
+import { ConflictError, StorageError } from "./storage.ts";
 
 /** Корень проекта: content/ и public/ лежат рядом с package.json. */
 export const PROJECT_ROOT = process.cwd();
@@ -33,6 +33,7 @@ export function requireAdmin(request: NextRequest): NextResponse | null {
 
 /** Ошибки хранилища — их статус и текст; прочее — 500 без подробностей наружу. */
 export function handleError(error: unknown): NextResponse {
+  if (error instanceof ConflictError) return jsonError(409, error.message, { conflict: error.conflict });
   if (error instanceof StorageError) return jsonError(error.status, error.message);
   console.error("[admin]", error);
   return jsonError(500, "Внутренняя ошибка сервера");

@@ -1,5 +1,5 @@
 // Сквозная проверка кабинета в браузере: вход, правка и сохранение, ошибка
-// валидации, галерея, медиатека, откат через историю, выход.
+// валидации, галерея, медиатека, откат через историю, сохранение из устаревшей вкладки, выход.
 // Запуск при работающем сервере: URL=http://127.0.0.1:3041/ npm run verify:admin
 // Пароль — ADMIN_PASSWORD (npm-скрипт подхватывает .env.local).
 // Скрипт сам возвращает content/*.json и удаляет загруженные им файлы и версии истории.
@@ -181,6 +181,64 @@ try {
     const site = await readJson(files.site);
     invariant(JSON.stringify(site) === JSON.stringify(JSON.parse(original.site)), "site.json не вернулся к исходному");
     invariant(!(await homeHtml(context.request)).includes(marker), "на главной остался тестовый заголовок");
+  });
+
+  await step("устаревшая вкладка не затирает чужие правки (409 и окно «Обновить»)", async () => {
+    await sidebar("Подвал").click();
+    const input = page.getByLabel("Копирайт");
+    const previous = await input.inputValue();
+    const theirs = `${previous} ${stamp} другая вкладка`;
+    await input.fill(`${previous} ${stamp} эта вкладка`);
+
+    // «Другая вкладка» сохраняет site через API с актуальной версией. Запросы — из страницы:
+    // cookie сессии SameSite=Strict, а сторонний клиент Playwright её не отправит.
+    const call = (method, body) =>
+      page.evaluate(
+        async ([method, body]) => {
+          const response = await fetch("/api/admin/content", {
+            method,
+            headers: body ? { "Content-Type": "application/json" } : {},
+            body: body ? JSON.stringify(body) : undefined,
+            cache: "no-store",
+          });
+          return { status: response.status, data: await response.json() };
+        },
+        [method, body],
+      );
+    const { data: fresh } = await call("GET");
+    invariant(typeof fresh.versions?.site === "string" && typeof fresh.versions?.gallery === "string", `GET не вернул versions: ${JSON.stringify(fresh).slice(0, 200)}`);
+    const other = structuredClone(fresh.site);
+    other.footer.copyright = theirs;
+    const saved = await call("PUT", { site: other, versions: { site: fresh.versions.site } });
+    invariant(saved.status === 200, `сохранение другой вкладки: ${saved.status}`);
+    invariant(saved.data.versions?.site && saved.data.versions.site !== fresh.versions.site, "PUT не вернул новую версию");
+
+    // Повтор со старой версией и без версии — отказ.
+    const stale = await call("PUT", { site: fresh.site, versions: { site: fresh.versions.site } });
+    invariant(stale.status === 409, `старая версия: ${stale.status} вместо 409`);
+    invariant(JSON.stringify(stale.data.conflict) === '["site"]', "в 409 нет conflict: [site]");
+    const unversioned = await call("PUT", { site: fresh.site });
+    invariant(unversioned.status === 400, `без версии: ${unversioned.status} вместо 400`);
+
+    // Кабинет: «Сохранить» → окно; «Отмена» оставляет правки, «Обновить» загружает свежее.
+    const dialog = page.getByRole("dialog", { name: "Сайт изменили в другом месте" });
+    await saveButton.click();
+    await dialog.waitFor();
+    await dialog.getByRole("button", { name: "Отмена" }).click();
+    await dialog.waitFor({ state: "detached" });
+    await status.filter({ hasText: "Есть несохранённые изменения" }).waitFor();
+    invariant((await readJson(files.site)).footer.copyright === theirs, "чужая правка затёрта");
+
+    await saveButton.click();
+    await dialog.waitFor();
+    await dialog.getByRole("button", { name: "Обновить" }).click();
+    await status.filter({ hasText: "Все изменения сохранены" }).waitFor();
+    invariant((await input.inputValue()) === theirs, `после «Обновить» в поле «${await input.inputValue()}»`);
+
+    // После обновления сохранение снова проходит: возвращаем копирайт.
+    await input.fill(previous);
+    await saveAndWait();
+    invariant((await readJson(files.site)).footer.copyright === previous, "копирайт не вернулся");
   });
 
   await step("выход", async () => {
