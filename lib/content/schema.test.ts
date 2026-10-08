@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { SCHEMA_MESSAGES, checkHref, checkMediaPath, validateGallery, validateSiteContent } from "./schema.ts";
+import { SCHEMA_MESSAGES, checkHref, checkMediaPath, checkSiteUrl, validateGallery, validateSiteContent } from "./schema.ts";
 
 const readJson = (name: string) => JSON.parse(readFileSync(new URL(`../../content/${name}`, import.meta.url), "utf8"));
 // Каждый тест портит свою копию.
@@ -230,6 +230,28 @@ test("site: все поля-ссылки проверяются", () => {
   assert.match(errors[1], /^nav\.links\[1\]\.target: /);
   assert.match(errors[2], /^strip\.intro\.linkHref: /);
   assert.match(errors[3], /^gallery\.profileUrl: /);
+});
+
+test("checkSiteUrl: адрес сайта — только полный http(s)", () => {
+  for (const ok of ["https://lemnity.github.io/sphgnm", "https://lemnity.github.io/sphgnm/", "http://localhost:3000", "https://sphagnum.eco"]) {
+    assert.equal(checkSiteUrl(ok), null, ok);
+  }
+  for (const bad of ["", "lemnity.github.io", "/sphgnm", "//lemnity.github.io", "ftp://x.org", "javascript:alert(1)", "https://x.org/?a=1", "https://x.org/#top", "https://x .org"]) {
+    assert.notEqual(checkSiteUrl(bad), null, JSON.stringify(bad));
+  }
+  const content = site();
+  content.meta.siteUrl = "lemnity.github.io/sphgnm";
+  assert.deepEqual(validateSiteContent(content), ["meta.siteUrl: «lemnity.github.io/sphgnm»: нужен полный адрес сайта, с http:// или https://, без ? и #"]);
+});
+
+test("SEO: картинка-превью проверяется как остальные картинки", () => {
+  const content = site();
+  content.meta.image.src = "https://evil.example/og.jpg";
+  delete content.meta.image.alt;
+  const errors = validateSiteContent(content);
+  assert.equal(errors.length, 2, errors.join("\n"));
+  assert.match(errors[0], /^meta\.image\.src: /);
+  assert.equal(errors[1], "meta.image.alt: нет обязательного поля");
 });
 
 test("тексты проверки по-английски: тот же путь, английское сообщение", () => {

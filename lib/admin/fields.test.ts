@@ -64,7 +64,7 @@ test("пустой блок, собранный по описанию, прох�
   const errors = validateSiteContent(empty);
   assert.ok(errors.length > 0);
   // Ругаться можно только на пустые пути картинок и пустую ссылку — остальное заполнено по форме.
-  for (const error of errors) assert.match(error, /\.src: пустой путь|: пустая ссылка|target/, error);
+  for (const error of errors) assert.match(error, /\.src: пустой путь|: пустая ссылка|target|siteUrl: «»/, error);
 });
 
 test("новый элемент списка: объект по полям или пустая строка", () => {
@@ -131,4 +131,5 @@ test("describePath и describeUsage по-английски", () => {
   assert.equal(describePath("site", "contact.form.projectTypes[2]", "en").label, "Enquiry › Form fields › Project types › Type #3");
   assert.equal(describePath("gallery", "gallery[4].poster", "en").label, "Gallery › Item #5 › poster");
   assert.equal(describeUsage("site: hero.image.src", "en"), "Hero › Background image › file");
+  assert.equal(describePath("site", "meta.siteUrl", "en").label, "SEO › Site address");
 });

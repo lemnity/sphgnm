@@ -47,6 +47,7 @@ function FieldView({ field, value, update, path }: { field: Field; value: unknow
   switch (field.kind) {
     case "text":
     case "href":
+    case "url":
     case "anchor":
       return (
         <Row field={field} path={path}>
@@ -57,7 +58,7 @@ function FieldView({ field, value, update, path }: { field: Field; value: unknow
             value={String(value ?? "")}
             onChange={(event) => set(event.target.value)}
             list={field.kind === "anchor" ? "adm-anchors" : undefined}
-            inputMode={field.kind === "href" ? "url" : undefined}
+            inputMode={field.kind === "href" || field.kind === "url" ? "url" : undefined}
             spellCheck={field.kind === "text"}
             aria-describedby={describedBy(field, path, errors.at(path))}
             aria-invalid={errors.at(path).length > 0 || undefined}

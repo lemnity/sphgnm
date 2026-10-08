@@ -16,6 +16,8 @@ export type Field =
   | (Base & { kind: "textarea"; rows?: number })
   /** Ссылка (http, mailto, tel, #якорь). */
   | (Base & { kind: "href" })
+  /** Полный адрес сайта (https://…). */
+  | (Base & { kind: "url" })
   /** id секции на странице, без решётки. */
   | (Base & { kind: "anchor" })
   | (Base & { kind: "icon" })
@@ -302,11 +304,31 @@ export const BLOCKS: Block[] = [
   {
     id: "meta",
     title: l("SEO", "SEO"),
-    description: l("Заголовок вкладки и описания для поисковиков и соцсетей.", "Browser tab title and descriptions for search engines and social networks."),
+    description: l(
+      "Заголовок вкладки, описания для поисковиков и превью ссылки в соцсетях и мессенджерах.",
+      "Browser tab title, search engine descriptions and the link preview in social networks and messengers.",
+    ),
     fields: [
       text("title", l("Заголовок вкладки", "Browser tab title")),
       area("description", l("Описание для поисковиков", "Search engine description")),
       area("shareDescription", l("Описание при пересылке ссылки", "Link preview description"), undefined, 2),
+      image(
+        "image",
+        l("Картинка-превью ссылки", "Link preview image"),
+        l(
+          "Показывается, когда ссылкой делятся в соцсетях и мессенджерах. Лучше 1200×630, JPG или PNG (WebP видят не все сети), до 5 МБ.",
+          "Shown when the link is shared on social networks and messengers. Best at 1200×630, JPG or PNG (not every network shows WebP), under 5 MB.",
+        ),
+      ),
+      {
+        kind: "url",
+        key: "siteUrl",
+        label: l("Адрес сайта", "Site address"),
+        hint: l(
+          "Полный публичный адрес вместе с подпапкой, если она есть: https://lemnity.github.io/sphgnm. От него строятся ссылки на превью. После переезда на свой домен поменяйте его.",
+          "The full public address, including the subfolder if there is one: https://lemnity.github.io/sphgnm. Preview links are built from it. Change it after moving to your own domain.",
+        ),
+      },
     ],
   },
 ];
@@ -356,7 +378,7 @@ export const ICON_LABELS: Record<IconName, L> = {
 
 /* ---------- листья: для сверки описания со схемой ---------- */
 
-export type LeafKind = "string" | "path" | "icon" | "href" | "anchor";
+export type LeafKind = "string" | "path" | "icon" | "href" | "anchor" | "url";
 
 /** Листья описания полей в виде "hero.image.src:path", элементы списков — "[]". */
 export function fieldLeaves(fields: Field[], prefix = ""): string[] {
@@ -367,6 +389,7 @@ export function fieldLeaves(fields: Field[], prefix = ""): string[] {
       case "textarea":
         return [`${at}:string`];
       case "href":
+      case "url":
       case "anchor":
       case "icon":
         return [`${at}:${field.kind}`];

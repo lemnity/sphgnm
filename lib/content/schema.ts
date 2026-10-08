@@ -40,7 +40,8 @@ export type ImageRef = { src: string; alt: string };
 export type IconText = { icon: IconName; title: string; text: string };
 
 export type SiteContent = {
-  meta: { title: string; description: string; shareDescription: string };
+  /** siteUrl — публичный адрес сайта (для абсолютных ссылок Open Graph), image — превью при пересылке ссылки. */
+  meta: { title: string; description: string; shareDescription: string; siteUrl: string; image: ImageRef };
   contacts: { person: string; role: string; phone: string; email: string };
   nav: {
     /** target — id секции на странице, без решётки. */
@@ -152,13 +153,13 @@ export type GalleryItem = {
 /* Описание формы site.json для проверки. Держать в паре с типом SiteContent:
    тест прогоняет через него настоящий content/site.json, так что расхождение
    вылезет сразу. По нему же тест сверяет поля редактора (lib/admin/fields.ts). */
-export type Shape = "string" | "path" | "icon" | "href" | "anchor" | Shape[] | { [key: string]: Shape };
+export type Shape = "string" | "path" | "icon" | "href" | "anchor" | "url" | Shape[] | { [key: string]: Shape };
 
 const IMAGE: Shape = { src: "path", alt: "string" };
 const ICON_TEXT: Shape = { icon: "icon", title: "string", text: "string" };
 
 export const SITE_SHAPE: Shape = {
-  meta: { title: "string", description: "string", shareDescription: "string" },
+  meta: { title: "string", description: "string", shareDescription: "string", siteUrl: "url", image: IMAGE },
   contacts: { person: "string", role: "string", phone: "string", email: "string" },
   nav: {
     links: [{ label: "string", target: "anchor" }],
@@ -272,6 +273,8 @@ const SCHEMA_RU = {
   expectString: "ожидается строка",
   expectPath: "ожидается путь к файлу",
   expectHref: "ожидается ссылка",
+  expectUrl: "ожидается адрес сайта",
+  urlInvalid: "«{value}»: нужен полный адрес сайта, с http:// или https://, без ? и #",
   expectAnchor: "ожидается id секции",
   anchorInvalid: "«{value}» — нужен id секции без решётки: латиница, цифры, - и _",
   expectIcon: "ожидается ключ иконки",
@@ -303,6 +306,8 @@ export const SCHEMA_MESSAGES: Record<SchemaLang, Record<SchemaMessageKey, string
     expectString: "must be text",
     expectPath: "must be a file path",
     expectHref: "must be a link",
+    expectUrl: "must be the site address",
+    urlInvalid: "“{value}”: enter the full site address, starting with http:// or https://, without ? or #",
     expectAnchor: "must be a section id",
     anchorInvalid: "“{value}” — enter a section id without the #: Latin letters, digits, - and _",
     expectIcon: "must be an icon key",
@@ -333,6 +338,17 @@ export function checkHref(value: string, lang: SchemaLang = "ru"): string | null
     return msg(lang, "hrefScheme", { value });
   }
   return null;
+}
+
+/* Публичный адрес сайта: абсолютный http(s) без query и hash. */
+export function checkSiteUrl(value: string, lang: SchemaLang = "ru"): string | null {
+  let url: URL | null = null;
+  try {
+    url = /^https?:\/\/[^\s/?#]+/i.test(value) && !/[\s?#]/.test(value) ? new URL(value) : null;
+  } catch {
+    url = null;
+  }
+  return url ? null : msg(lang, "urlInvalid", { value });
 }
 
 /* id секции на странице: в разметке становится "#<id>". */
@@ -386,6 +402,14 @@ function check(value: unknown, shape: Shape, path: string, errors: string[], lan
     if (typeof value !== "string") fail("expectHref");
     else {
       const problem = checkHref(value, lang);
+      if (problem) errors.push(`${path}: ${problem}`);
+    }
+    return;
+  }
+  if (shape === "url") {
+    if (typeof value !== "string") fail("expectUrl");
+    else {
+      const problem = checkSiteUrl(value, lang);
       if (problem) errors.push(`${path}: ${problem}`);
     }
     return;
