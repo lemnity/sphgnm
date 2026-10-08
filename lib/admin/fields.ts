@@ -266,11 +266,8 @@ export const BLOCKS: Block[] = [
   {
     id: "contacts",
     title: l("Контакты", "Contacts"),
-    description: l("Контактное лицо, телефон и почта.", "Contact person, phone number and email."),
+    description: l("Почта компании — в шапке и подвале сайта.", "Company email shown in the header and footer."),
     fields: [
-      text("person", l("Имя", "Name")),
-      text("role", l("Должность", "Job title")),
-      text("phone", l("Телефон", "Phone"), l("Ссылка tel: подставится сама", "The tel: link is added automatically")),
       text("email", l("Электронная почта", "Email"), l("Ссылка mailto: подставится сама", "The mailto: link is added automatically")),
     ],
   },

@@ -6,9 +6,7 @@ import {
   ArrowUpRight,
   CheckCircle2,
   Leaf,
-  Mail,
   Menu,
-  Phone,
   X,
   Plus,
   Minus,
@@ -496,7 +494,7 @@ function PdfAlignedSections({
         </div>
       </section>
 
-      <section className="bg-[#fafafa] bg-[linear-gradient(to_bottom,#fafafa_0%,#fafafa_55%,#f8f9f4_100%)] pb-6 lg:pb-10">
+      <section className="bg-[#fafafa] bg-[linear-gradient(to_bottom,#f8f7f3_0%,#fafafa_22%,#fafafa_62%,#f8f9f4_100%)] pb-6 lg:pb-10">
         <figure className="pdf-grid living-wall-frame">
           <img src={withBase(wetland.wallImage.src)} alt={wetland.wallImage.alt} className="block h-auto w-full object-contain" />
         </figure>
@@ -589,8 +587,6 @@ function PdfAlignedSections({
   );
 }
 
-/** tel:-ссылка из номера в том виде, как он показан на странице. */
-const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
 
 export default function SphagnumLanding({
   content,
@@ -602,7 +598,6 @@ export default function SphagnumLanding({
   instagramPosts: InstagramPost[];
 }) {
   const { contacts, nav, hero, strip, faq, contact, footer } = content;
-  const phoneHref = telHref(contacts.phone);
   const photos = galleryPhotos(instagramPosts, gallery, content.gallery.profileUrl);
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -673,14 +668,6 @@ export default function SphagnumLanding({
           }`}
         >
           <div className="flex items-center justify-end gap-7 py-2.5 pdf-grid">
-            <a
-              href={phoneHref}
-              className={`text-[13px] font-medium transition-colors ${
-                scrolled ? "text-[color:var(--brand-muted)] hover:text-[color:var(--brand-ink)]" : "text-[color:var(--brand-cream-72)] hover:text-[color:var(--brand-cream)]"
-              }`}
-            >
-              {contacts.phone}
-            </a>
             <a
               href={`mailto:${contacts.email}`}
               className={`text-[13px] font-medium transition-colors ${
@@ -1043,28 +1030,6 @@ export default function SphagnumLanding({
               </ul>
             </Reveal>
 
-            <Reveal anim="left" delay={0.16}>
-              <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4 border-t border-[color:var(--brand-cream-15)] pt-7">
-                <div>
-                  <p className="display text-[16px] leading-none">{contacts.person}</p>
-                  <p className="mt-1.5 text-[13.5px] text-[color:var(--brand-cream-72)]">{contacts.role}</p>
-                </div>
-                <a
-                  href={phoneHref}
-                  className="flex items-center gap-2.5 text-[15px] font-semibold transition-colors hover:text-[color:var(--brand-sage)]"
-                >
-                  <Phone className="size-[18px] text-[color:var(--brand-sage)]" strokeWidth={1.7} aria-hidden />
-                  {contacts.phone}
-                </a>
-                <a
-                  href={`mailto:${contacts.email}`}
-                  className="flex items-center gap-2.5 text-[15px] font-semibold transition-colors hover:text-[color:var(--brand-sage)]"
-                >
-                  <Mail className="size-[18px] text-[color:var(--brand-sage)]" strokeWidth={1.7} aria-hidden />
-                  {contacts.email}
-                </a>
-              </div>
-            </Reveal>
           </div>
 
           <Reveal anim="right" delay={0.12}>
