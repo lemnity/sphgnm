@@ -1,0 +1,167 @@
+<!doctype html>
+<!--
+  Письмо команде о новой заявке с формы «Send an enquiry».
+  Подстановки: {{leadId}} {{submittedAt}} {{replyBy}} {{name}} {{email}} {{phone}}
+  {{phoneDigits}} (только цифры, для wa.me) {{region}} {{projectType}} {{area}}
+  {{message}} {{pageUrl}}. Пустые поля бэкенд заменяет на «—».
+  Вёрстка письма: таблицы и инлайн-стили — иначе Outlook и Gmail разваливают макет.
+-->
+<html lang="ru" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="x-apple-disable-message-reformatting" />
+  <meta name="color-scheme" content="light" />
+  <meta name="supported-color-schemes" content="light" />
+  <title>Новая заявка — {{projectType}}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&amp;display=swap" rel="stylesheet" />
+  <style>
+    @media (max-width: 620px) {
+      .wrap { width: 100% !important; }
+      .px { padding-left: 24px !important; padding-right: 24px !important; }
+      .stack { display: block !important; width: 100% !important; }
+      .stack-gap { padding-top: 14px !important; padding-left: 0 !important; }
+      .hero-title { font-size: 34px !important; }
+      .area-num { font-size: 44px !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background:#E9E6DD;">
+  <!-- Прехедер: строка-превью в списке писем. -->
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">
+    {{name}} · {{projectType}} · {{area}} м² — ответить до {{replyBy}}
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#E9E6DD" style="background:#E9E6DD;">
+    <tr>
+      <td align="center" style="padding:32px 12px;">
+        <table role="presentation" class="wrap" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+
+          <!-- Шапка: тёмная плашка с логотипом и номером заявки -->
+          <tr>
+            <td bgcolor="#102B20" class="px" style="background:#102B20;padding:28px 40px 26px;border-bottom:3px solid #D7B15E;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:26px;letter-spacing:5px;color:#F5F4F0;font-weight:500;">
+                    SPHAGNUM
+                    <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:3.2px;color:#D7B15E;padding-top:4px;font-weight:bold;">ECO · NATURAL SUBSTRATES</div>
+                  </td>
+                  <td align="right" style="font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:1.5px;color:rgba(245,244,240,.65);text-transform:uppercase;line-height:1.6;">
+                    Заявка № {{leadId}}<br />
+                    <span style="color:#F5F4F0;">{{submittedAt}}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Главное: тип проекта, кто прислал, площадь крупно -->
+          <tr>
+            <td bgcolor="#F5F4F0" class="px" style="background:#F5F4F0;padding:40px 40px 8px;">
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:2.4px;color:#5F792A;font-weight:bold;text-transform:uppercase;">
+                Новая заявка с сайта
+              </div>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px;">
+                <tr>
+                  <td class="stack" valign="bottom" style="vertical-align:bottom;">
+                    <div class="hero-title" style="font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:40px;line-height:1.05;color:#102B20;font-weight:600;">
+                      {{projectType}}
+                    </div>
+                    <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#4A554E;padding-top:10px;">
+                      от <strong style="color:#102B20;">{{name}}</strong> · {{region}}
+                    </div>
+                  </td>
+                  <td class="stack stack-gap" align="right" valign="bottom" width="170" style="vertical-align:bottom;padding-left:20px;">
+                    <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;letter-spacing:2px;color:#8A7A4A;text-transform:uppercase;">Площадь</div>
+                    <div class="area-num" style="font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:52px;line-height:1;color:#CDA451;font-weight:600;white-space:nowrap;">
+                      {{area}}<span style="font-size:20px;color:#8A7A4A;"> м²</span>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Срок ответа: сайт обещает 24 часа -->
+          <tr>
+            <td bgcolor="#F5F4F0" class="px" style="background:#F5F4F0;padding:24px 40px 0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#EDF3E6" style="background:#EDF3E6;border-left:3px solid #5F792A;">
+                <tr>
+                  <td style="padding:13px 18px;font-family:Arial,Helvetica,sans-serif;font-size:13.5px;color:#3E5042;line-height:1.5;">
+                    На сайте обещан ответ в течение 24 часов — <strong style="color:#102B20;">ответить до {{replyBy}}</strong>.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Контакты клиента -->
+          <tr>
+            <td bgcolor="#F5F4F0" class="px" style="background:#F5F4F0;padding:30px 40px 0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #DEDACF;">
+                <tr>
+                  <td width="38%" style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:1.6px;color:#8A8F86;text-transform:uppercase;">Имя и компания</td>
+                  <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#102B20;font-weight:bold;">{{name}}</td>
+                </tr>
+                <tr>
+                  <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:1.6px;color:#8A8F86;text-transform:uppercase;">Почта</td>
+                  <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:15px;"><a href="mailto:{{email}}" style="color:#3E5042;text-decoration:underline;">{{email}}</a></td>
+                </tr>
+                <tr>
+                  <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:1.6px;color:#8A8F86;text-transform:uppercase;">Телефон / WhatsApp</td>
+                  <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:15px;"><a href="tel:{{phoneDigits}}" style="color:#3E5042;text-decoration:underline;">{{phone}}</a></td>
+                </tr>
+                <tr>
+                  <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:1.6px;color:#8A8F86;text-transform:uppercase;">Регион</td>
+                  <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#102B20;">{{region}}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Сообщение клиента: цитата -->
+          <tr>
+            <td bgcolor="#F5F4F0" class="px" style="background:#F5F4F0;padding:30px 40px 0;">
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:1.6px;color:#8A8F86;text-transform:uppercase;">Сообщение</div>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:10px;">
+                <tr>
+                  <td width="22" valign="top" style="font-family:'Cormorant Garamond',Georgia,serif;font-size:46px;line-height:.8;color:#D7B15E;">“</td>
+                  <td style="font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:19px;line-height:1.5;color:#102B20;font-style:italic;padding-top:4px;">
+                    {{message}}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Действия: ответить письмом и написать в WhatsApp -->
+          <tr>
+            <td bgcolor="#F5F4F0" class="px" style="background:#F5F4F0;padding:34px 40px 40px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td class="stack" bgcolor="#102B20" style="background:#102B20;">
+                    <a href="mailto:{{email}}?subject=Sphagnum%20Eco%20%E2%80%94%20your%20enquiry" style="display:inline-block;padding:15px 26px;font-family:Arial,Helvetica,sans-serif;font-size:13px;letter-spacing:1.4px;font-weight:bold;color:#F5F4F0;text-decoration:none;text-transform:uppercase;">Ответить клиенту&nbsp;→</a>
+                  </td>
+                  <td width="12" class="stack" style="font-size:0;line-height:0;">&nbsp;</td>
+                  <td class="stack stack-gap" style="border:1.5px solid #3E5042;">
+                    <a href="https://wa.me/{{phoneDigits}}" style="display:inline-block;padding:14px 24px;font-family:Arial,Helvetica,sans-serif;font-size:13px;letter-spacing:1.4px;font-weight:bold;color:#3E5042;text-decoration:none;text-transform:uppercase;">WhatsApp</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Подвал: откуда пришла заявка -->
+          <tr>
+            <td bgcolor="#102B20" class="px" style="background:#102B20;padding:20px 40px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:rgba(245,244,240,.6);line-height:1.6;">
+              Отправлено с формы на странице <a href="{{pageUrl}}" style="color:#D7B15E;text-decoration:none;">{{pageUrl}}</a><br />
+              Клиент получил автоответ о том, что заявка принята.
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

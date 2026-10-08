@@ -1,0 +1,145 @@
+<!doctype html>
+<!--
+  Автоответ клиенту после отправки формы «Send an enquiry».
+  Подстановки: {{firstName}} {{name}} {{email}} {{phone}} {{region}} {{projectType}}
+  {{area}} {{leadId}} {{siteUrl}} {{salesEmail}}. Пустые поля бэкенд заменяет на «—».
+  Тексты «что дальше» совпадают с блоком «Контакты» на сайте.
+-->
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="x-apple-disable-message-reformatting" />
+  <meta name="color-scheme" content="light" />
+  <meta name="supported-color-schemes" content="light" />
+  <title>We’ve received your enquiry — Sphagnum Eco</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;display=swap" rel="stylesheet" />
+  <style>
+    @media (max-width: 620px) {
+      .wrap { width: 100% !important; }
+      .px { padding-left: 24px !important; padding-right: 24px !important; }
+      .hero-title { font-size: 36px !important; }
+      .stack { display: block !important; width: 100% !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background:#E9E6DD;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">
+    Thank you, {{firstName}}. A substrate specialist will reply within 24 hours with a commercial offer.
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#E9E6DD" style="background:#E9E6DD;">
+    <tr>
+      <td align="center" style="padding:32px 12px;">
+        <table role="presentation" class="wrap" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+
+          <!-- Тёмный первый экран письма: благодарность -->
+          <tr>
+            <td bgcolor="#102B20" class="px" style="background:#102B20;padding:34px 44px 44px;">
+              <div style="font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:24px;letter-spacing:5px;color:#F5F4F0;font-weight:500;">
+                SPHAGNUM
+              </div>
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:3.2px;color:#D7B15E;padding-top:4px;font-weight:bold;">ECO · NATURAL SUBSTRATES</div>
+
+              <div style="height:2px;width:48px;background:#D7B15E;margin:40px 0 26px;line-height:2px;font-size:0;">&nbsp;</div>
+
+              <div class="hero-title" style="font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:44px;line-height:1.04;color:#F5F4F0;font-weight:500;">
+                Thank you, {{firstName}}.<br />
+                <span style="color:#E3C079;font-style:italic;">Your enquiry is with us.</span>
+              </div>
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.65;color:rgba(245,244,240,.78);padding-top:18px;max-width:440px;">
+                A substrate specialist is already looking at your project and will reply within
+                <strong style="color:#F5F4F0;">24 hours</strong> with a commercial offer.
+              </div>
+            </td>
+          </tr>
+
+          <!-- Что будет дальше: три шага как на сайте -->
+          <tr>
+            <td bgcolor="#F5F4F0" class="px" style="background:#F5F4F0;padding:40px 44px 8px;">
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:2.4px;color:#5F792A;font-weight:bold;text-transform:uppercase;">What happens next</div>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:18px;">
+                <tr>
+                  <td width="54" valign="top" style="padding:16px 0;border-top:1px solid #DEDACF;font-family:'Cormorant Garamond',Georgia,serif;font-size:30px;line-height:1;color:#CDA451;font-weight:600;">01</td>
+                  <td valign="top" style="padding:16px 0;border-top:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;">
+                    <div style="font-size:15.5px;font-weight:bold;color:#102B20;">Technical passport</div>
+                    <div style="font-size:14px;line-height:1.55;color:#4A554E;padding-top:4px;">Density, pH, CEC, porosity and heavy-metal data</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td width="54" valign="top" style="padding:16px 0;border-top:1px solid #DEDACF;font-family:'Cormorant Garamond',Georgia,serif;font-size:30px;line-height:1;color:#CDA451;font-weight:600;">02</td>
+                  <td valign="top" style="padding:16px 0;border-top:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;">
+                    <div style="font-size:15.5px;font-weight:bold;color:#102B20;">Structural calculation</div>
+                    <div style="font-size:14px;line-height:1.55;color:#4A554E;padding-top:4px;">Dry and saturated load figures for your structural engineer</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td width="54" valign="top" style="padding:16px 0;border-top:1px solid #DEDACF;border-bottom:1px solid #DEDACF;font-family:'Cormorant Garamond',Georgia,serif;font-size:30px;line-height:1;color:#CDA451;font-weight:600;">03</td>
+                  <td valign="top" style="padding:16px 0;border-top:1px solid #DEDACF;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;">
+                    <div style="font-size:15.5px;font-weight:bold;color:#102B20;">Trial delivery</div>
+                    <div style="font-size:14px;line-height:1.55;color:#4A554E;padding-top:4px;">A sample matched to your site and climate, with technologist recommendations</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Что клиент отправил: чтобы мог проверить и поправить -->
+          <tr>
+            <td bgcolor="#F5F4F0" class="px" style="background:#F5F4F0;padding:32px 44px 8px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#EDEBE3" style="background:#EDEBE3;">
+                <tr>
+                  <td style="padding:22px 24px 8px;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:2px;color:#8A8F86;text-transform:uppercase;">
+                    Your enquiry · № {{leadId}}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 24px 20px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#102B20;line-height:1.5;">
+                      <tr><td width="42%" style="padding:6px 0;color:#6B736C;">Project type</td><td style="padding:6px 0;font-weight:bold;">{{projectType}}</td></tr>
+                      <tr><td style="padding:6px 0;color:#6B736C;">Estimated area</td><td style="padding:6px 0;font-weight:bold;">{{area}} m²</td></tr>
+                      <tr><td style="padding:6px 0;color:#6B736C;">Region / country</td><td style="padding:6px 0;">{{region}}</td></tr>
+                      <tr><td style="padding:6px 0;color:#6B736C;">Name and company</td><td style="padding:6px 0;">{{name}}</td></tr>
+                      <tr><td style="padding:6px 0;color:#6B736C;">Phone / WhatsApp</td><td style="padding:6px 0;">{{phone}}</td></tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              <div style="font-family:Arial,Helvetica,sans-serif;font-size:13.5px;line-height:1.6;color:#4A554E;padding-top:16px;">
+                Something to add or correct? Simply reply to this email — it goes straight to our sales team.
+              </div>
+            </td>
+          </tr>
+
+          <!-- Кнопка на сайт -->
+          <tr>
+            <td bgcolor="#F5F4F0" class="px" style="background:#F5F4F0;padding:28px 44px 44px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td bgcolor="#102B20" style="background:#102B20;">
+                    <a href="{{siteUrl}}" style="display:inline-block;padding:15px 26px;font-family:Arial,Helvetica,sans-serif;font-size:13px;letter-spacing:1.4px;font-weight:bold;color:#F5F4F0;text-decoration:none;text-transform:uppercase;">Explore our substrates&nbsp;→</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Подвал -->
+          <tr>
+            <td bgcolor="#102B20" class="px" style="background:#102B20;padding:24px 44px;border-top:3px solid #D7B15E;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.7;color:rgba(245,244,240,.6);">
+              <span style="font-family:'Cormorant Garamond',Georgia,serif;font-size:15px;letter-spacing:3px;color:#F5F4F0;">SPHAGNUM ECO</span><br />
+              Living substrates for green roofs, vertical gardens and interiors.<br />
+              <a href="mailto:{{salesEmail}}" style="color:#D7B15E;text-decoration:none;">{{salesEmail}}</a>
+              <div style="padding-top:12px;font-size:11px;color:rgba(245,244,240,.42);">
+                You received this email because you submitted an enquiry at {{siteUrl}}. We never share your contact details with third parties.
+              </div>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
