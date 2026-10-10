@@ -1,8 +1,10 @@
 <!doctype html>
 <!--
   Автоответ клиенту после отправки формы «Send an enquiry».
-  Подстановки: {{firstName}} {{name}} {{email}} {{phone}} {{region}} {{projectType}}
-  {{area}} {{leadId}} {{siteUrl}} {{salesEmail}}. Пустые поля бэкенд заменяет на «—».
+  Подстановки: {{greeting}} («Thank you, Anna.» или просто «Thank you.»), {{projectType}}
+  (только из списка на сайте), {{leadId}} {{siteUrl}} {{salesEmail}}. Пустые поля — «—».
+  Свободный текст из формы (имя, регион, телефон, площадь) в автоответ не попадает:
+  письмо уходит на адрес, который ввёл посетитель, и не должно пересылать чужой текст.
   Тексты «что дальше» совпадают с блоком «Контакты» на сайте.
 -->
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
@@ -25,7 +27,7 @@
 </head>
 <body style="margin:0;padding:0;background:#E9E6DD;">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;">
-    Thank you, {{firstName}}. A substrate specialist will reply within 24 hours with a commercial offer.
+    {{greeting}} A substrate specialist will reply within 24 hours with a commercial offer.
   </div>
 
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#E9E6DD" style="background:#E9E6DD;">
@@ -44,7 +46,7 @@
               <div style="height:2px;width:48px;background:#D7B15E;margin:40px 0 26px;line-height:2px;font-size:0;">&nbsp;</div>
 
               <div class="hero-title" style="font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:44px;line-height:1.04;color:#F5F4F0;font-weight:500;">
-                Thank you, {{firstName}}.<br />
+                {{greeting}}<br />
                 <span style="color:#E3C079;font-style:italic;">Your enquiry is with us.</span>
               </div>
               <div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.65;color:rgba(245,244,240,.78);padding-top:18px;max-width:440px;">
@@ -98,10 +100,6 @@
                   <td style="padding:0 24px 20px;">
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#102B20;line-height:1.5;">
                       <tr><td width="42%" style="padding:6px 0;color:#6B736C;">Project type</td><td style="padding:6px 0;font-weight:bold;">{{projectType}}</td></tr>
-                      <tr><td style="padding:6px 0;color:#6B736C;">Estimated area</td><td style="padding:6px 0;font-weight:bold;">{{area}} m²</td></tr>
-                      <tr><td style="padding:6px 0;color:#6B736C;">Region / country</td><td style="padding:6px 0;">{{region}}</td></tr>
-                      <tr><td style="padding:6px 0;color:#6B736C;">Name and company</td><td style="padding:6px 0;">{{name}}</td></tr>
-                      <tr><td style="padding:6px 0;color:#6B736C;">Phone / WhatsApp</td><td style="padding:6px 0;">{{phone}}</td></tr>
                     </table>
                   </td>
                 </tr>

@@ -12,8 +12,8 @@ export const PLACEHOLDERS = [
   "submittedAt",
   "replyBy",
   "name",
-  "firstName",
   "email",
+  "emailHref",
   "phone",
   "phoneDigits",
   "region",
@@ -26,7 +26,18 @@ export const PLACEHOLDERS = [
   "autoreplyNote",
 ] as const;
 export type Placeholder = (typeof PLACEHOLDERS)[number];
-export type LeadValues = Record<Placeholder, string>;
+export type LeadValues = Record<Placeholder, string> & {
+  /** Обращение для автоответа: «Thank you, Anna.» или «Thank you.». */
+  greeting: string;
+  hasPhone: boolean;
+};
+
+/**
+ * Что можно показать в автоответе. Он уходит на адрес, введённый посетителем, поэтому
+ * свободный текст из формы туда не попадает — только тип проекта из списка и номер.
+ */
+export const AUTOREPLY_PLACEHOLDERS = ["greeting", "leadId", "projectType", "siteUrl", "salesEmail"] as const;
+type AutoreplyPlaceholder = (typeof AUTOREPLY_PLACEHOLDERS)[number];
 
 export function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
@@ -70,6 +81,15 @@ export function firstNameOf(name: string): string {
   return word.replace(/[,.;:!?·—–-]+$/u, "");
 }
 
+/** Обращение в автоответе: имя — только буквы, дефис и апостроф, до 30 символов; иначе без имени. */
+export function greetingFor(name: string): string {
+  const first = firstNameOf(name);
+  return /^\p{L}[\p{L}\p{M}'’-]{0,29}$/u.test(first) ? `Thank you, ${first}.` : "Thank you.";
+}
+
+/** Адрес для mailto: закодирован всё, кроме @ — ни ?cc=, ни &body= не пройдут. */
+export const mailtoAddress = (email: string) => encodeURIComponent(email).replace(/%40/g, "@");
+
 export function leadValues({
   lead,
   leadId,
@@ -92,10 +112,12 @@ export function leadValues({
     submittedAt: formatDubai(now),
     replyBy: formatDubai(new Date(now.getTime() + DAY_MS)),
     name: or(lead.name),
-    firstName: or(firstNameOf(lead.name)),
+    greeting: greetingFor(lead.name),
     email: or(lead.email),
+    emailHref: mailtoAddress(lead.email),
     phone: or(lead.phone),
     phoneDigits: or(lead.phone.replace(/\D/g, "")),
+    hasPhone: /\d/.test(lead.phone),
     region: or(lead.region),
     projectType: or(lead.projectType),
     area: or(lead.area),
@@ -104,23 +126,33 @@ export function leadValues({
     siteUrl: or(siteUrl),
     salesEmail: or(salesEmail),
     autoreplyNote: autoreply
-      ? "Клиент получил автоответ о том, что заявка принята."
+      ? "Клиенту отправлен автоответ о том, что заявка принята."
       : "Автоответ клиенту не отправлялся — ответьте ему сами.",
   };
 }
 
-/** Подстановка в HTML: значения экранируются, переводы строк — в <br />. */
-export function fillTemplate(template: string, values: LeadValues): string {
+/**
+ * Подстановка в HTML: значения экранируются, переводы строк — в <br />.
+ * {{#flag}}…{{/flag}} выводится при истинном флаге, {{^flag}}…{{/flag}} — при ложном.
+ * Ключа нет в values — пустая строка: шаблон не может вытащить лишние данные.
+ */
+export function fillTemplate(template: string, values: Readonly<Record<string, unknown>>, flags: Record<string, boolean> = {}): string {
   // Служебные комментарии шаблона (список подстановок, пояснения вёрстки) клиенту не нужны.
-  return template.replace(/<!--(?!\[if)[\s\S]*?-->\s*/g, "").replace(/\{\{\s*([A-Za-z]+)\s*\}\}/g, (match, key: string) =>
-    key in values ? escapeHtml(values[key as Placeholder]).replace(/\n/g, "<br />\n") : match,
-  );
+  return template
+    .replace(/<!--(?!\[if)[\s\S]*?-->\s*/g, "")
+    .replace(/\{\{([#^])([A-Za-z]+)\}\}([\s\S]*?)\{\{\/\2\}\}/g, (_, mode: string, flag: string, inner: string) =>
+      Boolean(flags[flag]) === (mode === "#") ? inner : "",
+    )
+    .replace(/\{\{\s*([A-Za-z]+)\s*\}\}/g, (_, key: string) => {
+      const value = values[key];
+      return escapeHtml(typeof value === "string" ? value : "").replace(/\n/g, "<br />\n");
+    });
 }
 
-/** Ключи {{…}} из шаблона, которых нет в PLACEHOLDERS (для теста шаблонов). */
-export function unknownPlaceholders(template: string): string[] {
-  const keys = [...template.matchAll(/\{\{\s*([A-Za-z]+)\s*\}\}/g)].map((match) => match[1]);
-  return [...new Set(keys.filter((key) => !(PLACEHOLDERS as readonly string[]).includes(key)))];
+/** Ключи {{…}} из шаблона, которых нет в списке allowed (для теста шаблонов). */
+export function unknownPlaceholders(template: string, allowed: readonly string[] = PLACEHOLDERS): string[] {
+  const keys = [...template.replace(/<!--[\s\S]*?-->/g, "").matchAll(/\{\{\s*([A-Za-z]+)\s*\}\}/g)].map((match) => match[1]);
+  return [...new Set(keys.filter((key) => !allowed.includes(key)))];
 }
 
 export type RenderedMail = { subject: string; html: string; text: string };
@@ -147,22 +179,19 @@ export function renderNotification(template: string, v: LeadValues): RenderedMai
     `Отправлено с формы на странице ${v.pageUrl}`,
     v.autoreplyNote,
   ].join("\n");
-  return { subject: `Заявка № ${v.leadId}: ${v.name}${projectType}`, html: fillTemplate(template, v), text };
+  return { subject: `Заявка № ${v.leadId}: ${v.name}${projectType}`, html: fillTemplate(template, v, { hasPhone: v.hasPhone }), text };
 }
 
-/** Автоответ клиенту (по-английски). */
-export function renderAutoreply(template: string, v: LeadValues): RenderedMail {
+/** Автоответ клиенту (по-английски): только обращение, тип проекта из списка и номер заявки. */
+export function renderAutoreply(template: string, values: LeadValues): RenderedMail {
+  const v = Object.fromEntries(AUTOREPLY_PLACEHOLDERS.map((key) => [key, values[key]])) as Record<AutoreplyPlaceholder, string>;
   const text = [
-    `Thank you, ${v.firstName}.`,
+    v.greeting,
     "",
     "Your enquiry is with us. A substrate specialist is already looking at your project and will reply within 24 hours with a commercial offer.",
     "",
     `Your enquiry · No. ${v.leadId}`,
     `Project type: ${v.projectType}`,
-    `Estimated area: ${v.area} m²`,
-    `Region / country: ${v.region}`,
-    `Name and company: ${v.name}`,
-    `Phone / WhatsApp: ${v.phone}`,
     "",
     "Something to add or correct? Simply reply to this email — it goes straight to our sales team.",
     "",

@@ -1,6 +1,6 @@
 // Логика POST /api/lead без next/*: роут только читает запрос и отдаёт результат ответом.
 import { createRateLimiter } from "../admin/rate-limit.ts";
-import { buildMessage, parseAddress, parseAddressList, SendmailError, type Address, type SendRaw } from "./mail.ts";
+import { buildMessage, domainOf, parseAddress, parseAddressList, SendmailError, type Address, type SendRaw } from "./mail.ts";
 import { createLeadId, leadValues, renderAutoreply, renderNotification } from "./render.ts";
 import { validateLead } from "./validate.ts";
 
@@ -18,8 +18,16 @@ export type LeadResult =
 const errorResult = <S extends 400 | 413 | 500>(status: S, code: string, error: string) => ({ status, body: { error, code } });
 export const tooLarge = () => errorResult(413, "tooLarge", "The request is too large.");
 
-/** Лимит: 5 заявок за 10 минут с одного ключа и общий потолок 60 в час. */
-export type LeadLimiter = { retryAfter(key: string, now?: number): number; hit(key: string, now?: number): void };
+/**
+ * Лимит: 5 заявок за 10 минут с одного ключа и общий потолок 60 в час.
+ * hitKey — только счётчик ключа: срабатывания ловушки не должны выбирать общий потолок,
+ * иначе бот с дюжины адресов закроет форму настоящим клиентам на час.
+ */
+export type LeadLimiter = {
+  retryAfter(key: string, now?: number): number;
+  hit(key: string, now?: number): void;
+  hitKey(key: string, now?: number): void;
+};
 
 const GLOBAL_KEY = "*";
 export function createLeadLimiter({ perKey = 5, perKeyWindowMs = 10 * 60_000, global = 60, globalWindowMs = 60 * 60_000 } = {}): LeadLimiter {
@@ -31,10 +39,13 @@ export function createLeadLimiter({ perKey = 5, perKeyWindowMs = 10 * 60_000, gl
       byKey.fail(key, now);
       total.fail(GLOBAL_KEY, now);
     },
+    hitKey(key, now = Date.now()) {
+      byKey.fail(key, now);
+    },
   };
 }
 
-const state = globalThis as typeof globalThis & { __sphLeadLimiter?: LeadLimiter };
+const state = globalThis as typeof globalThis & { __sphLeadLimiter?: LeadLimiter; __sphLeadTrapHits?: number };
 /** Общий лимитер заявок процесса. */
 export function leadLimiter(): LeadLimiter {
   state.__sphLeadLimiter ??= createLeadLimiter();
@@ -76,6 +87,25 @@ export async function readBodyLimited(stream: ReadableStream<Uint8Array> | null,
 
 export type LeadSite = { projectTypes: readonly string[]; siteUrl: string; salesEmail: string };
 
+/** Свои домены: sphagnum.ae и домен отправителя (LEAD_FROM). */
+const OWN_DOMAINS = ["sphagnum.ae"];
+
+/**
+ * Можно ли слать автоответ на этот адрес. Не шлём на свои домены (и их поддомены)
+ * и на адреса команды и контактов — иначе форма станет способом слать письма от нас нам же.
+ * Домены LEAD_TO своими не считаем: команда может сидеть на gmail.com, как и клиенты.
+ */
+export function autoreplyAllowed(email: string, config: LeadConfig, salesEmail: string): boolean {
+  const address = email.toLowerCase();
+  const domain = domainOf(address);
+  const ours = [...OWN_DOMAINS, domainOf(config.from.address).toLowerCase()];
+  if (ours.some((own) => domain === own || domain.endsWith(`.${own}`))) return false;
+  const team = [...config.to.map((to) => to.address), salesEmail].map((value) => value.toLowerCase());
+  return !team.includes(address);
+}
+
+const SEND_FAILED = "We could not send your enquiry. Please try again later or email us directly.";
+
 /**
  * Заявка целиком. Разбор, проверка лимита, проверка полей и запись в лимит идут
  * без await между ними — пачка параллельных запросов не проскочит лимит.
@@ -90,6 +120,7 @@ export async function handleLead({
   transport,
   now = new Date(),
   log = console,
+  background = (task) => void task,
 }: {
   rawBody: string;
   key: string;
@@ -100,6 +131,8 @@ export async function handleLead({
   transport: SendRaw;
   now?: Date;
   log?: Pick<Console, "info" | "error">;
+  /** Куда отдать фоновую задачу (автоответ); тесты её дожидаются. */
+  background?: (task: Promise<void>) => void;
 }): Promise<LeadResult> {
   let input: unknown;
   try {
@@ -119,22 +152,29 @@ export async function handleLead({
 
   const checked = validateLead(input, site.projectTypes);
   if (!checked.ok) return { status: 400, body: { error: checked.error, code: checked.code, ...(checked.field ? { field: checked.field } : {}) } };
+  // Ловушка сработала: бот получает обычный ответ, письма нет. Считаем только ключ.
+  if ("spam" in checked) {
+    limiter.hitKey(key, now.getTime());
+    state.__sphLeadTrapHits = (state.__sphLeadTrapHits ?? 0) + 1;
+    log.info(`[lead] ловушка: заявка отброшена (всего с запуска: ${state.__sphLeadTrapHits})`);
+    return { status: 200, body: { ok: true } };
+  }
   limiter.hit(key, now.getTime());
-  // Ловушка сработала: бот получает обычный ответ, письма нет.
-  if ("spam" in checked) return { status: 200, body: { ok: true } };
   const { lead } = checked;
 
   const resolved = resolveLeadConfig(env, site.salesEmail);
   if ("problem" in resolved) {
+    // Наружу — тот же sendFailed: посетителю незачем знать, что сломано у нас.
     log.error(`[lead] почта не настроена: ${resolved.problem}`);
-    return errorResult(500, "notConfigured", "We could not send your enquiry. Please email us directly.");
+    return errorResult(500, "sendFailed", SEND_FAILED);
   }
   const { config } = resolved;
 
   const leadId = createLeadId(now);
   try {
     const templates = await loadTemplates();
-    const values = leadValues({ lead, leadId, now, siteUrl: site.siteUrl, salesEmail: site.salesEmail, autoreply: config.autoreply });
+    const autoreply = config.autoreply && autoreplyAllowed(lead.email, config, site.salesEmail);
+    const values = leadValues({ lead, leadId, now, siteUrl: site.siteUrl, salesEmail: site.salesEmail, autoreply });
     const team = renderNotification(templates.notification, values);
     await transport(
       buildMessage({ from: config.from, to: config.to, replyTo: { name: lead.name, address: lead.email }, ...team, date: now }),
@@ -142,29 +182,27 @@ export async function handleLead({
     );
     log.info(`[lead] ${leadId}: заявка отправлена команде`);
 
-    // Автоответ — по флагу; его сбой заявку не теряет, команде письмо уже ушло.
+    // Автоответ — по флагу и в фоне: ответ посетителю его не ждёт, сбой только в лог.
     if (config.autoreply) {
-      try {
+      if (!autoreply) {
+        log.info(`[lead] ${leadId}: автоответ пропущен — адрес на нашем домене или адрес команды`);
+      } else {
         const reply = renderAutoreply(templates.autoreply, values);
-        await transport(
-          buildMessage({
-            from: config.from,
-            to: [{ name: lead.name, address: lead.email }],
-            replyTo: config.to[0],
-            ...reply,
-            headers: { "Auto-Submitted": "auto-replied" },
-            date: now,
-          }),
-          config.from.address,
-        );
-      } catch (error) {
-        log.error(`[lead] ${leadId}: автоответ не ушёл (${reasonOf(error)})`);
+        const raw = buildMessage({
+          from: config.from,
+          to: [{ address: lead.email }],
+          replyTo: config.to[0],
+          ...reply,
+          headers: { "Auto-Submitted": "auto-replied" },
+          date: now,
+        });
+        background(transport(raw, config.from.address).catch((error) => log.error(`[lead] ${leadId}: автоответ не ушёл (${reasonOf(error)})`)));
       }
     }
     return { status: 200, body: { ok: true } };
   } catch (error) {
     log.error(`[lead] ${leadId}: письмо команде не ушло (${reasonOf(error)})`);
-    return errorResult(500, "sendFailed", "We could not send your enquiry. Please try again later or email us directly.");
+    return errorResult(500, "sendFailed", SEND_FAILED);
   }
 }
 

@@ -156,6 +156,11 @@ try {
       const reply = mails.find((mail) => mail.headers.to?.includes(values.email));
       invariant(reply && reply.headers["auto-submitted"] === "auto-replied", "нет автоответа клиенту");
       invariant(reply.parts.length === 2, "в автоответе не две части");
+      // Автоответ не пересылает текст из формы: только обращение, тип проекта и номер.
+      for (const value of [values.region, values.phone, values.area, stamp]) {
+        invariant(reply.parts.every((part) => !part.content.includes(value)), `в автоответе есть «${value}»`);
+      }
+      invariant(reply.parts[0].content.startsWith("Thank you, Проверка."), "в автоответе нет обращения по имени");
     }
   });
 

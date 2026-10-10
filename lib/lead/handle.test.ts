@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { SendmailError } from "./mail.ts";
-import { createLeadLimiter, handleLead, MAX_BODY_BYTES, readBodyLimited, resolveLeadConfig } from "./handle.ts";
+import { autoreplyAllowed, createLeadLimiter, handleLead, MAX_BODY_BYTES, readBodyLimited, resolveLeadConfig } from "./handle.ts";
 
 const templates = {
   notification: readFileSync(new URL("../../emails/lead-notification.html", import.meta.url), "utf8"),
@@ -19,10 +19,11 @@ function decoded(raw: string) {
 function setup({ env = { LEAD_TO: "team@sphagnum.ae" } as Record<string, string>, fail = [] as number[] } = {}) {
   const sent: { raw: string; from: string }[] = [];
   const logs: string[] = [];
+  const tasks: Promise<void>[] = [];
   let calls = 0;
   const limiter = createLeadLimiter();
-  const run = (body: unknown, key = "ip:1", now = new Date("2026-10-10T08:00:00Z")) =>
-    handleLead({
+  const run = async (body: unknown, key = "ip:1", now = new Date("2026-10-10T08:00:00Z")) => {
+    const result = await handleLead({
       rawBody: typeof body === "string" ? body : JSON.stringify(body),
       key,
       limiter,
@@ -35,8 +36,13 @@ function setup({ env = { LEAD_TO: "team@sphagnum.ae" } as Record<string, string>
       },
       now,
       log: { info: (line: string) => logs.push(line), error: (line: string) => logs.push(line) },
+      background: (task) => tasks.push(task),
     });
-  return { run, sent, logs };
+    // Фоновый автоответ дожидаемся, чтобы проверить его письмо.
+    await Promise.all(tasks.splice(0));
+    return result;
+  };
+  return { run, sent, logs, limiter };
 }
 
 test("заявка уходит команде: Reply-To — клиент, обе части письма", async () => {
@@ -61,27 +67,88 @@ test("LEAD_AUTOREPLY=1: второе письмо клиенту, Reply-To — �
   assert.equal((await run(lead)).status, 200);
   assert.equal(sent.length, 2);
   assert.match(sent[0].raw, /^To: team@sphagnum\.ae, boss@sphagnum\.ae$/m);
-  assert.match(decoded(sent[0].raw), /Клиент получил автоответ/);
-  assert.match(sent[1].raw, /^To: =\?UTF-8\?B\?.+\?= <anna@example\.com>$/m);
+  assert.match(decoded(sent[0].raw), /Клиенту отправлен автоответ/);
+  assert.match(sent[1].raw, /^To: anna@example\.com$/m);
   assert.match(sent[1].raw, /^Reply-To: team@sphagnum\.ae$/m);
   assert.match(sent[1].raw, /^Auto-Submitted: auto-replied$/m);
   assert.match(decoded(sent[1].raw), /Thank you, Анна\./);
   assert.equal(sent[1].from, "sales@sphagnum.ae");
+  // В автоответе нет свободного текста из формы.
+  const reply = decoded(sent[1].raw);
+  assert.doesNotMatch(reply, /Петрова|Acme|\+971|субстрат/);
 });
 
-test("без LEAD_TO — почта из контактов; без неё — 500 notConfigured", async () => {
+test("автоответ ответа не задерживает: HTTP-ответ готов до конца отправки", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  const sent: string[] = [];
+  let pending: Promise<void> | undefined;
+  const result = await handleLead({
+    rawBody: JSON.stringify(lead),
+    key: "k",
+    limiter: createLeadLimiter(),
+    site,
+    env: { LEAD_TO: "team@sphagnum.ae", LEAD_AUTOREPLY: "1" },
+    loadTemplates: async () => templates,
+    transport: async (raw) => {
+      if (sent.length === 1) await gate;
+      sent.push(raw);
+    },
+    log: { info() {}, error() {} },
+    background: (task) => (pending = task),
+  });
+  assert.equal(result.status, 200);
+  assert.equal(sent.length, 1);
+  release();
+  await pending;
+  assert.equal(sent.length, 2);
+});
+
+test("автоответ не уходит на свой домен и адреса команды", async () => {
+  const config = resolveLeadConfig({ LEAD_TO: "team@lead-box.com", LEAD_FROM: "noreply@mail.sphagnum.ae" }, "sales@sphagnum.ae");
+  assert.ok("config" in config);
+  const c = config.config;
+  assert.equal(autoreplyAllowed("anna@example.com", c, "sales@sphagnum.ae"), true);
+  // Домен команды — не наш: на нём бывают и клиенты (gmail.com).
+  assert.equal(autoreplyAllowed("other@lead-box.com", c, "sales@sphagnum.ae"), true);
+  assert.equal(autoreplyAllowed("owner@gmail.com", c, "Owner@Gmail.com"), false);
+  for (const email of ["boss@sphagnum.ae", "x@SPHAGNUM.AE", "x@eu.sphagnum.ae", "x@mail.sphagnum.ae", "TEAM@lead-box.com"]) {
+    assert.equal(autoreplyAllowed(email, c, "sales@sphagnum.ae"), false, email);
+  }
+  const { run, sent, logs } = setup({ env: { LEAD_TO: "team@sphagnum.ae", LEAD_AUTOREPLY: "1" } });
+  assert.equal((await run({ ...lead, email: "someone@sphagnum.ae" })).status, 200);
+  assert.equal(sent.length, 1);
+  assert.match(decoded(sent[0].raw), /Автоответ клиенту не отправлялся/);
+  assert.match(logs.join("\n"), /автоответ пропущен/);
+});
+
+test("без LEAD_TO — почта из контактов; без неё — 500 sendFailed", async () => {
   const fallback = setup({ env: {} });
   assert.equal((await fallback.run(lead)).status, 200);
   assert.match(fallback.sent[0].raw, /^To: sales@sphagnum\.ae$/m);
+
+  // Наружу — тот же sendFailed, что и при сбое sendmail; разница только в логе.
+  const broken = setup({ env: { LEAD_FROM: "not an address" } });
+  const result = await broken.run(lead);
+  assert.equal(result.status, 500);
+  assert.equal(result.status === 500 && result.body.code, "sendFailed");
+  assert.match(broken.logs.join("\n"), /почта не настроена/);
 
   assert.deepEqual(resolveLeadConfig({}, ""), { problem: "нет получателя: задайте LEAD_TO или почту в контактах" });
   assert.ok("problem" in resolveLeadConfig({ LEAD_FROM: "bad" }, "a@b.co"));
 });
 
-test("ловушка: 200 без письма", async () => {
-  const { run, sent } = setup();
+test("ловушка: 200 без письма, общий потолок не тратится", async () => {
+  const { run, sent, logs } = setup();
   assert.deepEqual(await run({ ...lead, website: "spam" }), { status: 200, body: { ok: true } });
   assert.equal(sent.length, 0);
+  assert.match(logs[0], /^\[lead\] ловушка: заявка отброшена \(всего с запуска: \d+\)$/);
+  // Бот с 20 адресов по 5 раз — 100 срабатываний, больше общего потолка в 60.
+  for (let ip = 0; ip < 20; ip++) for (let i = 0; i < 5; i++) await run({ ...lead, website: "spam" }, `bot:${ip}`);
+  assert.equal((await run(lead, "customer")).status, 200);
+  assert.equal(sent.length, 1);
+  // Ключ бота при этом упирается в свой лимит.
+  assert.equal((await run({ ...lead, website: "spam" }, "bot:0")).status, 429);
 });
 
 test("ошибки запроса — 400 с кодом", async () => {
@@ -126,6 +193,7 @@ test("sendmail упал — 500 sendFailed, в логе только номер 
 
 test("автоответ упал — заявка всё равно принята", async () => {
   const { run, sent, logs } = setup({ env: { LEAD_TO: "team@sphagnum.ae", LEAD_AUTOREPLY: "1" }, fail: [1] });
+  // Автоответ — в фоне; его сбой виден только в логе, по номеру заявки.
   assert.equal((await run(lead)).status, 200);
   assert.equal(sent.length, 1);
   assert.match(logs.at(-1)!, /автоответ не ушёл \(exit 75\)/);

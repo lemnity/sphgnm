@@ -43,17 +43,18 @@ const MESSAGES: Record<LeadErrorCode, string> = {
   tooLong: "One of the fields is too long.",
 };
 
-// Только ASCII: адрес уходит в заголовок Reply-To без кодирования.
+// Только ASCII: адрес уходит в заголовок Reply-To без кодирования. Локальная часть —
+// атомы через одну точку, без ? & = % ` (иначе mailto:…?cc=… в письме) и без ведущего дефиса.
 const EMAIL_RE =
-  /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/;
+  /^(?!-)[A-Za-z0-9!#$'*+/^_{|}~-]+(?:\.[A-Za-z0-9!#$'*+/^_{|}~-]+)*@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/;
 
 export function isEmail(value: string): boolean {
   return value.length <= LEAD_LIMITS.email && EMAIL_RE.test(value);
 }
 
-// Управляющие символы (кроме переводов строк и табуляции) выкидываем везде.
+// Управляющие символы C0 и C1 (кроме переводов строк и табуляции) выкидываем везде.
 // eslint-disable-next-line no-control-regex
-const CONTROL_RE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u2028\u2029]/g;
+const CONTROL_RE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u2028\u2029]/g;
 
 /** Однострочное поле: любые пробелы и переводы строк — в один пробел. */
 const singleLine = (value: string) => value.replace(CONTROL_RE, "").replace(/\s+/g, " ").trim();

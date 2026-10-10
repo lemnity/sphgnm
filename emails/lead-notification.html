@@ -2,8 +2,10 @@
 <!--
   Письмо команде о новой заявке с формы «Send an enquiry».
   Подстановки: {{leadId}} {{submittedAt}} {{replyBy}} {{name}} {{email}} {{phone}}
-  {{phoneDigits}} (только цифры, для wa.me) {{region}} {{projectType}} {{area}}
+  {{phoneDigits}} (только цифры, для tel: и wa.me) {{emailHref}} (адрес для mailto:, закодирован) {{region}} {{projectType}} {{area}}
   {{message}} {{pageUrl}} {{autoreplyNote}} (ушёл ли клиенту автоответ).
+  Блоки {{#hasPhone}}…{{/hasPhone}} и {{^hasPhone}}…{{/hasPhone}} выводятся, только когда
+  телефон указан или, наоборот, не указан.
   Пустые поля бэкенд заменяет на «—».
   Вёрстка письма: таблицы и инлайн-стили — иначе Outlook и Gmail разваливают макет.
 -->
@@ -106,11 +108,11 @@
                 </tr>
                 <tr>
                   <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:1.6px;color:#8A8F86;text-transform:uppercase;">Почта</td>
-                  <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:15px;"><a href="mailto:{{email}}" style="color:#3E5042;text-decoration:underline;">{{email}}</a></td>
+                  <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:15px;"><a href="mailto:{{emailHref}}" style="color:#3E5042;text-decoration:underline;">{{email}}</a></td>
                 </tr>
                 <tr>
                   <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:1.6px;color:#8A8F86;text-transform:uppercase;">Телефон / WhatsApp</td>
-                  <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:15px;"><a href="tel:{{phoneDigits}}" style="color:#3E5042;text-decoration:underline;">{{phone}}</a></td>
+                  <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:15px;">{{#hasPhone}}<a href="tel:{{phoneDigits}}" style="color:#3E5042;text-decoration:underline;">{{phone}}</a>{{/hasPhone}}{{^hasPhone}}—{{/hasPhone}}</td>
                 </tr>
                 <tr>
                   <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:1.6px;color:#8A8F86;text-transform:uppercase;">Регион</td>
@@ -141,12 +143,14 @@
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td class="stack" bgcolor="#102B20" style="background:#102B20;">
-                    <a href="mailto:{{email}}?subject=Sphagnum%20Eco%20%E2%80%94%20your%20enquiry" style="display:inline-block;padding:15px 26px;font-family:Arial,Helvetica,sans-serif;font-size:13px;letter-spacing:1.4px;font-weight:bold;color:#F5F4F0;text-decoration:none;text-transform:uppercase;">Ответить клиенту&nbsp;→</a>
+                    <a href="mailto:{{emailHref}}?subject=Sphagnum%20Eco%20%E2%80%94%20your%20enquiry" style="display:inline-block;padding:15px 26px;font-family:Arial,Helvetica,sans-serif;font-size:13px;letter-spacing:1.4px;font-weight:bold;color:#F5F4F0;text-decoration:none;text-transform:uppercase;">Ответить клиенту&nbsp;→</a>
                   </td>
+                  {{#hasPhone}}
                   <td width="12" class="stack" style="font-size:0;line-height:0;">&nbsp;</td>
                   <td class="stack stack-gap" style="border:1.5px solid #3E5042;">
                     <a href="https://wa.me/{{phoneDigits}}" style="display:inline-block;padding:14px 24px;font-family:Arial,Helvetica,sans-serif;font-size:13px;letter-spacing:1.4px;font-weight:bold;color:#3E5042;text-decoration:none;text-transform:uppercase;">WhatsApp</a>
                   </td>
+                  {{/hasPhone}}
                 </tr>
               </table>
             </td>

@@ -152,7 +152,7 @@ export class SendmailError extends Error {
  * Передаёт готовое письмо в `sendmail -t -i -f <from>`: получатели берутся из заголовков,
  * точка в строке не обрывает письмо. Без shell — аргументы не интерпретируются.
  */
-export function sendmailTransport(path = process.env.SENDMAIL_PATH || "/usr/sbin/sendmail", timeoutMs = 30_000): SendRaw {
+export function sendmailTransport(path = process.env.SENDMAIL_PATH || "/usr/sbin/sendmail", timeoutMs = 12_000): SendRaw {
   return (raw, envelopeFrom) =>
     new Promise<void>((resolve, reject) => {
       if (!isEmail(envelopeFrom)) return reject(new SendmailError("Некорректный адрес отправителя", "badFrom"));

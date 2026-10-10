@@ -19,6 +19,13 @@ test("валидная заявка нормализуется", () => {
   });
 });
 
+test("управляющие символы C0 и C1 вырезаются", () => {
+  const result = validateLead({ ...base, name: "Jane\u0085\u009b Doe\u0000", message: "a\u0080b\u009fc" }, TYPES);
+  assert.ok(result.ok && "lead" in result);
+  assert.equal(result.lead.name, "Jane Doe");
+  assert.equal(result.lead.message, "abc");
+});
+
 test("имя и почта обязательны", () => {
   assert.deepEqual(validateLead({ ...base, name: "   " }, TYPES), { ok: false, code: "nameRequired", error: "Please enter your name and company.", field: "name" });
   const noEmail = validateLead({ ...base, email: "" }, TYPES);
@@ -26,11 +33,31 @@ test("имя и почта обязательны", () => {
 });
 
 test("формат почты", () => {
-  for (const email of ["jane", "jane@", "@x.com", "jane@x", "ja ne@x.com", "jane@x.com\nBcc: a@b.c", "джейн@x.com", "<a@b.c>"]) {
+  for (const email of [
+    "jane",
+    "jane@",
+    "@x.com",
+    "jane@x",
+    "ja ne@x.com",
+    "jane@x.com\nBcc: a@b.c",
+    "джейн@x.com",
+    "<a@b.c>",
+    // Подмешать Cc/тело в mailto: из письма команде
+    "x?cc=victim%40evil.com&body=hi@evil.com",
+    "a&b@x.com",
+    "a=b@x.com",
+    "a%b@x.com",
+    "a`b@x.com",
+    ".jane@x.com",
+    "jane.@x.com",
+    "ja..ne@x.com",
+    "-jane@x.com",
+  ]) {
     const result = validateLead({ ...base, email }, TYPES);
     assert.equal(!result.ok && result.code, "invalidEmail", email);
   }
   assert.ok(validateLead({ ...base, email: "first.last+tag@mail.example.co.uk" }, TYPES).ok);
+  assert.ok(validateLead({ ...base, email: "o'neil-x_y@example.com" }, TYPES).ok);
 });
 
 test("пределы длины", () => {
