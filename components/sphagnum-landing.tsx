@@ -175,15 +175,40 @@ function SectionHead({
 
 type FormText = SiteContent["contact"]["form"];
 
-function LeadForm({ id, text }: { id: string; text: FormText }) {
-  const [sent, setSent] = useState(false);
+type FormStatus = "idle" | "sending" | "success" | "error";
+
+function LeadForm({ id, text, email }: { id: string; text: FormText; email: string }) {
+  const [status, setStatus] = useState<FormStatus>("idle");
+  // Текст ошибки с сервера (400 — что не так с полями); иначе — общий из контента.
+  const [serverError, setServerError] = useState("");
 
   return (
     <form
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
-        // Бэкенда нет — показываем подтверждение, submit не уходит никуда.
-        setSent(true);
+        if (status === "sending") return;
+        const form = e.currentTarget;
+        const data = Object.fromEntries(new FormData(form).entries());
+        setStatus("sending");
+        setServerError("");
+        try {
+          const response = await fetch(withBase("/api/lead"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          });
+          if (response.ok) {
+            form.reset();
+            setStatus("success");
+            return;
+          }
+          // В статической сборке API нет: 404/405 без JSON — показываем общий текст и почту.
+          const body = response.status === 400 ? await response.json().catch(() => null) : null;
+          setServerError(typeof body?.error === "string" ? body.error : "");
+          setStatus("error");
+        } catch {
+          setStatus("error");
+        }
       }}
       className="grid gap-4"
       aria-label={text.ariaLabel}
@@ -191,12 +216,12 @@ function LeadForm({ id, text }: { id: string; text: FormText }) {
       {/* Короткие поля парами: семь полей подряд читались как анкета и отпугивали.
           На узком экране пары схлопываются в одну колонку. */}
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field id={`${id}-name`} label={text.nameLabel} required />
-        <Field id={`${id}-email`} label={text.emailLabel} type="email" required />
+        <Field id={`${id}-name`} name="name" label={text.nameLabel} maxLength={200} required />
+        <Field id={`${id}-email`} name="email" label={text.emailLabel} type="email" maxLength={254} required />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field id={`${id}-phone`} label={text.phoneLabel} type="tel" />
-        <Field id={`${id}-region`} label={text.regionLabel} />
+        <Field id={`${id}-phone`} name="phone" label={text.phoneLabel} type="tel" maxLength={40} />
+        <Field id={`${id}-region`} name="region" label={text.regionLabel} maxLength={120} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -206,6 +231,7 @@ function LeadForm({ id, text }: { id: string; text: FormText }) {
           </label>
           <select
             id={`${id}-type`}
+            name="projectType"
             defaultValue=""
             className="h-12 w-full rounded-none border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] px-3.5 text-[15px] outline-none focus-visible:border-[color:var(--brand-moss)] focus-visible:ring-2 focus-visible:ring-[color:var(--brand-moss-40)]"
           >
@@ -219,7 +245,7 @@ function LeadForm({ id, text }: { id: string; text: FormText }) {
             ))}
           </select>
         </div>
-        <Field id={`${id}-area`} label={text.areaLabel} type="text" />
+        <Field id={`${id}-area`} name="area" label={text.areaLabel} type="text" maxLength={40} />
       </div>
 
       <div className="grid gap-1.5">
@@ -228,34 +254,64 @@ function LeadForm({ id, text }: { id: string; text: FormText }) {
         </label>
         <textarea
           id={`${id}-msg`}
+          name="message"
           rows={3}
+          maxLength={4000}
           className="w-full resize-y rounded-none border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] px-3.5 py-2.5 text-[15px] outline-none focus-visible:border-[color:var(--brand-moss)] focus-visible:ring-2 focus-visible:ring-[color:var(--brand-moss-40)]"
         />
       </div>
 
-      <button type="submit" className="btn btn-primary mt-1 flex w-full text-[13px]">
-        {text.submitLabel}
+      {/* Ловушка для ботов: человек поле не видит и не попадает в него табом. */}
+      <div aria-hidden="true" className="absolute -left-[10000px] top-auto h-px w-px overflow-hidden">
+        <label htmlFor={`${id}-website`}>Website</label>
+        <input id={`${id}-website`} name="website" type="text" tabIndex={-1} autoComplete="off" defaultValue="" />
+      </div>
+
+      <button
+        type="submit"
+        disabled={status === "sending"}
+        aria-busy={status === "sending"}
+        className="btn btn-primary mt-1 flex w-full text-[13px] disabled:cursor-wait disabled:opacity-70"
+      >
+        {status === "sending" ? text.sendingLabel : text.submitLabel}
         <ArrowRight className="size-4" strokeWidth={2} />
       </button>
 
       {/* aria-live: скринридер должен услышать результат, не теряя фокус */}
-      <p aria-live="polite" className="min-h-[20px] text-[13px] font-medium text-[color:var(--brand-moss)]">
-        {sent ? text.successMessage : ""}
-      </p>
+      <div aria-live="polite" className="min-h-[20px] text-[13px] font-medium" data-form-status={status}>
+        {status === "success" ? <p className="text-[color:var(--brand-moss)]">{text.successMessage}</p> : null}
+        {status === "error" ? (
+          <p role="alert" className="text-[color:var(--brand-ink)]">
+            {serverError || text.errorMessage}
+            {!serverError && email ? (
+              <>
+                {" "}
+                <a href={`mailto:${email}`} className="font-semibold text-[color:var(--brand-moss)] underline underline-offset-2">
+                  {email}
+                </a>
+              </>
+            ) : null}
+          </p>
+        ) : null}
+      </div>
     </form>
   );
 }
 
 function Field({
   id,
+  name,
   label,
   type = "text",
   required,
+  maxLength,
 }: {
   id: string;
+  name: string;
   label: string;
   type?: string;
   required?: boolean;
+  maxLength?: number;
 }) {
   return (
     <div className="grid gap-1.5">
@@ -267,8 +323,10 @@ function Field({
       </label>
       <input
         id={id}
+        name={name}
         type={type}
         required={required}
+        maxLength={maxLength}
         autoComplete={type === "email" ? "email" : type === "tel" ? "tel" : "on"}
         className="h-12 w-full rounded-none border border-[color:var(--brand-line)] bg-[color:var(--brand-cream)] px-3.5 text-[15px] outline-none focus-visible:border-[color:var(--brand-moss)] focus-visible:ring-2 focus-visible:ring-[color:var(--brand-moss-40)]"
       />
@@ -1084,7 +1142,7 @@ export default function SphagnumLanding({
               <p className="mb-6 mt-2 text-[13.5px] leading-snug text-[color:var(--brand-muted)]">
                 {contact.formLead}
               </p>
-              <LeadForm id="contact" text={contact.form} />
+              <LeadForm id="contact" text={contact.form} email={contacts.email} />
               <p className="mt-1 border-t border-[color:var(--brand-line)] pt-4 text-[12.5px] leading-snug text-[color:var(--brand-muted)]">
                 {contact.consent}
               </p>

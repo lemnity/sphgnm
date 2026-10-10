@@ -131,7 +131,11 @@ export type SiteContent = {
       messageLabel: string;
       messageHint: string;
       submitLabel: string;
+      /** Надпись на кнопке, пока заявка уходит. */
+      sendingLabel: string;
       successMessage: string;
+      /** Заявка не ушла (в статике API нет) — под текстом выводится почта из контактов. */
+      errorMessage: string;
     };
   };
   footer: { copyright: string };
@@ -245,7 +249,9 @@ export const SITE_SHAPE: Shape = {
       messageLabel: "string",
       messageHint: "string",
       submitLabel: "string",
+      sendingLabel: "string",
       successMessage: "string",
+      errorMessage: "string",
     },
   },
   footer: { copyright: "string" },

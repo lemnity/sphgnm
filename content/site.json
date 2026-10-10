@@ -472,7 +472,9 @@
       "messageLabel": "Message",
       "messageHint": "— optional",
       "submitLabel": "Submit Enquiry",
-      "successMessage": "Enquiry sent — we will respond within 24 hours."
+      "sendingLabel": "Sending…",
+      "successMessage": "Enquiry sent — we will respond within 24 hours.",
+      "errorMessage": "We couldn’t send your enquiry. Please try again later or email us directly."
     }
   },
   "footer": {
