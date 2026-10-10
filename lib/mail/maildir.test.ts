@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { copyFile, mkdir, mkdtemp, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, mkdtemp, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +12,7 @@ import {
   isRead,
   listEntries,
   readHead,
+  scanEntries,
   findMessage,
   listFolders,
   listMessages,
@@ -221,11 +222,44 @@ test("кэш списка папки сбрасывается при новом 
 
     const file = path.join(dir, "state.json");
     await writeFile(file, JSON.stringify({ read: { "gone.1": true, "1791600000.M2P1.mx,S=1174": true } }));
-    const ids = await allMessageIds(root);
+    const ids = (await allMessageIds(root))!;
     assert.ok(ids.has("1791300000.M5P1.mx") && ids.has("1791750000.M8P1.mx"));
     await setMailRead(file, "1791700000.M1P1.mx,S=501", true, ids);
     assert.deepEqual(Object.keys(await loadMailState(file)).sort(), ["1791600000.M2P1.mx,S=1174", "1791700000.M1P1.mx,S=501"]);
   } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("временная ошибка чтения папки: отметки не чистятся, неполный список не кэшируется", { skip: process.getuid?.() === 0 }, async () => {
+  const root = await makeMaildir();
+  const dir = await mkdtemp(path.join(tmpdir(), "sph-eacces-"));
+  const sent = path.join(root, ".Sent", "cur");
+  try {
+    clearMaildirCache();
+    const file = path.join(dir, "state.json");
+    await writeFile(file, JSON.stringify({ read: { "1791300000.M5P1.mx": false, "gone.1": true } }));
+    assert.ok(await allMessageIds(root));
+    // Dovecot пересобирает папку или права временно сбились — cur/ не читается.
+    await chmod(sent, 0o000);
+    assert.equal(await allMessageIds(root), null);
+    const partial = await scanEntries(root, ".Sent");
+    assert.deepEqual(partial, { entries: [], complete: false });
+    await setMailRead(file, "1791700000.M1P1.mx,S=501", true, await allMessageIds(root));
+    assert.deepEqual(Object.keys(await loadMailState(file)).sort(), ["1791300000.M5P1.mx", "1791700000.M1P1.mx,S=501", "gone.1"]);
+    // Папка без прав на вход: lstat cur/ даёт EACCES — тоже неполный обход, а не «папки нет».
+    await chmod(sent, 0o755);
+    await chmod(path.join(root, ".Sent"), 0o000);
+    assert.equal(await allMessageIds(root), null);
+    await chmod(path.join(root, ".Sent"), 0o755);
+    // Права вернулись — список снова полный (ошибочный не застрял в кэше), чистка работает.
+    assert.equal((await listEntries(root, ".Sent")).length, 1);
+    await setMailRead(file, "1791700000.M1P1.mx,S=501", true, await allMessageIds(root));
+    assert.deepEqual(Object.keys(await loadMailState(file)).sort(), ["1791300000.M5P1.mx", "1791700000.M1P1.mx,S=501"]);
+  } finally {
+    await chmod(sent, 0o755).catch(() => {});
+    await chmod(path.join(root, ".Sent"), 0o755).catch(() => {});
     await rm(root, { recursive: true, force: true });
     await rm(dir, { recursive: true, force: true });
   }
