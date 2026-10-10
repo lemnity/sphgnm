@@ -152,3 +152,9 @@ test("имя файла вложения: без путей и управляю�
 test("htmlToText", () => {
   assert.equal(htmlToText("<style>p{}</style><p>One&nbsp;&amp; two</p><br>three<script>x</script>"), "One & two\n\nthree");
 });
+
+test("htmlToText: символы, у которых меняется длина в нижнем регистре, не сдвигают теги", () => {
+  assert.equal(htmlToText("<p>İİİ<title>t</title>after</p><head>h</head>"), "İİİafter");
+  assert.equal(htmlToText("<P>ẞİ<SCRIPT>x</SCRIPT>ok</P>"), "ẞİok");
+  assert.equal(htmlToText("İ".repeat(50) + "<style>secret</style>visible"), "İ".repeat(50) + "visible");
+});

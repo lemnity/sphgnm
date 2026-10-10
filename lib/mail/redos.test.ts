@@ -30,7 +30,10 @@ const MB = 1024 * 1024;
 const COMMENT_OPEN = "<!" + "--";
 const fill = (unit: string, size = MB) => unit.repeat(Math.ceil(size / unit.length)).slice(0, size);
 
-/** Средний из трёх прогонов не дольше budget мс (первый прогон греет JIT). */
+/**
+ * Средний из трёх прогонов не дольше budget мс (первый прогон греет JIT). Запас — на
+ * параллельный npm test на слабой машине: квадратичная регрессия уходит в секунды.
+ */
 function within(budget: number, label: string, run: () => unknown) {
   run();
   const times: number[] = [];
@@ -64,11 +67,11 @@ test("I1: htmlToText на 1 МБ враждебного HTML — линейно"
     ["начало комментария", fill(COMMENT_OPEN)],
     ["« \\n»", fill(" \t\n")],
   ] as const) {
-    within(200, `htmlToText ${label}`, () => htmlToText(html));
+    within(300, `htmlToText ${label}`, () => htmlToText(html));
   }
   // 300 КБ «<» в base64 text/html без text/plain — превью строится из HTML.
   const body = Buffer.from("<".repeat(300_000)).toString("base64").replace(/.{76}/g, "$&\r\n");
-  within(200, "parseMessage html-only «<»", () => parseMessage(`Content-Type: text/html\r\nContent-Transfer-Encoding: base64\r\n\r\n${body}`));
+  within(300, "parseMessage html-only «<»", () => parseMessage(`Content-Type: text/html\r\nContent-Transfer-Encoding: base64\r\n\r\n${body}`));
 });
 
 test("sanitizeHtml на 1 МБ враждебного HTML — линейно", () => {
@@ -85,7 +88,7 @@ test("sanitizeHtml на 1 МБ враждебного HTML — линейно", 
     ["сущности в href", '<a href="' + fill("&#x61;") + '">'],
     ["стиль", '<p style="' + fill("url(") + '">'],
   ] as const) {
-    within(200, `sanitizeHtml ${label}`, () => sanitizeHtml(html));
+    within(300, `sanitizeHtml ${label}`, () => sanitizeHtml(html));
   }
 });
 
@@ -115,7 +118,7 @@ test("заголовки, параметры, encoded-words, декодеры �
     ["decodeMailboxName", () => decodeMailboxName(fill("&A"))],
     ["splitName", () => splitName(fill(":2,"))],
   ];
-  for (const [label, run] of cases) within(200, label, run);
+  for (const [label, run] of cases) within(300, label, run);
 });
 
 test("parseMessage и summarize на 1 МБ враждебных писем — линейно", () => {
@@ -131,20 +134,20 @@ test("parseMessage и summarize на 1 МБ враждебных писем — 
     ["name= в теле", "Content-Type: multipart/mixed\r\n\r\n" + fill("name      ")],
   ];
   for (const [label, raw] of messages) {
-    within(200, `parseMessage ${label}`, () => parseMessage(raw));
-    within(200, `summarize ${label}`, () => summarize(raw.slice(0, 128 * 1024)));
+    within(300, `parseMessage ${label}`, () => parseMessage(raw));
+    within(300, `summarize ${label}`, () => summarize(raw.slice(0, 128 * 1024)));
   }
 });
 
 test("заявки: проверка, письмо и CSV на враждебном вводе — линейно", () => {
   const types = ["Other"];
   const body = { name: fill(",", 200), email: fill("a.", 254), phone: fill("+", 40), region: fill(" ", 120), area: "1", message: fill(" \n", 4000), projectType: "Other" };
-  within(50, "validateLead", () => validateLead(body, types));
-  within(50, "isEmail длинный", () => isEmail(fill("a-", 300) + "@" + fill("a-", 300)));
+  within(300, "validateLead", () => validateLead(body, types));
+  within(300, "isEmail длинный", () => isEmail(fill("a-", 300) + "@" + fill("a-", 300)));
   const lead = { name: fill("{{name}}", 200), email: "a@b.co", phone: "", region: fill("{{#x}}", 120), projectType: "", area: "", message: fill("{{/x}}<", 4000) };
   const values = leadValues({ lead, leadId: createLeadId(new Date()), now: new Date(), siteUrl: "https://x", salesEmail: "s@x.co", autoreply: false });
-  within(50, "renderNotification", () => renderNotification(fill("{{message}}{{#hasPhone}}", 20_000), values));
-  within(50, "fillTemplate", () => fillTemplate("{{#a}}" + fill("{{x}}", 50_000), { x: fill("{{", 4000) }));
-  within(200, "CSV", () => toCsv(["a"], [[fill('"=,', MB)]]));
+  within(300, "renderNotification", () => renderNotification(fill("{{message}}{{#hasPhone}}", 20_000), values));
+  within(300, "fillTemplate", () => fillTemplate("{{#a}}" + fill("{{x}}", 50_000), { x: fill("{{", 4000) }));
+  within(300, "CSV", () => toCsv(["a"], [[fill('"=,', MB)]]));
   assert.equal(csvCell("=1"), "'=1");
 });

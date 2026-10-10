@@ -371,7 +371,9 @@ const SKIP_CONTENT = ["script", "style", "head", "title"];
  */
 export function htmlToText(input: string): string {
   const html = input.slice(0, MAX_HTML_TO_TEXT);
-  const lower = html.toLowerCase();
+  // Только A–Z: toLowerCase() меняет длину некоторых символов («İ» → «i̇»), и позиции
+  // в lower разъехались бы с html — заголовок утёк бы в превью или текст пропал.
+  const lower = html.replace(/[A-Z]/g, (char) => char.toLowerCase());
   // Есть ли вообще закрывающий тег дальше — чтобы не искать его заново от каждого открывающего.
   const lastClose = Object.fromEntries(SKIP_CONTENT.map((name) => [name, lower.lastIndexOf(`</${name}`)]));
   let out = "";
