@@ -10,13 +10,19 @@ function isAdminRequest(request: NextRequest): boolean {
   return "secret" in result && verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value, result.secret);
 }
 
+// Относительный Location: за nginx request.url указывает на 127.0.0.1:3000,
+// а браузер сам подставит домен, с которого пришёл.
+function redirectTo(location: string) {
+  return new NextResponse(null, { status: 307, headers: { Location: location } });
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (pathname === "/api/admin/login") return NextResponse.next();
 
   const authed = isAdminRequest(request);
   if (pathname === "/admin/login") {
-    return authed ? NextResponse.redirect(new URL("/admin", request.url)) : NextResponse.next();
+    return authed ? redirectTo("/admin") : NextResponse.next();
   }
   if (authed) return NextResponse.next();
 
@@ -28,9 +34,7 @@ export function middleware(request: NextRequest) {
     });
     return NextResponse.json({ error: translate(lang, "api.unauthorized"), code: codeOf("api.unauthorized") }, { status: 401 });
   }
-  const login = new URL("/admin/login", request.url);
-  login.searchParams.set("next", pathname);
-  return NextResponse.redirect(login);
+  return redirectTo(`/admin/login?next=${encodeURIComponent(pathname)}`);
 }
 
 export const config = {
