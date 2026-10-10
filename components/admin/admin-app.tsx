@@ -7,17 +7,21 @@ import { BLOCKS, describePath, parseApiError, splitPath, type BlockId, type Fiel
 import type { AdminLang } from "@/lib/admin/i18n";
 import { validateGallery, validateSiteContent, type GalleryItem, type SiteContent } from "@/lib/content/schema";
 import { withBase } from "@/lib/media";
-import { ApiError, loadContent, logout, saveContent, setUnauthorizedHandler, type Versions } from "./api";
+import { ApiError, INBOX_ID, listLeads, loadContent, mailCounts, logout, saveContent, setUnauthorizedHandler, type Versions } from "./api";
 import { AnchorDatalist, ErrorsContext, FieldsEditor, fieldId, type ErrorsApi, type Update } from "./fields-editor";
 import { GalleryEditor } from "./gallery-editor";
 import { AdminLangProvider, LangSwitch, useT } from "./i18n";
 import { HistoryView } from "./history-view";
+import { LeadsView } from "./leads-view";
 import { LoginForm } from "./login-form";
+import { MailView } from "./mail-view";
 import { MediaLibraryProvider, useLibrary } from "./media";
 import { AdminUiProvider, Dialog, useUi } from "./ui";
 import "./admin.css";
 
-type View = BlockId | "history";
+type View = BlockId | "history" | "leads" | "mail";
+/** Как часто обновлять счётчики непрочитанных в меню. */
+const UNREAD_POLL_MS = 60_000;
 type Obj = Record<string, unknown>;
 
 /* Сервисные блоки — не секции страницы, а общие для всего сайта данные. */
@@ -155,6 +159,26 @@ function Cabinet({
   const mainRef = useRef<HTMLElement>(null);
   // Версии файлов, от которых идёт правка: сервер откажет (409), если файл успели изменить.
   const versions = useRef(initialVersions);
+  // Непрочитанные заявки и письма во «Входящих» — для значков в меню.
+  const [leadsUnread, setLeadsUnread] = useState(0);
+  const [mailUnread, setMailUnread] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    const poll = async () => {
+      // Счётчики — не главное: сбой просто оставляет прежнее значение.
+      const [leads, mail] = await Promise.allSettled([listLeads(), mailCounts()]);
+      if (!alive) return;
+      if (leads.status === "fulfilled") setLeadsUnread(leads.value.unread);
+      if (mail.status === "fulfilled") setMailUnread(mail.value.connected ? (mail.value.folders.find((folder) => folder.id === INBOX_ID)?.unread ?? 0) : 0);
+    };
+    void poll();
+    const timer = window.setInterval(() => void poll(), UNREAD_POLL_MS);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   const siteDirty = useMemo(() => JSON.stringify(site) !== JSON.stringify(savedSite), [site, savedSite]);
   const galleryDirty = useMemo(() => JSON.stringify(gallery) !== JSON.stringify(savedGallery), [gallery, savedGallery]);
@@ -319,7 +343,7 @@ function Cabinet({
     window.location.assign("/admin/login");
   };
 
-  const block = view === "history" ? null : BLOCKS.find((candidate) => candidate.id === view)!;
+  const block = BLOCKS.find((candidate) => candidate.id === view) ?? null;
   const updateBlock: Update<Obj> = (fn) => {
     if (!block) return;
     setSite((prev) => ({ ...prev, [block.id]: fn(prev[block.id] as unknown as Obj) }));
@@ -366,6 +390,28 @@ function Cabinet({
 
       <div className="adm-body">
         <nav className="adm-side" aria-label={t("side.label")}>
+          <div className="adm-side__group">
+            <p className="adm-side__title">{t("side.inbox")}</p>
+            <ul>
+              {(
+                [
+                  { id: "leads", label: t("side.leads"), unread: leadsUnread },
+                  { id: "mail", label: t("side.mail"), unread: mailUnread },
+                ] as const
+              ).map((item) => (
+                <li key={item.id}>
+                  <button type="button" className="adm-side__item" aria-current={view === item.id ? "page" : undefined} onClick={() => open(item.id)}>
+                    <span>{item.label}</span>
+                    {item.unread ? (
+                      <span className="adm-side__unread" aria-label={t("side.unread", { count: item.unread })}>
+                        {item.unread}
+                      </span>
+                    ) : null}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
           {groups.map((group) => (
             <div key={group.id} className="adm-side__group">
               <p className="adm-side__title">{group.title}</p>
@@ -438,7 +484,11 @@ function Cabinet({
             </div>
           ) : null}
 
-          {view === "history" ? (
+          {view === "leads" ? (
+            <LeadsView onUnreadChange={setLeadsUnread} />
+          ) : view === "mail" ? (
+            <MailView onUnreadChange={setMailUnread} />
+          ) : view === "history" ? (
             <>
               <h1 className="adm-sr" id="adm-view-title" tabIndex={-1}>
                 {t("side.history")}

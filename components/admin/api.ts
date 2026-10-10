@@ -2,6 +2,9 @@
 // текстом сервера; на 401 срабатывает общий обработчик (окно «войдите снова»).
 import { LANG_HEADER, translate, type AdminLang } from "@/lib/admin/i18n";
 import type { GalleryItem, SiteContent } from "@/lib/content/schema";
+import type { StoredLead } from "@/lib/lead/store";
+import type { Folder, MessageRow } from "@/lib/mail/maildir";
+import type { Attachment } from "@/lib/mail/parse";
 
 /* Язык открытого интерфейса: уходит в заголовке, чтобы сервер ответил на нём же.
    Ставит AdminLangProvider. */
@@ -75,6 +78,43 @@ export const deleteMedia = (path: string) => api<{ ok: true }>(`/api/admin/media
 export const listHistory = () => api<{ entries: HistoryEntry[] }>("/api/admin/history");
 export const restoreHistory = (id: string) =>
   api<{ ok: true; name: "site" | "gallery"; version: string }>("/api/admin/history/restore", { method: "POST", body: JSON.stringify({ id }) });
+/* ---------- входящие: заявки и почта (только чтение) ---------- */
+
+export type { StoredLead, Folder, MessageRow, Attachment };
+/** id папки «Входящие» в Maildir (как в lib/mail/maildir.ts; тот модуль серверный). */
+export const INBOX_ID = "INBOX";
+export type MailList =
+  | { connected: false }
+  | { connected: true; folders: Folder[]; folder: string; page: number; pages: number; total: number; messages: MessageRow[] };
+export type MailMessage = {
+  id: string;
+  folder: string;
+  size: number;
+  from: string;
+  to: string;
+  cc: string;
+  subject: string;
+  date: string;
+  text: string;
+  html: string;
+  attachments: Attachment[];
+  truncated: boolean;
+};
+
+export const listLeads = () => api<{ leads: StoredLead[]; unread: number }>("/api/admin/leads");
+export const setLeadRead = (id: string, read: boolean) =>
+  api<{ lead: StoredLead }>(`/api/admin/leads/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ read }) });
+export const deleteLead = (id: string) => api<{ ok: true }>(`/api/admin/leads/${encodeURIComponent(id)}`, { method: "DELETE" });
+export const LEADS_CSV_URL = "/api/admin/leads/csv";
+
+const mailQuery = (params: Record<string, string | number>) => new URLSearchParams(Object.entries(params).map(([key, value]) => [key, String(value)])).toString();
+export const listMail = (folder: string, page: number) => api<MailList>(`/api/admin/mail?${mailQuery({ folder, page })}`);
+export const mailCounts = () => api<{ connected: false } | { connected: true; folders: Folder[] }>("/api/admin/mail?counts=1");
+export const openMail = (folder: string, id: string) => api<{ message: MailMessage }>(`/api/admin/mail/message?${mailQuery({ folder, id })}`);
+export const setMailRead = (folder: string, id: string, read: boolean) =>
+  api<{ ok: true }>(`/api/admin/mail/message?${mailQuery({ folder, id })}`, { method: "PATCH", body: JSON.stringify({ read }) });
+export const attachmentUrl = (folder: string, id: string, index: number) => `/api/admin/mail/attachment?${mailQuery({ folder, id, index })}`;
+
 export const login = (password: string) => api<{ ok: true }>("/api/admin/login", { method: "POST", body: JSON.stringify({ password }) });
 export const logout = () => api<{ ok: true }>("/api/admin/logout", { method: "POST" });
 
