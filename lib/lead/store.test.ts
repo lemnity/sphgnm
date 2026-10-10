@@ -276,3 +276,29 @@ test("свободное место по умолчанию — statfs ката�
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("суточный счётчик в памяти: каталог читается раз в сутки, предел соблюдается", async () => {
+  const dir = await tempDir();
+  try {
+    // До первой заявки суток в каталоге уже 2 файла этих суток (после перезапуска) и 1 вчерашний.
+    await writeFile(path.join(dir, "261010-AAAA.json"), JSON.stringify(sample("261010-AAAA", "2026-10-10T08:00:00.000Z")));
+    await writeFile(path.join(dir, "261010-BBBB.json"), JSON.stringify(sample("261010-BBBB", "2026-10-10T08:00:00.000Z")));
+    await writeFile(path.join(dir, "261009-AAAA.json"), JSON.stringify(sample("261009-AAAA", "2026-10-09T08:00:00.000Z")));
+    const store = createLeadStore(dir, { maxPerDay: 4, freeBytes: async () => 10 * MIN_FREE_BYTES });
+    await store.create(sample("261010-CCCC", "2026-10-10T09:00:00.000Z")); // засев: 2 → 3
+    // Файл, подложенный в обход хранилища, счётчик уже не видит: каталог больше не читается.
+    await writeFile(path.join(dir, "261010-ZZZZ.json"), JSON.stringify(sample("261010-ZZZZ", "2026-10-10T08:00:00.000Z")));
+    await store.create(sample("261010-DDDD", "2026-10-10T09:00:00.000Z")); // 4
+    await assert.rejects(store.create(sample("261010-EEEE", "2026-10-10T09:00:00.000Z")), { code: "ELIMIT" });
+    // Занятый номер не увеличивает счётчик; удаление освобождает место.
+    assert.equal(await store.remove("261010-DDDD"), true);
+    await assert.rejects(store.create(sample("261010-CCCC", "2026-10-10T09:00:00.000Z")), { code: "EEXIST" });
+    await store.create(sample("261010-EEEE", "2026-10-10T09:00:00.000Z"));
+    await assert.rejects(store.create(sample("261010-FFFF", "2026-10-10T09:00:00.000Z")), { code: "ELIMIT" });
+    // Новые сутки — новый засев из каталога (ZZZZ теперь не мешает: другие сутки).
+    await store.create(sample("261011-AAAA", "2026-10-11T08:00:00.000Z"));
+    assert.equal((await readdir(dir)).filter((name) => name.startsWith("261011-")).length, 1);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

@@ -108,20 +108,26 @@ export function createLeadStore(
     return run;
   };
 
+  // Заявок за сутки (YYMMDD) — засевается из каталога при первой заявке суток.
+  let daily: { day: string; count: number } | null = null;
+  const countDay = async (day: string) => (await readdir(dir)).filter((name) => name.startsWith(`${day}-`) && name.endsWith(".json")).length;
+
   return {
     create: (lead) =>
       serial(async () => {
         const file = fileOf(lead.id);
         await mkdir(dir, { recursive: true });
         if ((await freeBytes(dir)) < minFreeBytes) throw new LeadStoreRefused("ENOSPC");
-        const day = `${lead.id.slice(0, 6)}-`;
-        const today = (await readdir(dir)).filter((name) => name.startsWith(day) && name.endsWith(".json")).length;
-        if (today >= maxPerDay) throw new LeadStoreRefused("ELIMIT");
+        const day = lead.id.slice(0, 6);
+        // Счётчик суток в памяти: каталог читается один раз на сутки, а не на каждую заявку.
+        if (!daily || daily.day !== day) daily = { day, count: await countDay(day) };
+        if (daily.count >= maxPerDay) throw new LeadStoreRefused("ELIMIT");
         const tmp = tmpOf(file);
         await writeFile(tmp, json(lead), { flag: "wx" });
         try {
           // link не перезапишет существующий файл: номер занят — EEXIST.
           await link(tmp, file);
+          daily.count++;
         } finally {
           await unlink(tmp).catch(() => {});
         }
@@ -162,6 +168,7 @@ export function createLeadStore(
         if (!LEAD_ID_RE.test(id)) return false;
         try {
           await unlink(fileOf(id));
+          if (daily?.day === id.slice(0, 6)) daily.count = Math.max(0, daily.count - 1);
           return true;
         } catch {
           return false;
