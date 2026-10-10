@@ -30,6 +30,7 @@ npm run dev                     # http://localhost:3000, кабинет — /adm
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run verify:layout` | проверка вёрстки в браузере: порядок блоков, сетка, переполнение, мобильное меню. Нужен запущенный сервер: `URL=http://127.0.0.1:3000/ npm run verify:layout` |
 | `npm run verify:admin` | сквозная проверка кабинета: вход, правка, ошибки, английский интерфейс, галерея, медиатека, история, выход. `URL=… npm run verify:admin`, пароль берётся из `.env.local`. Контент и загрузки после прогона возвращаются как были. **Только против локального dev-сервера, никогда против боевого сайта**: скрипт правит живой контент |
+| `npm run verify:lead` | сквозная проверка формы заявки: сам поднимает `next dev` на порту 3310 с заглушкой sendmail (`scripts/sendmail-capture.sh`), отправляет форму в браузере и проверяет пойманные письма (значения полей, части text/plain и text/html, автоответ), ответы API 400/405/413 и текст ошибки, когда API нет. Другой `next dev` из этой папки на время прогона остановить. Против своего сервера — см. шапку `scripts/verify-lead.mjs` |
 | `npm run sync:instagram` | подтянуть посты @sphagnum_eco (нужен `INSTAGRAM_ACCESS_TOKEN`) |
 | `npm run preview` | раздать статическую сборку из `out/` |
 
@@ -46,8 +47,10 @@ app/
   page.tsx, layout.tsx          страница и метатеги — читают content/ на сервере
   admin/**/page.admin.tsx       кабинет и страница входа
   api/admin/**/route.admin.ts   API кабинета: вход, контент, загрузки, история
+  api/lead/route.admin.ts       приём заявок с формы → письмо через sendmail
   uploads/[...path]/route.admin.ts  отдача загруженных файлов в next start
 middleware.admin.ts             закрывает /admin и /api/admin без входа
+emails/                         HTML-шаблоны писем по заявке (команде и автоответ)
 content/
   site.json                     все тексты, ссылки и картинки по блокам страницы
   gallery.json                  элементы галереи (фото и видео)
@@ -64,6 +67,7 @@ components/
 lib/
   content/                      схема контента (типы и проверка) и чтение файлов
   admin/                        вход, лимит попыток, хранилище, описание полей редактора
+  lead/                         заявки: проверка полей, письма, MIME и sendmail
 scripts/                        проверки, синхронизация Instagram, снимки экрана
 ```
 
@@ -145,6 +149,10 @@ scripts/                        проверки, синхронизация Ins
 | `ADMIN_SESSION_SECRET` | ключ подписи cookie входа, случайная строка **не короче 32 символов**: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. В production обязателен. Смена ключа разлогинивает всех |
 | `ADMIN_TRUST_PROXY=1` | ставить, когда сайт открыт только через nginx и тот передаёт `proxy_set_header X-Real-IP $remote_addr;`. Тогда лимит попыток входа считается по IP |
 | `ADMIN_COOKIE_SECURE=false` | только пока у сервера нет HTTPS: иначе cookie с флагом Secure браузер по http не сохранит и вход молча не сработает. Работает только точное значение `false` |
+| `LEAD_TO` | кому слать заявки с формы, через запятую. Не задан — почта из блока «Контакты» |
+| `LEAD_FROM` | отправитель писем, по умолчанию `Sphagnum Eco <noreply@sphagnum.ae>`. Домен должен быть тем, для которого настроены SPF/DKIM |
+| `LEAD_AUTOREPLY=1` | слать клиенту автоответ. По умолчанию выключен: письма на произвольные адреса до настройки SPF/DKIM портят репутацию домена |
+| `SENDMAIL_PATH` | путь к sendmail, по умолчанию `/usr/sbin/sendmail` (Postfix) |
 | `INSTAGRAM_ACCESS_TOKEN` | для `sync:instagram`; на GitHub — секрет репозитория |
 
 Лимит входа: 10 неудачных попыток за 15 минут на IP и не больше 50 на всех.
@@ -152,6 +160,32 @@ scripts/                        проверки, синхронизация Ins
 один общий счётчик** — чужой перебор может закрыть вход и владельцу на 15 минут.
 За nginx флаг нужен обязательно. Счётчики живут в памяти процесса и
 сбрасываются перезапуском.
+
+## Заявки с формы
+
+Форма «Send an enquiry» отправляет `POST /api/lead` (JSON). Роут есть только в
+серверном режиме; в статике на Pages API нет, и форма показывает текст ошибки из
+`contact.form.errorMessage` с почтой из контактов.
+
+- Поля: `name` и `email` обязательны; `phone`, `region`, `projectType` (только из
+  списка `contact.form.projectTypes` или пусто), `area`, `message`. Пределы длины:
+  200 / 254 / 40 / 120 / 40 / 4000 символов. Тело больше 32 КБ — 413.
+- `website` — поле-ловушка, скрытое от людей. Если оно заполнено, ответ обычный
+  `200 { ok: true }`, но письмо не уходит.
+- Лимит: 5 заявок за 10 минут с одного адреса и не больше 60 в час на всех. Адрес
+  клиента считается по `X-Real-IP` только при `ADMIN_TRUST_PROXY=1`, иначе все
+  делят один счётчик — за nginx флаг нужен.
+- Ответы: `200 { ok: true }`; ошибки `{ error, code }` по-английски — `400`
+  (`invalidRequest`, `nameRequired`, `emailRequired`, `invalidEmail`,
+  `invalidProjectType`, `tooLong`, плюс `field`), `413 tooLarge`, `429 rateLimited`
+  (с `Retry-After`), `500 notConfigured` / `sendFailed`.
+- Письмо команде — `emails/lead-notification.html` плюс текстовая версия, `Reply-To`
+  — адрес клиента, так что «Ответить» в почте пишет сразу ему. Автоответ клиенту
+  (`emails/lead-autoreply.html`) — только с `LEAD_AUTOREPLY=1`, его `Reply-To` —
+  первый адрес из `LEAD_TO`.
+- Письма уходят через `sendmail -t -i -f <LEAD_FROM>`: на сервере его даёт Postfix.
+  Если sendmail не сработал, посетитель видит ошибку, а в журнале сервиса — строка
+  `[lead] <номер заявки>: письмо команде не ушло (exit 75)` без данных клиента.
 
 ## Запуск на своём сервере (VDS)
 
@@ -164,6 +198,8 @@ scripts/                        проверки, синхронизация Ins
    ADMIN_SESSION_SECRET=…        # 64 hex-символа из команды выше
    ADMIN_TRUST_PROXY=1
    # ADMIN_COOKIE_SECURE=false   # только пока нет HTTPS
+   LEAD_TO=sales@sphagnum.ae     # куда слать заявки с формы
+   # LEAD_AUTOREPLY=1            # после настройки SPF/DKIM
    ```
 4. Права: сервис пишет только в `content/` (включая `content/.history/`) и
    `public/uploads/` — им и отдать владельца, остальной код серверу менять незачем:
@@ -317,7 +353,7 @@ node scripts/screenshots.mjs   # → screenshots/ (в git не идёт)
 
 1. **`SPHAGNUM AE` или `Sphagnum Eco`.** В логотипе — `SPHAGNUM AE`, в текстах,
    FAQ и подвале — `Sphagnum Eco`.
-2. **Форма заявки никуда не отправляется** — только показывает подтверждение.
-   Приём заявок нужно подключить отдельно.
+2. **Форма заявки на GitHub Pages не работает** — там нет сервера. Заявки
+   принимает только серверная сборка (см. «Заявки с формы»).
 
 Почему визуал и сборка устроены именно так — в [DECISIONS.md](DECISIONS.md).
