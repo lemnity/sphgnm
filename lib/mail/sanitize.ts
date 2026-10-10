@@ -1,12 +1,60 @@
 // Очистка HTML письма перед показом в кабинете. Вторая линия обороны: письмо всё равно
 // рисуется в <iframe sandbox=""> с CSP. Без DOM и зависимостей — работает на сервере.
 
-/** Элементы, которые вырезаются вместе с содержимым. */
-const DROP_WITH_CONTENT = new Set(["script", "iframe", "object", "applet", "frameset", "frame", "noembed", "noframes", "template", "xmp", "plaintext"]);
+/**
+ * Элементы, которые вырезаются вместе с содержимым. Сюда входят все элементы с «сырым»
+ * текстом (style, title, textarea, xmp, noscript…): браузер читает их содержимое до
+ * первого </имя, а не по тегам, и разметка внутри атрибута превратилась бы в живую.
+ * svg и math — чужие пространства имён со своими правилами (CDATA, xlink:href): целиком.
+ */
+const DROP_WITH_CONTENT = new Set([
+  "script",
+  "style",
+  "title",
+  "textarea",
+  "xmp",
+  "plaintext",
+  "noscript",
+  "noembed",
+  "noframes",
+  "iframe",
+  "object",
+  "applet",
+  "frameset",
+  "frame",
+  "template",
+  "svg",
+  "math",
+  "select",
+]);
 /** Теги, которые вырезаются, а содержимое остаётся (или его нет). */
-const DROP_TAG = new Set(["embed", "form", "meta", "base", "link", "animate", "set", "animatemotion", "animatetransform", "param", "portal"]);
-/** Атрибуты со ссылками. */
-const URL_ATTRS = new Set(["href", "src", "action", "formaction", "xlink:href", "background", "poster", "lowsrc", "dynsrc", "cite", "longdesc", "usemap", "ping", "data", "codebase", "srcset"]);
+const DROP_TAG = new Set(["embed", "form", "meta", "base", "link", "param", "portal", "source", "track"]);
+/** Атрибуты со ссылками: остаются только href у a/area (как подсказка) и src/srcset у img. */
+const URL_ATTRS = new Set([
+  "href",
+  "xlink:href",
+  "src",
+  "srcset",
+  "action",
+  "formaction",
+  "background",
+  "poster",
+  "lowsrc",
+  "dynsrc",
+  "cite",
+  "longdesc",
+  "usemap",
+  "ping",
+  "data",
+  "codebase",
+  "manifest",
+  "icon",
+  "profile",
+  "archive",
+  "classid",
+]);
+/** Стиль, через который можно что-то загрузить или выполнить, — атрибут целиком долой. */
+const UNSAFE_STYLE = /url\s*\(|image-set|image\s*\(|cross-fade|element\s*\(|expression|@import|behavior|-moz-binding|javascript:|\\/i;
 
 const NAMED: Record<string, string> = { colon: ":", tab: "\t", newline: "\n", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", sol: "/", lpar: "(", rpar: ")" };
 
@@ -79,25 +127,38 @@ function cleanAttrs(tag: string, attrs: Attr[]): Attr[] {
   const out: Attr[] = [];
   for (const attr of attrs) {
     const { name, value } = attr;
-    if (name.startsWith("on") || name === "srcdoc" || name === "formaction" || name === "target" || name === "ping") continue;
-    if (!/^[a-z_:][a-z0-9_:.-]*$/.test(name)) continue;
-    if (value !== null && URL_ATTRS.has(name)) {
+    if (name.startsWith("on") || name === "srcdoc" || name === "target" || name === "is") continue;
+    if (!/^[a-z_][a-z0-9_.-]*(?::[a-z0-9_.-]+)?$/.test(name)) continue;
+    if (URL_ATTRS.has(name)) {
+      if (value === null) continue;
       // Ссылки в песочнице не открываются; адрес остаётся подсказкой при наведении.
-      if ((tag === "a" || tag === "area") && name === "href") {
+      if ((tag === "a" || tag === "area") && (name === "href" || name === "xlink:href")) {
         if (!isDangerousUrl(value)) out.push({ name: "title", value });
         continue;
       }
-      if (name === "srcset") {
-        if (value.split(",").some((item) => isDangerousUrl(item.trim()))) continue;
-      } else if (isDangerousUrl(value, name === "src" && tag === "img")) continue;
+      // Картинки — только <img>: загрузку из сети всё равно решает CSP (кнопка «Показать картинки»).
+      if (tag === "img" && name === "src" && !isDangerousUrl(value, true)) out.push(attr);
+      else if (tag === "img" && name === "srcset" && !value.split(",").some((item) => isDangerousUrl(item.trim()))) out.push(attr);
+      continue;
     }
-    if (name === "style" && value !== null && /expression\s*\(|javascript:|behavior\s*:|-moz-binding/i.test(decodeEntities(value))) continue;
+    if (name === "style" && value !== null && UNSAFE_STYLE.test(decodeEntities(value))) continue;
     out.push(attr);
   }
   return out;
 }
 
 const attrText = ({ name, value }: Attr) => (value === null ? ` ${name}` : ` ${name}="${value.replace(/"/g, "&quot;")}"`);
+
+const closers = new Map<string, RegExp>();
+/** «</имя» с границей — как браузер заканчивает сырой текст. */
+function closeTag(name: string): RegExp {
+  let re = closers.get(name);
+  if (!re) {
+    re = new RegExp(`</${name}[\\s/>]`, "gi");
+    closers.set(name, re);
+  }
+  return re;
+}
 
 /** HTML письма без скриптов, фреймов, форм, обработчиков on*, javascript:-ссылок и meta refresh. */
 export function sanitizeHtml(html: string): string {
@@ -132,13 +193,16 @@ export function sanitizeHtml(html: string): string {
     i = tag.end;
     if (DROP_WITH_CONTENT.has(name)) {
       if (closing) continue;
-      // Пропускаем до закрывающего тега (или до конца, если его нет).
-      const close = new RegExp(`</${name}[\\s/>]`, "i").exec(html.slice(i));
-      if (!close) {
+      // Пропускаем до закрывающего тега (или до конца, если его нет). Поиск от текущей
+      // позиции по всей строке, без slice — иначе тысячи пар <script></script> дают квадрат.
+      const close = closeTag(name);
+      close.lastIndex = i;
+      const found = close.exec(html);
+      if (!found) {
         i = html.length;
         continue;
       }
-      const after = html.indexOf(">", i + close.index);
+      const after = html.indexOf(">", found.index);
       i = after < 0 ? html.length : after + 1;
       continue;
     }

@@ -1,0 +1,20 @@
+From: =?UTF-8?B?0JfQu9C+0YPQvNGL0YjQu9C10L3QvdC40Log4oCuZ3BqLmV4ZQ==?= <evil@attacker.example>
+To: sales@sphagnum.ae
+Subject: Evil links
+Date: Fri, 09 Oct 2026 06:00:00 +0000 (UTC)
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="EVIL"
+
+--EVIL
+Content-Type: text/html; charset=utf-8
+
+<title><b title="</title><meta http-equiv=refresh content='0;url=https://tracker.example/refresh'><a id=l href='https://tracker.example/click' style='display:block;position:fixed;inset:0'>X</a>"></b></title>
+<svg width=600 height=400><a xlink:href='https://tracker.example/svgclick'><rect width=600 height=400 fill=red /></a></svg>
+<style><a title="</style><img src=x onerror=parent.document.title='HACKED'>"></a></style>
+<p id="evil">Evil links</p>
+--EVIL
+Content-Type: application/octet-stream
+Content-Disposition: attachment; filename="=?UTF-8?B?aW52b2ljZeKArmZkcC5leGU=?="
+
+MZ
+--EVIL--
