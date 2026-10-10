@@ -1,0 +1,7 @@
+From: Олег <oleg@example.com>
+To: sales@sphagnum.ae
+Subject: Без кодировки
+Date: Wed, 07 Oct 2026 10:00:00 +0000
+Content-Type: text/plain
+
+Привет, это тело без charset.

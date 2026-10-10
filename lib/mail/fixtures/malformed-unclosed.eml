@@ -1,0 +1,17 @@
+From: broken@example.com
+Subject: Unclosed
+Content-Type: multipart/mixed; boundary=b1
+
+--b1
+Content-Type: text/plain; charset=utf-8
+
+first part
+--b1
+Content-Type: multipart/alternative
+
+no boundary param here
+--b1
+Content-Type: application/pdf; name=report.pdf
+Content-Transfer-Encoding: base64
+
+!!!not base64###

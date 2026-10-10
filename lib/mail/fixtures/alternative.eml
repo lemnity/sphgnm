@@ -1,0 +1,29 @@
+From: "Green Roofs LLC" <info@greenroofs.example>
+To: sales@sphagnum.ae
+Subject: =?koi8-r?B?9MXT1A==?= alternative
+Date: Fri, 09 Oct 2026 09:00:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="ALT-boundary"
+
+--ALT-boundary
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+This line is long and has a soft break right here =
+and continues. Caf=C3=A9 =E2=80=94 ok.
+--ALT-boundary
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<html><head><meta http-equiv=3D"refresh" content=3D"0;url=3Dhttps://evil.example/"></head>
+<body onload=3D"parent.document.title=3D'HACKED'">
+<p id=3D"hello">Hello <b>roof</b> team</p>
+<script>parent.document.title=3D'HACKED'</script>
+<img id=3D"pixel" src=3D"https://tracker.example/pixel.png" alt=3D"pixel">
+<img src=3D"x" onerror=3D"parent.document.title=3D'HACKED'">
+<a href=3D"javascript:alert(1)">bad link</a>
+<a href=3D"https://greenroofs.example/offer">good link</a>
+<iframe src=3D"https://evil.example/"></iframe>
+<form action=3D"https://evil.example/"><input name=3D"q"></form>
+</body></html>
+--ALT-boundary--

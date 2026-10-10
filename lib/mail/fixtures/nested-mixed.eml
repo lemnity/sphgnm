@@ -1,0 +1,42 @@
+From: Boris <boris@example.org>
+To: Sales <sales@sphagnum.ae>
+Cc: office@example.org
+Subject: Drawings attached
+Date: Thu, 08 Oct 2026 15:30:00 +0300
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary=outer
+
+This is a multi-part message in MIME format.
+--outer
+Content-Type: multipart/alternative; boundary="inner"
+
+--inner
+Content-Type: text/plain; charset=us-ascii
+
+Please see the drawings.
+--inner
+Content-Type: text/html; charset=us-ascii
+
+<p>Please see the <i>drawings</i>.</p>
+--inner--
+--outer
+Content-Type: application/pdf
+Content-Disposition: attachment;
+ filename*=UTF-8''%D0%A7%D0%B5%D1%80%D1%82%D0%B5%D0%B6.pdf
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKJSBmYWtlIHBkZiBmb3IgdGVzdHMK
+--outer
+Content-Type: image/png; name="=?UTF-8?B?0YTQvtGC0L4ucG5n?="
+Content-Disposition: inline
+Content-Transfer-Encoding: base64
+Content-ID: <img1>
+
+iVBORw0KGgoAAAAA
+--outer
+Content-Type: application/octet-stream; name="../../etc/passwd"
+Content-Disposition: attachment; filename="../../etc/passwd"
+
+root:x:0:0
+--outer--
+epilogue

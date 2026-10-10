@@ -1,0 +1,8 @@
+From: broken@example.com
+Subject: Broken boundary
+Content-Type: multipart/mixed; boundary="never-used"
+
+--some-other-boundary
+Content-Type: text/plain
+
+lost text
