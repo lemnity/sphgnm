@@ -8,6 +8,22 @@ export const MAX_TEXT_CHARS = 512 * 1024;
 export const MAX_HTML_CHARS = 1536 * 1024;
 const MAX_DEPTH = 12;
 const MAX_PARTS = 500;
+/** Сколько символов заголовка разбираем для показа: длиннее — обрезаем до разбора. */
+export const MAX_HEADER_CHARS = 8192;
+/** Сколько символов HTML превращаем в текст для превью. */
+export const MAX_HTML_TO_TEXT = 256 * 1024;
+/** Граница multipart по RFC 2046 — до 70 символов; длиннее — письмо битое. */
+const MAX_BOUNDARY = 200;
+
+/**
+ * Управляющие символы и символы направления текста (U+202A–202E, U+2066–2069,
+ * U+200E/200F, U+061C): ими подделывают имена файлов и темы («exe.pdf» справа налево).
+ */
+// eslint-disable-next-line no-control-regex
+const UNSAFE_DISPLAY = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g;
+
+/** Текст заголовка для показа: без управляющих и bidi-символов, пробелы схлопнуты. */
+export const displayText = (value: string) => value.replace(UNSAFE_DISPLAY, "").replace(/\s+/g, " ").trim();
 
 export type Headers = Map<string, string[]>;
 
@@ -45,15 +61,26 @@ export type ParsedMessage = {
 
 const toBytes = (binary: string) => Buffer.from(binary, "latin1");
 
+const ALIASES: Record<string, string> = { "us-ascii": "utf-8", ascii: "utf-8", utf8: "utf-8", cp1251: "windows-1251", "win-1251": "windows-1251", latin1: "iso-8859-1" };
+// Декодеры переиспользуем: в заголовке могут быть тысячи закодированных слов.
+const decoders = new Map<string, TextDecoder | null>();
+const UTF8_STRICT = new TextDecoder("utf-8", { fatal: true });
+const WIN1252 = new TextDecoder("windows-1252");
+
 /** Метка кодировки → TextDecoder; неизвестная — null. */
-function decoderFor(charset: string, fatal = false): TextDecoder | null {
-  const label = charset.trim().toLowerCase().replace(/^"|"$/g, "").replace(/\*.*$/, "");
-  const aliases: Record<string, string> = { "us-ascii": "utf-8", ascii: "utf-8", utf8: "utf-8", cp1251: "windows-1251", "win-1251": "windows-1251", latin1: "iso-8859-1" };
+function decoderFor(charset: string): TextDecoder | null {
+  const label = charset.slice(0, 64).trim().toLowerCase().replace(/^"|"$/g, "").split("*")[0];
+  const name = ALIASES[label] ?? label;
+  if (decoders.has(name)) return decoders.get(name)!;
+  let decoder: TextDecoder | null;
   try {
-    return new TextDecoder(aliases[label] ?? label, { fatal });
+    decoder = new TextDecoder(name);
   } catch {
-    return null;
+    decoder = null;
   }
+  // Метки приходят из писем — кэш не растёт без предела.
+  if (decoders.size < 64) decoders.set(name, decoder);
+  return decoder;
 }
 
 /** Байты в строку: заданная кодировка, иначе UTF-8, иначе windows-1252 (никогда не бросает). */
@@ -64,18 +91,18 @@ export function decodeBytes(bytes: Uint8Array, charset?: string): string {
       // us-ascii часто врёт: внутри бывает UTF-8. Строгая попытка, затем обычная.
       if (decoder.encoding === "utf-8") {
         try {
-          return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+          return UTF8_STRICT.decode(bytes);
         } catch {
-          return new TextDecoder("windows-1252").decode(bytes);
+          return WIN1252.decode(bytes);
         }
       }
       return decoder.decode(bytes);
     }
   }
   try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return UTF8_STRICT.decode(bytes);
   } catch {
-    return new TextDecoder("windows-1252").decode(bytes);
+    return WIN1252.decode(bytes);
   }
 }
 
@@ -197,10 +224,12 @@ export function parseParams(value: string): { value: string; params: Record<stri
     segments.forEach((segment, position) => {
       let text = segment.text;
       if (segment.encoded && position === 0) {
-        const parts = /^([^']*)'[^']*'(.*)$/.exec(text);
-        if (parts) {
-          charset = parts[1] || "utf-8";
-          text = parts[2];
+        // charset'язык'значение — по апострофам, без регулярки.
+        const a = text.indexOf("'");
+        const b = a >= 0 ? text.indexOf("'", a + 1) : -1;
+        if (b >= 0) {
+          charset = text.slice(0, a) || "utf-8";
+          text = text.slice(b + 1);
         }
       }
       binary += segment.encoded ? text.replace(/%([0-9A-Fa-f]{2})/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16))) : text;
@@ -251,7 +280,7 @@ export function parsePart(binary: string, depth = 0, counter = { parts: 0 }, def
   };
   if (type.startsWith("multipart/")) {
     const boundary = contentType.params.boundary;
-    const chunks = boundary ? splitMultipart(body, boundary) : null;
+    const chunks = boundary && boundary.length <= MAX_BOUNDARY ? splitMultipart(body, boundary) : null;
     if (!chunks || depth >= MAX_DEPTH) {
       // Битая граница: показываем тело как текст, а не падаем.
       type = "text/plain";
@@ -289,7 +318,7 @@ const EXTENSIONS: Record<string, string> = {
 export function safeFileName(name: string, fallback: string): string {
   const base = name.replace(/\\/g, "/").split("/").pop() ?? "";
   // eslint-disable-next-line no-control-regex
-  const clean = base.replace(/[\u0000-\u001f\u007f"]/g, "").trim().slice(0, 180);
+  const clean = base.replace(UNSAFE_DISPLAY, "").replace(/["\t\n\r]/g, "").trim().slice(0, 180);
   return clean && clean !== "." && clean !== ".." ? clean : fallback;
 }
 
@@ -319,27 +348,71 @@ function cap(value: string, max: number): { value: string; cut: boolean } {
   return value.length > max ? { value: value.slice(0, max), cut: true } : { value, cut: false };
 }
 
-function isoDate(value: string): string | null {
-  if (!value) return null;
-  const time = Date.parse(value.replace(/\s*\([^)]*\)\s*$/, ""));
+/** Дата из заголовка Date. Длина обрезается до разбора, комментарий в конце снимается без регулярки. */
+export function isoDate(value: string): string | null {
+  let text = value.slice(0, 256).trim();
+  if (!text) return null;
+  // «Sat, 10 Oct 2026 12:05:00 +0400 (GST)» → без «(GST)».
+  if (text.endsWith(")")) {
+    const open = text.lastIndexOf("(");
+    if (open >= 0) text = text.slice(0, open).trim();
+  }
+  const time = Date.parse(text);
   return Number.isFinite(time) ? new Date(time).toISOString() : null;
 }
 
-/** Грубый текст из HTML — для превью, когда в письме нет text/plain. */
-export function htmlToText(html: string): string {
-  return html
-    .replace(/<(script|style|head|title)[\s\S]*?<\/\1\s*>/gi, "")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|tr|li|h[1-6]|table)\s*>/gi, "\n")
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Math.min(Number(code), 0x10ffff)))
-    .replace(/&amp;/gi, "&")
-    .replace(/[ \t]+\n/g, "\n")
+const ENTITIES: Record<string, string> = { nbsp: " ", lt: "<", gt: ">", quot: '"', apos: "'", amp: "&" };
+const BLOCK_END = new Set(["p", "div", "tr", "li", "h1", "h2", "h3", "h4", "h5", "h6", "table"]);
+const SKIP_CONTENT = ["script", "style", "head", "title"];
+
+/**
+ * Грубый текст из HTML — для превью, когда в письме нет text/plain.
+ * Линейный проход через indexOf: никаких регулярок с откатом по чужому HTML.
+ */
+export function htmlToText(input: string): string {
+  const html = input.slice(0, MAX_HTML_TO_TEXT);
+  const lower = html.toLowerCase();
+  // Есть ли вообще закрывающий тег дальше — чтобы не искать его заново от каждого открывающего.
+  const lastClose = Object.fromEntries(SKIP_CONTENT.map((name) => [name, lower.lastIndexOf(`</${name}`)]));
+  let out = "";
+  let i = 0;
+  while (i < html.length) {
+    const lt = html.indexOf("<", i);
+    if (lt < 0) {
+      out += html.slice(i);
+      break;
+    }
+    out += html.slice(i, lt);
+    if (html.startsWith("<!--", lt)) {
+      const end = html.indexOf("-->", lt + 4);
+      i = end < 0 ? html.length : end + 3;
+      continue;
+    }
+    const gt = html.indexOf(">", lt);
+    if (gt < 0) break; // незакрытый тег до конца — дальше только разметка
+    const tag = /^<(\/?)([a-z][a-z0-9]*)/.exec(lower.slice(lt, Math.min(gt + 1, lt + 32)));
+    i = gt + 1;
+    if (!tag) continue;
+    const [, closing, name] = tag;
+    if (!closing && SKIP_CONTENT.includes(name) && lastClose[name] > gt) {
+      const close = lower.indexOf(`</${name}`, gt);
+      const end = html.indexOf(">", close);
+      i = end < 0 ? html.length : end + 1;
+      continue;
+    }
+    if (name === "br" || (closing && BLOCK_END.has(name))) out += "\n";
+  }
+  const decoded = out.replace(/&(#\d{1,7}|#x[0-9a-f]{1,6}|[a-z]{2,6});/gi, (whole, body: string) => {
+    if (body[0] === "#") {
+      const code = body[1] === "x" || body[1] === "X" ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10);
+      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : "";
+    }
+    return ENTITIES[body.toLowerCase()] ?? whole;
+  });
+  return decoded
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
@@ -350,7 +423,7 @@ export function parseMessage(input: string | Uint8Array): ParsedMessage {
   walk(root, found);
   const html = cap(found.html ? partText(found.html) : "", MAX_HTML_CHARS);
   const text = cap(found.text ? partText(found.text) : html.value ? htmlToText(html.value) : "", MAX_TEXT_CHARS);
-  const header = (name: string) => decodeWords(first(root.headers, name)).replace(/\s+/g, " ").trim();
+  const header = (name: string) => displayText(decodeWords(first(root.headers, name).slice(0, MAX_HEADER_CHARS)));
   return {
     from: header("from"),
     to: header("to"),
@@ -382,16 +455,22 @@ export function summarize(input: string | Uint8Array): MessageSummary {
   const binary = asBinary(input);
   const { head } = splitHeadBody(binary);
   const headers = parseHeaders(head);
-  const header = (name: string) => decodeWords(first(headers, name)).replace(/\s+/g, " ").trim();
+  const header = (name: string) => displayText(decodeWords(first(headers, name).slice(0, MAX_HEADER_CHARS)));
   const hasAttachments =
     /^content-disposition:[ \t]*attachment/im.test(binary) ||
     (/^multipart\/mixed/i.test(first(headers, "content-type")) && /(?:file)?name\*?(?:0\*?)?\s*=/i.test(binary.slice(head.length)));
   return { from: header("from"), subject: header("subject"), date: isoDate(first(headers, "date")), hasAttachments };
 }
 
-/** «"Anna" <a@b.c>» → { name: "Anna", address: "a@b.c" }. */
+/** «"Anna" <a@b.c>» → { name: "Anna", address: "a@b.c" }. Без регулярок: только indexOf. */
 export function splitAddress(value: string): { name: string; address: string } {
-  const match = /^\s*"?(.*?)"?\s*<([^<>]+)>\s*(?:,.*)?$/.exec(value);
-  if (match) return { name: match[1].trim(), address: match[2].trim() };
-  return { name: "", address: value.split(",")[0]?.trim() ?? "" };
+  const text = value.slice(0, 1024);
+  const open = text.indexOf("<");
+  const close = open >= 0 ? text.indexOf(">", open) : -1;
+  if (open >= 0 && close > open + 1) {
+    let name = text.slice(0, open).trim();
+    if (name.length >= 2 && name.startsWith('"') && name.endsWith('"')) name = name.slice(1, -1).trim();
+    return { name, address: text.slice(open + 1, close).trim() };
+  }
+  return { name: "", address: (text.split(",")[0] ?? "").trim() };
 }
