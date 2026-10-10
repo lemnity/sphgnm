@@ -88,6 +88,7 @@ const before = {
 const MAILDIR = [
   [".INBOX/new", "1791700000.M1P1.verify,S=501", "encoded-headers.eml"],
   [".INBOX/cur", "1791600000.M2P1.verify,S=1174:2,", "alternative.eml"],
+  [".INBOX/cur", "1791550000.M4P1.verify:2,S", "evil-links.eml"],
   [".INBOX/cur", "1791500000.M3P1.verify,S=1080:2,S", "nested-mixed.eml"],
   [".Sent/cur", "1791300000.M5P1.verify:2,S", "latin1.eml"],
 ];
@@ -166,11 +167,14 @@ const readLead = async () => JSON.parse(await readFile(leadFile(), "utf8"));
 
 // Счётчик запросов к картинке-трекеру из письма: до кнопки их быть не должно.
 let trackerHits = 0;
+// Все запросы к домену злоумышленника из писем: переходы по ссылкам, refresh и прочее.
+const trackerUrls = [];
 
 try {
   if (ownServer) await waitForServer(at("/"), 180_000);
   await page.route("https://tracker.example/**", (route) => {
-    trackerHits++;
+    trackerUrls.push(route.request().url());
+    if (route.request().url().endsWith("/pixel.png")) trackerHits++;
     return route.fulfill({ status: 200, contentType: "image/gif", body: Buffer.from("R0lGODlhAQABAAAAACw=", "base64") });
   });
 
@@ -181,6 +185,15 @@ try {
       invariant(response.status() === 401, `${route}: ${response.status()} вместо 401`);
     }
     await anonymous.close();
+  });
+
+  await step("CSP страниц кабинета: фреймы только свои, без встраивания и плагинов", async () => {
+    const response = await context.request.get(at("/admin/login"));
+    const csp = response.headers()["content-security-policy"] ?? "";
+    for (const part of ["frame-src 'self' about:", "object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'"]) {
+      invariant(csp.includes(part), `CSP входа без «${part}»: ${csp}`);
+    }
+    invariant(response.headers()["x-frame-options"] === "DENY", "нет X-Frame-Options: DENY");
   });
 
   await step("вход в кабинет", async () => {
@@ -298,11 +311,13 @@ try {
     invariant((await folders.count()) === 2, `папок: ${await folders.count()}`);
     const rows = page.locator(".adm-mail__list tbody tr");
     await rows.first().waitFor();
-    invariant((await rows.count()) === 3, `писем во входящих: ${await rows.count()}`);
+    invariant((await rows.count()) === 4, `писем во входящих: ${await rows.count()}`);
     const subjects = await page.locator(".adm-mail__open").allTextContents();
-    invariant(JSON.stringify(subjects) === JSON.stringify(["Заявка на субстрат — крыша", "Тест alternative", "Drawings attached"]), `темы: ${subjects}`);
+    invariant(JSON.stringify(subjects) === JSON.stringify(["Заявка на субстрат — крыша", "Тест alternative", "Evil links", "Drawings attached"]), `темы: ${subjects}`);
     invariant((await page.locator(".adm-mail__unread").count()) === 2, "непрочитанных не 2");
-    invariant((await rows.nth(2).locator(".adm-mail__clip").count()) === 1, "нет значка вложения");
+    invariant((await rows.nth(3).locator(".adm-mail__clip").count()) === 1, "нет значка вложения");
+    // Символы направления текста из From не доходят до страницы.
+    invariant(!(await rows.nth(2).textContent()).includes("\u202e"), "в From остался U+202E");
     for (const name of ["Ответить", "Переслать", "Удалить", "Написать"]) {
       invariant((await page.locator(".adm-inbox").getByRole("button", { name }).count()) === 0, `в почте есть кнопка «${name}»`);
     }
@@ -341,6 +356,34 @@ try {
     invariant((await page.title()) === title, "скрипт письма выполнился после показа картинок");
   });
 
+  await step("обходы очистки: клик по письму и переход фрейма никуда не ведут", async () => {
+    await page.getByRole("button", { name: "← К списку" }).click();
+    await page.locator(".adm-mail__open", { hasText: "Evil links" }).click();
+    await page.getByRole("heading", { name: "Evil links" }).waitFor();
+    await page.getByRole("group", { name: "Вид письма" }).getByRole("button", { name: "HTML" }).click();
+    const frame = page.locator("iframe.adm-mail__frame");
+    const inner = page.frameLocator("iframe.adm-mail__frame");
+    await inner.locator("#evil").waitFor();
+    invariant((await inner.locator("body svg, body a[href], body meta, body style, body title, head base, head link").count()) === 0, "в письме остались svg/a[href]/meta/style/title");
+    const before = trackerUrls.length;
+    const box = await frame.boundingBox();
+    // Ссылка «на весь экран» из обхода через <title>: клик в центр и по углу фрейма.
+    for (const [x, y] of [[0.5, 0.5], [0.1, 0.1], [0.9, 0.8]]) await page.mouse.click(box.x + box.width * x, box.y + box.height * y);
+    await page.waitForTimeout(1200);
+    invariant(trackerUrls.length === before, `письмо обратилось к ${trackerUrls.slice(before).join(", ")}`);
+    await inner.locator("#evil").waitFor(); // фрейм остался на письме
+    // Переход фрейма на чужой адрес из родителя тоже режет CSP кабинета (frame-src).
+    await frame.evaluate((node) => {
+      try {
+        node.contentWindow.location.href = "https://tracker.example/navigate";
+      } catch {}
+    });
+    await page.waitForTimeout(1500);
+    invariant(!trackerUrls.some((url) => url.includes("/navigate")), "фрейм письма ушёл на чужой сайт");
+    const title = await page.title();
+    invariant(!title.includes("HACKED"), "скрипт письма выполнился");
+  });
+
   await step("прочитанное — в data/mail-state.json, Maildir не изменён", async () => {
     const state = JSON.parse(await readFile(stateFile, "utf8"));
     invariant(state.read["1791600000.M2P1.verify,S=1174"] === true, `mail-state: ${JSON.stringify(state)}`);
@@ -350,6 +393,7 @@ try {
   await step("вложения: список и скачивание только как файл", async () => {
     await page.getByRole("button", { name: "← К списку" }).click();
     await page.locator(".adm-mail__open", { hasText: "Drawings attached" }).click();
+    await page.getByRole("heading", { name: "Drawings attached" }).waitFor();
     await page.getByRole("heading", { name: "Вложения" }).waitFor();
     const links = page.locator(".adm-mail__files a");
     invariant((await links.count()) === 3, `вложений: ${await links.count()}`);
