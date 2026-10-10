@@ -222,6 +222,8 @@ async function saveLead(store: LeadStore | undefined, lead: Lead, now: Date, log
       await store.create({ ...lead, id: leadId, submittedAt: now.toISOString(), mailStatus: "pending", read: false });
       return { leadId, saved: true };
     } catch (error) {
+      // Предел за сутки, мало места или сбой диска: не сохраняем, но письмо всё равно
+      // пробуем отправить — посетитель видит обычный ответ, без причины.
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
         log.error(`[lead] ${leadId}: заявка не сохранена (${reasonOf(error)})`);
         return { leadId, saved: false };
