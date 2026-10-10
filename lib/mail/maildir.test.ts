@@ -5,7 +5,13 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  allMessageIds,
+  clearMaildirCache,
   decodeMailboxName,
+  emptyMailState,
+  isRead,
+  listEntries,
+  readHead,
   findMessage,
   listFolders,
   listMessages,
@@ -150,13 +156,77 @@ test("Maildir не меняется: чтение и отметки не тро�
     const entry = await findMessage(root, "INBOX", "1791700000.M1P1.mx,S=501");
     await readMessageFile(entry!);
     await Promise.all([setMailRead(stateFile, "1791700000.M1P1.mx,S=501", true), setMailRead(stateFile, "1791600000.M2P1.mx,S=1174", false)]);
-    assert.deepEqual(await loadMailState(stateFile), { "1791700000.M1P1.mx,S=501": true, "1791600000.M2P1.mx,S=1174": false });
+    assert.deepEqual({ ...(await loadMailState(stateFile)) }, { "1791700000.M1P1.mx,S=501": true, "1791600000.M2P1.mx,S=1174": false });
     const rows = (await listMessages(root, "INBOX", { state: await loadMailState(stateFile) })).messages;
     assert.deepEqual(rows.map((row) => row.read), [true, false, true, false]);
     assert.equal(await snapshot(), before);
-    assert.deepEqual(await loadMailState(path.join(stateDir, "missing.json")), {});
+    assert.deepEqual({ ...(await loadMailState(path.join(stateDir, "missing.json"))) }, {});
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(stateDir, { recursive: true, force: true });
+  }
+});
+
+test("симлинки: каталоги new/cur и файлы-симлинки не читаются, открытие — с O_NOFOLLOW", async () => {
+  const root = await makeMaildir();
+  const outside = await mkdtemp(path.join(tmpdir(), "sph-outside-"));
+  try {
+    // Папка, чей cur/ — симлинк наружу, и письмо-симлинк, подменённое после проверки.
+    await mkdir(path.join(outside, "cur"), { recursive: true });
+    await copyFile(path.join(fixtures, "alternative.eml"), path.join(outside, "cur", "1791000000.M1.x:2,"));
+    await mkdir(path.join(root, ".Evil"), { recursive: true });
+    await symlink(path.join(outside, "cur"), path.join(root, ".Evil", "cur"));
+    await symlink(outside, path.join(root, ".Linked"));
+    const ids = (await listFolders(root)).map((folder) => folder.id);
+    assert.ok(!ids.includes(".Evil") && !ids.includes(".Linked"), ids.join());
+    assert.deepEqual(await listEntries(root, ".Evil"), []);
+    assert.equal(await findMessage(root, ".Linked", "1791000000.M1.x"), null);
+    await assert.rejects(readHead(path.join(root, ".INBOX", "cur", "1791900000.M7P1.mx:2,"), 10), { code: "ELOOP" });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
+test("отметки без прототипа: id «__proto__» и «constructor» — обычные ключи", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "sph-proto-"));
+  try {
+    const file = path.join(dir, "state.json");
+    await writeFile(file, '{"read":{"__proto__":true,"constructor":false,"ok":true,"../x":true,"n":1}}');
+    const state = await loadMailState(file);
+    assert.equal(Object.getPrototypeOf(state), null);
+    assert.deepEqual(Object.keys(state).sort(), ["__proto__", "constructor", "ok"].sort());
+    assert.equal(isRead({ id: "toString", flags: "" }, emptyMailState()), false);
+    assert.equal(isRead({ id: "hasOwnProperty", flags: "S" }, emptyMailState()), true);
+    assert.equal(isRead({ id: "__proto__", flags: "" }, state), true);
+    await setMailRead(file, "__proto__", false);
+    assert.equal((await loadMailState(file))["__proto__"], false);
+    assert.equal(({} as Record<string, unknown>).polluted, undefined);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("кэш списка папки сбрасывается при новом письме; отметки исчезнувших писем чистятся", async () => {
+  const root = await makeMaildir();
+  const dir = await mkdtemp(path.join(tmpdir(), "sph-prune-"));
+  try {
+    clearMaildirCache();
+    const before = await listEntries(root, "INBOX");
+    assert.equal(before.length, 4);
+    assert.strictEqual(await listEntries(root, "INBOX"), before); // из кэша
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await copyFile(path.join(fixtures, "latin1.eml"), path.join(root, ".INBOX", "new", "1791750000.M8P1.mx"));
+    assert.equal((await listEntries(root, "INBOX")).length, 5);
+
+    const file = path.join(dir, "state.json");
+    await writeFile(file, JSON.stringify({ read: { "gone.1": true, "1791600000.M2P1.mx,S=1174": true } }));
+    const ids = await allMessageIds(root);
+    assert.ok(ids.has("1791300000.M5P1.mx") && ids.has("1791750000.M8P1.mx"));
+    await setMailRead(file, "1791700000.M1P1.mx,S=501", true, ids);
+    assert.deepEqual(Object.keys(await loadMailState(file)).sort(), ["1791600000.M2P1.mx,S=1174", "1791700000.M1P1.mx,S=501"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(dir, { recursive: true, force: true });
   }
 });

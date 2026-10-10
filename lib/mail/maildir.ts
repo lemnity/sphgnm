@@ -2,13 +2,16 @@
 // не создаются, не переименовываются и не удаляются. «Прочитано» хранится отдельно,
 // в JSON приложения (mail-state.json), по имени файла без флагов.
 import { randomBytes } from "node:crypto";
-import { mkdir, open, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, mkdir, open, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { MAX_MESSAGE_BYTES, summarize, type MessageSummary } from "./parse.ts";
+import { displayText, MAX_MESSAGE_BYTES, summarize, type MessageSummary } from "./parse.ts";
 
 export const PAGE_SIZE = 50;
 /** Сколько байт читаем с начала письма для строки списка. */
 const SUMMARY_BYTES = 128 * 1024;
+/** Сколько живёт список файлов папки в памяти (сбрасывается раньше, если изменились new/ или cur/). */
+const LIST_CACHE_MS = 15_000;
 
 export const INBOX = "INBOX";
 /** id папки: INBOX или имя каталога «.Name». */
@@ -24,8 +27,10 @@ export type MailState = Record<string, boolean>;
 
 /** «1700000000.M1P2.host,S=123:2,RS» → { stem, flags: "RS" }. */
 export function splitName(name: string): { stem: string; flags: string } {
-  const match = /^(.*?)[:!]2,([A-Za-z]*)$/.exec(name);
-  return match ? { stem: match[1], flags: match[2] } : { stem: name, flags: "" };
+  const at = Math.max(name.lastIndexOf(":2,"), name.lastIndexOf("!2,"));
+  if (at < 0) return { stem: name, flags: "" };
+  const flags = name.slice(at + 3);
+  return /^[A-Za-z]*$/.test(flags) ? { stem: name.slice(0, at), flags } : { stem: name, flags: "" };
 }
 
 /** Модифицированный UTF-7 (имена папок IMAP): «&BBoEPgRABDcEOAQ9BDA-» → «Корзина». */
@@ -41,13 +46,32 @@ export function decodeMailboxName(name: string): string {
 
 const folderDirs = (root: string, id: string) => (id === INBOX ? [root, path.join(root, ".INBOX")] : [path.join(root, id)]);
 
-async function isDir(dir: string): Promise<boolean> {
+/** Настоящий каталог (симлинк не считается: из Maildir наружу не ходим). */
+async function isRealDir(dir: string): Promise<boolean> {
   try {
-    return (await stat(dir)).isDirectory();
+    return (await lstat(dir)).isDirectory();
   } catch {
     return false;
   }
 }
+
+/** Каталоги new/ и cur/ папки, только настоящие. Корень Maildir сам может быть симлинком — его задаёт админ. */
+async function folderSubdirs(root: string, folderId: string): Promise<string[]> {
+  const bases = folderId === INBOX ? [root, path.join(root, ".INBOX")] : [path.join(root, folderId)];
+  const out: string[] = [];
+  for (const [index, base] of bases.entries()) {
+    if (!(index === 0 && folderId === INBOX) && !(await isRealDir(base))) continue;
+    for (const sub of ["new", "cur"]) if (await isRealDir(path.join(base, sub))) out.push(path.join(base, sub));
+  }
+  return out;
+}
+
+type Cached = { at: number; signature: string; entries: MessageEntry[] };
+const shared = globalThis as typeof globalThis & { __sphMailStateQueue?: Promise<unknown>; __sphMaildirCache?: Map<string, Cached> };
+const listCache = () => (shared.__sphMaildirCache ??= new Map());
+
+/** Сбросить кэш списков (тесты). */
+export const clearMaildirCache = () => listCache().clear();
 
 /** Есть ли Maildir по пути и можно ли его прочитать. */
 export async function maildirAvailable(root: string | undefined): Promise<boolean> {
@@ -60,69 +84,101 @@ export async function maildirAvailable(root: string | undefined): Promise<boolea
   }
 }
 
-/** Письма папки: файлы из new/ и cur/, без скрытых и не-обычных (симлинки пропускаем). */
+/**
+ * Письма папки: файлы из new/ и cur/, без скрытых и не-обычных (симлинки пропускаем).
+ * Список кэшируется на LIST_CACHE_MS; новое письмо или смена флагов меняют mtime каталога — кэш сбрасывается.
+ */
 export async function listEntries(root: string, folderId: string): Promise<MessageEntry[]> {
+  const dirs = await folderSubdirs(root, folderId);
+  const times = await Promise.all(dirs.map(async (dir) => (await lstat(dir).catch(() => null))?.mtimeMs ?? 0));
+  const signature = dirs.map((dir, index) => `${dir}@${times[index]}`).join("|");
+  const key = `${root}\0${folderId}`;
+  const cached = listCache().get(key);
+  if (cached && cached.signature === signature && Date.now() - cached.at < LIST_CACHE_MS) return cached.entries;
+
   const entries: MessageEntry[] = [];
   const seen = new Set<string>();
-  for (const dir of folderDirs(root, folderId)) {
-    for (const sub of ["new", "cur"]) {
-      const full = path.join(dir, sub);
-      let names;
+  for (const full of dirs) {
+    const sub = path.basename(full);
+    let names;
+    try {
+      names = await readdir(full, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const dirent of names) {
+      if (!dirent.isFile() || dirent.name.startsWith(".")) continue;
+      const { stem, flags } = splitName(dirent.name);
+      if (!MESSAGE_ID_RE.test(stem) || seen.has(stem)) continue;
+      seen.add(stem);
+      const file = path.join(full, dirent.name);
+      let info;
       try {
-        names = await readdir(full, { withFileTypes: true });
+        info = await lstat(file);
       } catch {
         continue;
       }
-      for (const dirent of names) {
-        if (!dirent.isFile() || dirent.name.startsWith(".")) continue;
-        const { stem, flags } = splitName(dirent.name);
-        if (!MESSAGE_ID_RE.test(stem) || seen.has(stem)) continue;
-        seen.add(stem);
-        const file = path.join(full, dirent.name);
-        let info;
-        try {
-          info = await stat(file);
-        } catch {
-          continue;
-        }
-        // Время доставки — из имени файла (секунды), иначе mtime.
-        const fromName = /^(\d{9,11})\./.exec(stem);
-        const time = fromName ? Number(fromName[1]) * 1000 : info.mtimeMs;
-        entries.push({ id: stem, file, flags: sub === "new" ? "" : flags, time, size: info.size });
-      }
+      if (!info.isFile()) continue;
+      // Время доставки — из имени файла (секунды), иначе mtime.
+      const fromName = /^(\d{9,11})\./.exec(stem);
+      const time = fromName ? Number(fromName[1]) * 1000 : info.mtimeMs;
+      entries.push({ id: stem, file, flags: sub === "new" ? "" : flags, time, size: info.size });
     }
   }
-  return entries.sort((a, b) => b.time - a.time || (a.id < b.id ? 1 : -1));
+  entries.sort((a, b) => b.time - a.time || (a.id < b.id ? 1 : -1));
+  if (listCache().size > 200) listCache().clear();
+  listCache().set(key, { at: Date.now(), signature, entries });
+  return entries;
 }
 
-export const isRead = (entry: Pick<MessageEntry, "id" | "flags">, state: MailState) => (entry.id in state ? state[entry.id] : entry.flags.includes("S"));
+export const isRead = (entry: Pick<MessageEntry, "id" | "flags">, state: MailState) =>
+  Object.hasOwn(state, entry.id) ? state[entry.id] === true : entry.flags.includes("S");
+
+/** Пустые отметки без прототипа: id письма вроде «__proto__» — просто ключ. */
+export const emptyMailState = (): MailState => Object.create(null) as MailState;
+
+/** Каталоги папок кроме INBOX: «.Имя», настоящие, с new/ или cur/. */
+async function otherFolders(root: string): Promise<string[]> {
+  let names: string[] = [];
+  try {
+    names = (await readdir(root, { withFileTypes: true })).filter((dirent) => dirent.isDirectory()).map((dirent) => dirent.name);
+  } catch {
+    return [];
+  }
+  const out: string[] = [];
+  for (const name of names.filter(isFolderName).sort()) {
+    if ((await isRealDir(path.join(root, name, "cur"))) || (await isRealDir(path.join(root, name, "new")))) out.push(name);
+  }
+  return out;
+}
+
+const isFolderName = (name: string) => name.startsWith(".") && name !== ".INBOX" && name !== "." && name !== ".." && FOLDER_ID_RE.test(name);
 
 /** Папки: INBOX первой, остальные — по имени. */
-export async function listFolders(root: string, state: MailState = {}): Promise<Folder[]> {
+export async function listFolders(root: string, state: MailState = emptyMailState()): Promise<Folder[]> {
   const folders: Folder[] = [];
   const count = async (id: string, name: string) => {
     const entries = await listEntries(root, id);
     folders.push({ id, name, total: entries.length, unread: entries.filter((entry) => !isRead(entry, state)).length });
   };
   await count(INBOX, INBOX);
-  let names: string[] = [];
-  try {
-    names = (await readdir(root, { withFileTypes: true })).filter((dirent) => dirent.isDirectory()).map((dirent) => dirent.name);
-  } catch {
-    return folders;
-  }
-  const others = names.filter((name) => name.startsWith(".") && name !== ".INBOX" && name !== "." && name !== ".." && FOLDER_ID_RE.test(name)).sort();
-  for (const name of others) {
-    if (!(await isDir(path.join(root, name, "cur"))) && !(await isDir(path.join(root, name, "new")))) continue;
-    await count(name, decodeMailboxName(name.slice(1)).split(".").join(" / "));
-  }
+  for (const name of await otherFolders(root)) await count(name, displayText(decodeMailboxName(name.slice(1)).split(".").join(" / ")));
   return folders;
+}
+
+/** id всех писем во всех папках — для чистки отметок «прочитано». */
+export async function allMessageIds(root: string): Promise<Set<string>> {
+  const ids = new Set<string>();
+  for (const folder of [INBOX, ...(await otherFolders(root))]) for (const entry of await listEntries(root, folder)) ids.add(entry.id);
+  return ids;
 }
 
 /** Начало файла: не больше limit байт. */
 export async function readHead(file: string, limit: number): Promise<Buffer> {
-  const handle = await open(file, "r");
+  // O_NOFOLLOW: если файл подменили симлинком после проверки, открытие откажет.
+  const handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
+    if (!(await handle.stat()).isFile()) throw Object.assign(new Error("not a regular file"), { code: "EINVAL" });
     const buffer = Buffer.alloc(limit);
     const { bytesRead } = await handle.read(buffer, 0, limit, 0);
     return buffer.subarray(0, bytesRead);
@@ -134,7 +190,7 @@ export async function readHead(file: string, limit: number): Promise<Buffer> {
 export async function listMessages(
   root: string,
   folderId: string,
-  { page = 1, pageSize = PAGE_SIZE, state = {} }: { page?: number; pageSize?: number; state?: MailState } = {},
+  { page = 1, pageSize = PAGE_SIZE, state = emptyMailState() }: { page?: number; pageSize?: number; state?: MailState } = {},
 ): Promise<{ total: number; page: number; pages: number; messages: MessageRow[] }> {
   const entries = await listEntries(root, folderId);
   const pages = Math.max(1, Math.ceil(entries.length / pageSize));
@@ -157,8 +213,12 @@ export async function listMessages(
 /** Письмо по папке и id: путь ищется только среди файлов папки, ввод в путь не подставляется. */
 export async function findMessage(root: string, folderId: string, id: string): Promise<MessageEntry | null> {
   if (!FOLDER_ID_RE.test(folderId) || !MESSAGE_ID_RE.test(id)) return null;
-  const folders = folderId === INBOX ? [INBOX] : (await listFolders(root)).map((folder) => folder.id);
-  if (!folders.includes(folderId)) return null;
+  // Только запрошенная папка: INBOX или «.Имя», которая есть среди каталогов корня.
+  if (folderId !== INBOX) {
+    if (!isFolderName(folderId)) return null;
+    const names = await readdir(root).catch(() => [] as string[]);
+    if (!names.includes(folderId) || !(await isRealDir(path.join(root, folderId)))) return null;
+  }
   return (await listEntries(root, folderId)).find((entry) => entry.id === id) ?? null;
 }
 
@@ -168,23 +228,26 @@ export const readMessageFile = (entry: MessageEntry) => readHead(entry.file, Mat
 /* ---------- отметки «прочитано» (файл приложения, не Maildir) ---------- */
 
 export async function loadMailState(file: string): Promise<MailState> {
+  const state = emptyMailState();
   try {
     const data = JSON.parse(await readFile(file, "utf8")) as { read?: unknown };
     const read = data && typeof data.read === "object" && data.read ? (data.read as Record<string, unknown>) : {};
-    return Object.fromEntries(Object.entries(read).filter(([key, value]) => MESSAGE_ID_RE.test(key) && typeof value === "boolean")) as MailState;
+    for (const [key, value] of Object.entries(read)) if (MESSAGE_ID_RE.test(key) && typeof value === "boolean") state[key] = value;
   } catch {
-    return {};
+    // Нет файла или он битый — все отметки по флагам Maildir.
   }
+  return state;
 }
 
-// Очередь записей — общая на процесс: роуты Next собираются отдельными модулями.
-const shared = globalThis as typeof globalThis & { __sphMailStateQueue?: Promise<unknown> };
-
-/** Отметить письмо; запись через временный файл, по очереди внутри процесса. */
-export function setMailRead(file: string, id: string, read: boolean): Promise<void> {
+/**
+ * Отметить письмо; запись через временный файл, по очереди внутри процесса.
+ * existing — id писем, которые ещё есть: отметки исчезнувших писем при записи удаляются.
+ */
+export function setMailRead(file: string, id: string, read: boolean, existing?: Set<string>): Promise<void> {
   const run = (shared.__sphMailStateQueue ?? Promise.resolve()).then(async () => {
     const state = await loadMailState(file);
     state[id] = read;
+    if (existing) for (const key of Object.keys(state)) if (key !== id && !existing.has(key)) delete state[key];
     await mkdir(path.dirname(file), { recursive: true });
     const tmp = `${file}.${randomBytes(6).toString("hex")}.tmp`;
     try {

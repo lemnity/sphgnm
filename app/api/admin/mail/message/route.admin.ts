@@ -3,7 +3,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { apiError, handleError, requestLang, requireAdmin } from "@/lib/admin/guard";
 import { connectedMaildir, mailStateFile, messageRef } from "@/lib/admin/mailbox";
-import { findMessage, readMessageFile, setMailRead } from "@/lib/mail/maildir";
+import { allMessageIds, findMessage, readMessageFile, setMailRead } from "@/lib/mail/maildir";
 import { parseMessage } from "@/lib/mail/parse";
 import { sanitizeHtml } from "@/lib/mail/sanitize";
 
@@ -25,7 +25,8 @@ export async function GET(request: NextRequest) {
     const entry = await findMessage(root, ref.folder, ref.id);
     if (!entry) return apiError(lang, 404, "api.messageNotFound");
     const parsed = parseMessage(await readMessageFile(entry));
-    await setMailRead(mailStateFile(), entry.id, true).catch((error) => console.error("[mail] отметка «прочитано» не записана:", (error as NodeJS.ErrnoException).code ?? error));
+    // Заодно чистим отметки писем, которых в Maildir уже нет.
+    await setMailRead(mailStateFile(), entry.id, true, await allMessageIds(root)).catch((error) => console.error("[mail] отметка «прочитано» не записана:", (error as NodeJS.ErrnoException).code ?? error));
     return NextResponse.json(
       {
         message: {
@@ -70,7 +71,7 @@ export async function PATCH(request: NextRequest) {
     if (!root) return apiError(lang, 404, "api.mailNotConnected");
     const entry = await findMessage(root, ref.folder, ref.id);
     if (!entry) return apiError(lang, 404, "api.messageNotFound");
-    await setMailRead(mailStateFile(), entry.id, read);
+    await setMailRead(mailStateFile(), entry.id, read, await allMessageIds(root));
     return NextResponse.json({ ok: true }, { headers: noStore });
   } catch (error) {
     return handleError(error, lang);
