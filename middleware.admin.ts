@@ -10,10 +10,13 @@ function isAdminRequest(request: NextRequest): boolean {
   return "secret" in result && verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value, result.secret);
 }
 
-// Относительный Location: за nginx request.url указывает на 127.0.0.1:3000,
-// а браузер сам подставит домен, с которого пришёл.
-function redirectTo(location: string) {
-  return new NextResponse(null, { status: 307, headers: { Location: location } });
+// За nginx request.url указывает на 127.0.0.1:3000 — адрес для переадресации
+// собираем из заголовков прокси (Next слушает только localhost, снаружи их не подменить).
+function redirectTo(request: NextRequest, path: string) {
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  const proto = request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "");
+  const base = host ? `${proto}://${host}` : request.url;
+  return NextResponse.redirect(new URL(path, base));
 }
 
 export function middleware(request: NextRequest) {
@@ -22,7 +25,7 @@ export function middleware(request: NextRequest) {
 
   const authed = isAdminRequest(request);
   if (pathname === "/admin/login") {
-    return authed ? redirectTo("/admin") : NextResponse.next();
+    return authed ? redirectTo(request, "/admin") : NextResponse.next();
   }
   if (authed) return NextResponse.next();
 
@@ -34,7 +37,7 @@ export function middleware(request: NextRequest) {
     });
     return NextResponse.json({ error: translate(lang, "api.unauthorized"), code: codeOf("api.unauthorized") }, { status: 401 });
   }
-  return redirectTo(`/admin/login?next=${encodeURIComponent(pathname)}`);
+  return redirectTo(request, `/admin/login?next=${encodeURIComponent(pathname)}`);
 }
 
 export const config = {
