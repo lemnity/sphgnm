@@ -13,15 +13,14 @@ export const PLACEHOLDERS = [
   "replyBy",
   "name",
   "email",
-  "emailHref",
   "phone",
-  "phoneDigits",
   "region",
   "projectType",
   "area",
   "message",
   "pageUrl",
   "siteUrl",
+  "adminUrl",
   "salesEmail",
   "autoreplyNote",
 ] as const;
@@ -87,8 +86,8 @@ export function greetingFor(name: string): string {
   return /^\p{L}[\p{L}\p{M}'’-]{0,29}$/u.test(first) ? `Thank you, ${first}.` : "Thank you.";
 }
 
-/** Адрес для mailto: закодирован всё, кроме @ — ни ?cc=, ни &body= не пройдут. */
-export const mailtoAddress = (email: string) => encodeURIComponent(email).replace(/%40/g, "@");
+/** Адрес кабинета: адрес сайта без хвостового слэша + /admin. */
+export const adminUrlOf = (siteUrl: string) => (siteUrl.trim() ? `${siteUrl.trim().replace(/\/+$/, "")}/admin` : "");
 
 export function leadValues({
   lead,
@@ -114,9 +113,7 @@ export function leadValues({
     name: or(lead.name),
     greeting: greetingFor(lead.name),
     email: or(lead.email),
-    emailHref: mailtoAddress(lead.email),
     phone: or(lead.phone),
-    phoneDigits: or(lead.phone.replace(/\D/g, "")),
     hasPhone: /\d/.test(lead.phone),
     region: or(lead.region),
     projectType: or(lead.projectType),
@@ -124,6 +121,7 @@ export function leadValues({
     message: or(lead.message),
     pageUrl: or(siteUrl),
     siteUrl: or(siteUrl),
+    adminUrl: or(adminUrlOf(siteUrl)),
     salesEmail: or(salesEmail),
     autoreplyNote: autoreply
       ? "Клиенту отправлен автоответ о том, что заявка принята."
@@ -178,6 +176,8 @@ export function renderNotification(template: string, v: LeadValues): RenderedMai
     "",
     `Отправлено с формы на странице ${v.pageUrl}`,
     v.autoreplyNote,
+    "",
+    `Это автоматическое уведомление — отвечать на него не нужно. Все заявки — в кабинете: ${v.adminUrl}`,
   ].join("\n");
   return { subject: `Заявка № ${v.leadId}: ${v.name}${projectType}`, html: fillTemplate(template, v, { hasPhone: v.hasPhone }), text };
 }
@@ -193,7 +193,7 @@ export function renderAutoreply(template: string, values: LeadValues): RenderedM
     `Your enquiry · No. ${v.leadId}`,
     `Project type: ${v.projectType}`,
     "",
-    "Something to add or correct? Simply reply to this email — it goes straight to our sales team.",
+    `This is an automated message, please do not reply. Something to add or correct? Write to ${v.salesEmail}.`,
     "",
     "SPHAGNUM ECO",
     v.salesEmail,

@@ -6,6 +6,7 @@ import { rateLimitKey } from "@/lib/admin/login";
 import { getSiteContent } from "@/lib/content/load";
 import { handleLead, leadLimiter, MAX_BODY_BYTES, readBodyLimited, tooLarge, type LeadResult } from "@/lib/lead/handle";
 import { sendmailTransport } from "@/lib/lead/mail";
+import { sharedLeadStore } from "@/lib/lead/store";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -36,6 +37,8 @@ export async function POST(request: NextRequest) {
       autoreply: await readFile(path.join(EMAILS_DIR, "lead-autoreply.html"), "utf8"),
     }),
     transport: sendmailTransport(),
+    // Заявка сохраняется до письма: кабинет «Заявки» (LEADS_DIR, по умолчанию data/leads).
+    store: sharedLeadStore(),
   });
   return respond(result);
 }

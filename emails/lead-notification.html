@@ -2,11 +2,11 @@
 <!--
   Письмо команде о новой заявке с формы «Send an enquiry».
   Подстановки: {{leadId}} {{submittedAt}} {{replyBy}} {{name}} {{email}} {{phone}}
-  {{phoneDigits}} (только цифры, для tel: и wa.me) {{emailHref}} (адрес для mailto:, закодирован) {{region}} {{projectType}} {{area}}
-  {{message}} {{pageUrl}} {{autoreplyNote}} (ушёл ли клиенту автоответ).
-  Блоки {{#hasPhone}}…{{/hasPhone}} и {{^hasPhone}}…{{/hasPhone}} выводятся, только когда
-  телефон указан или, наоборот, не указан.
+  {{region}} {{projectType}} {{area}} {{message}} {{pageUrl}} {{adminUrl}} (кабинет)
+  {{autoreplyNote}} (ушёл ли клиенту автоответ).
   Пустые поля бэкенд заменяет на «—».
+  Уведомление только для чтения: ни ссылок mailto:/tel:/WhatsApp, ни кнопки «Ответить» —
+  заявки разбираются в кабинете, а почта и телефон показаны обычным текстом.
   Вёрстка письма: таблицы и инлайн-стили — иначе Outlook и Gmail разваливают макет.
 -->
 <html lang="ru" xmlns="http://www.w3.org/1999/xhtml">
@@ -108,11 +108,11 @@
                 </tr>
                 <tr>
                   <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:1.6px;color:#8A8F86;text-transform:uppercase;">Почта</td>
-                  <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:15px;"><a href="mailto:{{emailHref}}" style="color:#3E5042;text-decoration:underline;">{{email}}</a></td>
+                  <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#3E5042;">{{email}}</td>
                 </tr>
                 <tr>
                   <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:1.6px;color:#8A8F86;text-transform:uppercase;">Телефон / WhatsApp</td>
-                  <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:15px;">{{#hasPhone}}<a href="tel:{{phoneDigits}}" style="color:#3E5042;text-decoration:underline;">{{phone}}</a>{{/hasPhone}}{{^hasPhone}}—{{/hasPhone}}</td>
+                  <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#3E5042;">{{phone}}</td>
                 </tr>
                 <tr>
                   <td style="padding:14px 0;border-bottom:1px solid #DEDACF;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:1.6px;color:#8A8F86;text-transform:uppercase;">Регион</td>
@@ -137,30 +137,19 @@
             </td>
           </tr>
 
-          <!-- Действия: ответить письмом и написать в WhatsApp -->
+          <!-- Отступ вместо кнопок: на уведомление не отвечают -->
           <tr>
-            <td bgcolor="#F5F4F0" class="px" style="background:#F5F4F0;padding:34px 40px 40px;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <td class="stack" bgcolor="#102B20" style="background:#102B20;">
-                    <a href="mailto:{{emailHref}}?subject=Sphagnum%20Eco%20%E2%80%94%20your%20enquiry" style="display:inline-block;padding:15px 26px;font-family:Arial,Helvetica,sans-serif;font-size:13px;letter-spacing:1.4px;font-weight:bold;color:#F5F4F0;text-decoration:none;text-transform:uppercase;">Ответить клиенту&nbsp;→</a>
-                  </td>
-                  {{#hasPhone}}
-                  <td width="12" class="stack" style="font-size:0;line-height:0;">&nbsp;</td>
-                  <td class="stack stack-gap" style="border:1.5px solid #3E5042;">
-                    <a href="https://wa.me/{{phoneDigits}}" style="display:inline-block;padding:14px 24px;font-family:Arial,Helvetica,sans-serif;font-size:13px;letter-spacing:1.4px;font-weight:bold;color:#3E5042;text-decoration:none;text-transform:uppercase;">WhatsApp</a>
-                  </td>
-                  {{/hasPhone}}
-                </tr>
-              </table>
-            </td>
+            <td bgcolor="#F5F4F0" style="background:#F5F4F0;padding:0 0 36px;font-size:0;line-height:0;">&nbsp;</td>
           </tr>
 
           <!-- Подвал: откуда пришла заявка -->
           <tr>
             <td bgcolor="#102B20" class="px" style="background:#102B20;padding:20px 40px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:rgba(245,244,240,.6);line-height:1.6;">
-              Отправлено с формы на странице <a href="{{pageUrl}}" style="color:#D7B15E;text-decoration:none;">{{pageUrl}}</a><br />
+              Отправлено с формы на странице {{pageUrl}}<br />
               {{autoreplyNote}}
+              <div style="padding-top:10px;font-size:11.5px;color:rgba(245,244,240,.5);">
+                Это автоматическое уведомление — отвечать на него не нужно. Все заявки — в кабинете: <span style="color:#D7B15E;">{{adminUrl}}</span>
+              </div>
             </td>
           </tr>
 

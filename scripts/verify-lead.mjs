@@ -13,7 +13,7 @@
 // Лимит — 5 заявок за 10 минут: скрипт отправляет одну, частые повторы упрутся в 429.
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, readdir, readFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -59,6 +59,11 @@ function parseMail(raw) {
   });
   return { headers, parts };
 }
+
+// Заявки теперь сохраняются (кабинет «Заявки»): созданные прогоном файлы удаляем в конце.
+const leadsDir = path.resolve(root, process.env.LEADS_DIR ?? "data/leads");
+const listLeads = async () => (existsSync(leadsDir) ? (await readdir(leadsDir)).filter((name) => name.endsWith(".json")) : []);
+const leadsBefore = new Set(await listLeads());
 
 const listMails = async () => (existsSync(captureDir) ? (await readdir(captureDir)).filter((name) => name.endsWith(".eml")) : []);
 
@@ -140,9 +145,12 @@ try {
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
     const mails = await Promise.all(fresh.map(async (name) => parseMail(await readFile(path.join(captureDir, name), "utf8"))));
-    const team = mails.find((mail) => mail.headers["reply-to"]?.includes(values.email));
-    invariant(team, `нет письма с Reply-To ${values.email} (новых писем: ${mails.length})`);
+    const team = mails.find((mail) => !mail.headers.to?.includes(values.email));
+    invariant(team, `нет письма команде (новых писем: ${mails.length})`);
     if (ownServer) invariant(team.headers.to === leadTo, `To: ${team.headers.to}`);
+    // Уведомление — без Reply-To и с пометкой автоматического письма.
+    invariant(!("reply-to" in team.headers), `у письма команде есть Reply-To: ${team.headers["reply-to"]}`);
+    invariant(team.headers["auto-submitted"] === "auto-generated" && team.headers["x-auto-response-suppress"] === "All", "нет заголовков автоматического письма");
     invariant(team.parts.map((part) => part.type).join(",") === "text/plain,text/html", `части: ${team.parts.map((part) => part.type)}`);
     const [text, html] = team.parts.map((part) => part.content);
     for (const value of [values.name, values.email, values.phone, values.region, values.area]) {
@@ -152,9 +160,12 @@ try {
     invariant(text.includes(values.message.replace("\n", "\r\n")), "в тексте нет сообщения");
     invariant(html.includes(`&lt;b&gt;${stamp}&lt;/b&gt;`) && !html.includes(`<b>${stamp}`), "сообщение в HTML не экранировано");
     invariant(!/\{\{/.test(html), "в HTML остались {{подстановки}}");
+    invariant(!/mailto:|tel:|wa\.me/.test(html), "в уведомлении есть ссылки mailto:/tel:/WhatsApp");
+    invariant(text.includes("отвечать на него не нужно") && /\/admin\b/.test(text), "нет строки про кабинет");
     if (ownServer) {
       const reply = mails.find((mail) => mail.headers.to?.includes(values.email));
-      invariant(reply && reply.headers["auto-submitted"] === "auto-replied", "нет автоответа клиенту");
+      invariant(reply && reply.headers["auto-submitted"] === "auto-generated", "нет автоответа клиенту");
+      invariant(!("reply-to" in reply.headers), "у автоответа есть Reply-To");
       invariant(reply.parts.length === 2, "в автоответе не две части");
       // Автоответ не пересылает текст из формы: только обращение, тип проекта и номер.
       for (const value of [values.region, values.phone, values.area, stamp]) {
@@ -178,8 +189,14 @@ try {
     invariant((await alert.locator('a[href^="mailto:"]').count()) === 1, "нет ссылки на почту");
     invariant(await form.locator('button[type="submit"]').isEnabled(), "кнопка осталась неактивной");
   });
+  await step("заявка сохранена для кабинета", async () => {
+    const fresh = (await listLeads()).filter((name) => !leadsBefore.has(name));
+    const saved = await Promise.all(fresh.map(async (name) => JSON.parse(await readFile(path.join(leadsDir, name), "utf8"))));
+    invariant(saved.some((lead) => lead.email === values.email && lead.mailStatus === "sent"), `нет сохранённой заявки (новых файлов: ${fresh.length})`);
+  });
 } finally {
   await browser.close();
+  for (const name of await listLeads()) if (!leadsBefore.has(name)) await rm(path.join(leadsDir, name), { force: true });
   if (server) {
     try {
       process.kill(-server.pid, "SIGTERM");

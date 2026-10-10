@@ -10,7 +10,7 @@ import {
   formatDubai,
   greetingFor,
   leadValues,
-  mailtoAddress,
+  adminUrlOf,
   PLACEHOLDERS,
   renderAutoreply,
   renderNotification,
@@ -49,7 +49,7 @@ test("все подстановки заполнены, значения экр�
   const html = renderNotification(notification, values).html;
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt; &amp; Co/);
   assert.match(html, /Hi &quot;team&quot;<br \/>\nSecond line/);
-  assert.match(html, /wa\.me\/971501234567/);
+  assert.match(html, /\+971 \(50\) 123-45-67/);
   assert.match(html, /Автоответ клиенту не отправлялся/);
   assert.doesNotMatch(html, /—"/); // «—» в href не попадает
 });
@@ -58,8 +58,8 @@ test("пустые поля — «—», значения по Дубаю", () =
   assert.equal(values.region, "—");
   assert.equal(values.submittedAt, "11 октября 2026, 00:30 (Дубай)");
   assert.equal(values.replyBy, "12 октября 2026, 00:30 (Дубай)");
-  assert.equal(values.phoneDigits, "971501234567");
-  assert.equal(leadValues({ lead: { ...lead, phone: "" }, leadId: "x", now, siteUrl: "", salesEmail: "", autoreply: true }).phoneDigits, "—");
+  assert.equal(values.adminUrl, "https://sphagnum.ae/admin");
+  assert.equal(leadValues({ lead: { ...lead, phone: "" }, leadId: "x", now, siteUrl: "", salesEmail: "", autoreply: true }).phone, "—");
   assert.equal(formatDubai(new Date("2026-01-05T08:07:00Z")), "5 января 2026, 12:07 (Дубай)");
 });
 
@@ -120,20 +120,26 @@ test("обращение в автоответе: только короткое 
   assert.equal(greetingFor(""), "Thank you.");
 });
 
-test("mailto: адрес закодирован, кроме @", () => {
-  assert.equal(mailtoAddress("o'neil+x/y@example.com"), "o'neil%2Bx%2Fy@example.com");
-  const html = renderNotification(notification, values).html;
-  assert.match(html, /href="mailto:jane@example\.com\?subject=/);
+test("адрес кабинета — адрес сайта + /admin", () => {
+  assert.equal(adminUrlOf("https://sphagnum.ae/"), "https://sphagnum.ae/admin");
+  assert.equal(adminUrlOf("https://example.com/sub"), "https://example.com/sub/admin");
+  assert.equal(adminUrlOf(""), "");
 });
 
-test("без телефона ссылки tel: и WhatsApp не выводятся", () => {
-  const noPhone = leadValues({ lead: { ...lead, phone: "" }, leadId: "x", now, siteUrl: "", salesEmail: "", autoreply: false });
-  const html = renderNotification(notification, noPhone).html;
-  assert.doesNotMatch(html, /tel:|wa\.me/);
-  assert.doesNotMatch(html, /\{\{[#^/]/);
-  const withPhone = renderNotification(notification, values).html;
-  assert.match(withPhone, /href="tel:971501234567"/);
-  assert.match(withPhone, /href="https:\/\/wa\.me\/971501234567"/);
+test("уведомление только для чтения: ни mailto:, ни tel:, ни WhatsApp, ни «Ответить»", () => {
+  for (const v of [values, leadValues({ lead: { ...lead, phone: "" }, leadId: "x", now, siteUrl: "", salesEmail: "", autoreply: false })]) {
+    const mail = renderNotification(notification, v);
+    assert.doesNotMatch(mail.html, /mailto:|tel:|wa\.me|Ответить клиенту/i);
+    assert.doesNotMatch(mail.html, /\{\{[#^/]/);
+  }
+  const mail = renderNotification(notification, values);
+  assert.match(mail.html, />jane@example\.com</);
+  assert.match(mail.html, /Это автоматическое уведомление — отвечать на него не нужно\. Все заявки — в кабинете: <span[^>]*>https:\/\/sphagnum\.ae\/admin</);
+  assert.match(mail.text, /в кабинете: https:\/\/sphagnum\.ae\/admin$/);
+  const reply = renderAutoreply(autoreply, values);
+  assert.match(reply.html, /This is an automated message, please do not reply\./);
+  assert.match(reply.text, /This is an automated message, please do not reply\./);
+  assert.doesNotMatch(reply.html + reply.text, /Simply reply/);
 });
 
 test("секции шаблона", () => {

@@ -2,12 +2,16 @@
 import { createRateLimiter } from "../admin/rate-limit.ts";
 import { buildMessage, domainOf, parseAddress, parseAddressList, SendmailError, type Address, type SendRaw } from "./mail.ts";
 import { createLeadId, leadValues, renderAutoreply, renderNotification } from "./render.ts";
-import { validateLead } from "./validate.ts";
+import type { LeadStore, MailStatus } from "./store.ts";
+import { validateLead, type Lead } from "./validate.ts";
 
 type Env = Record<string, string | undefined>;
 
 export const MAX_BODY_BYTES = 32 * 1024;
 export const DEFAULT_FROM = "Sphagnum Eco <noreply@sphagnum.ae>";
+
+/** Заголовки всех исходящих: письмо автоматическое, автоответчикам на него не отвечать. */
+export const NO_REPLY_HEADERS = { "Auto-Submitted": "auto-generated", "X-Auto-Response-Suppress": "All" } as const;
 
 export type LeadErrorBody = { error: string; code: string; field?: string };
 export type LeadResult =
@@ -121,6 +125,7 @@ export async function handleLead({
   now = new Date(),
   log = console,
   background = (task) => void task,
+  store,
 }: {
   rawBody: string;
   key: string;
@@ -133,6 +138,8 @@ export async function handleLead({
   log?: Pick<Console, "info" | "error">;
   /** Куда отдать фоновую задачу (автоответ); тесты её дожидаются. */
   background?: (task: Promise<void>) => void;
+  /** Куда сохранить заявку до отправки письма (кабинет «Заявки»). */
+  store?: LeadStore;
 }): Promise<LeadResult> {
   let input: unknown;
   try {
@@ -162,25 +169,31 @@ export async function handleLead({
   limiter.hit(key, now.getTime());
   const { lead } = checked;
 
+  // Сначала сохраняем: сбой почты или настроек не должен потерять заявку.
+  const { leadId, saved } = await saveLead(store, lead, now, log);
+  const markMail = async (mailStatus: MailStatus) => {
+    if (!saved) return;
+    await store!.update(leadId, { mailStatus }).catch((error) => log.error(`[lead] ${leadId}: статус письма не записан (${reasonOf(error)})`));
+  };
+
   const resolved = resolveLeadConfig(env, site.salesEmail);
   if ("problem" in resolved) {
     // Наружу — тот же sendFailed: посетителю незачем знать, что сломано у нас.
     log.error(`[lead] почта не настроена: ${resolved.problem}`);
+    await markMail("failed");
     return errorResult(500, "sendFailed", SEND_FAILED);
   }
   const { config } = resolved;
 
-  const leadId = createLeadId(now);
   try {
     const templates = await loadTemplates();
     const autoreply = config.autoreply && autoreplyAllowed(lead.email, config, site.salesEmail);
     const values = leadValues({ lead, leadId, now, siteUrl: site.siteUrl, salesEmail: site.salesEmail, autoreply });
     const team = renderNotification(templates.notification, values);
-    await transport(
-      buildMessage({ from: config.from, to: config.to, replyTo: { name: lead.name, address: lead.email }, ...team, date: now }),
-      config.from.address,
-    );
+    // Без Reply-To: на уведомление не отвечают, заявки разбираются в кабинете.
+    await transport(buildMessage({ from: config.from, to: config.to, ...team, headers: { ...NO_REPLY_HEADERS }, date: now }), config.from.address);
     log.info(`[lead] ${leadId}: заявка отправлена команде`);
+    await markMail("sent");
 
     // Автоответ — по флагу и в фоне: ответ посетителю его не ждёт, сбой только в лог.
     if (config.autoreply) {
@@ -188,22 +201,36 @@ export async function handleLead({
         log.info(`[lead] ${leadId}: автоответ пропущен — адрес на нашем домене или адрес команды`);
       } else {
         const reply = renderAutoreply(templates.autoreply, values);
-        const raw = buildMessage({
-          from: config.from,
-          to: [{ address: lead.email }],
-          replyTo: config.to[0],
-          ...reply,
-          headers: { "Auto-Submitted": "auto-replied" },
-          date: now,
-        });
+        const raw = buildMessage({ from: config.from, to: [{ address: lead.email }], ...reply, headers: { ...NO_REPLY_HEADERS }, date: now });
         background(transport(raw, config.from.address).catch((error) => log.error(`[lead] ${leadId}: автоответ не ушёл (${reasonOf(error)})`)));
       }
     }
     return { status: 200, body: { ok: true } };
   } catch (error) {
     log.error(`[lead] ${leadId}: письмо команде не ушло (${reasonOf(error)})`);
+    await markMail("failed");
     return errorResult(500, "sendFailed", SEND_FAILED);
   }
+}
+
+/** Запись заявки; номер занят — берём новый. Сбой хранилища — в лог, письмо всё равно уходит. */
+async function saveLead(store: LeadStore | undefined, lead: Lead, now: Date, log: Pick<Console, "error">): Promise<{ leadId: string; saved: boolean }> {
+  let leadId = createLeadId(now);
+  if (!store) return { leadId, saved: false };
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      await store.create({ ...lead, id: leadId, submittedAt: now.toISOString(), mailStatus: "pending", read: false });
+      return { leadId, saved: true };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+        log.error(`[lead] ${leadId}: заявка не сохранена (${reasonOf(error)})`);
+        return { leadId, saved: false };
+      }
+      leadId = createLeadId(now);
+    }
+  }
+  log.error(`[lead] ${leadId}: заявка не сохранена (номер занят)`);
+  return { leadId, saved: false };
 }
 
 // В лог — только причина, без адресов и текста заявки.

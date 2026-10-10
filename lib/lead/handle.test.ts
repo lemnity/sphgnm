@@ -45,7 +45,7 @@ function setup({ env = { LEAD_TO: "team@sphagnum.ae" } as Record<string, string>
   return { run, sent, logs, limiter };
 }
 
-test("заявка уходит команде: Reply-To — клиент, обе части письма", async () => {
+test("заявка уходит команде: без Reply-To, с заголовками автоматического письма, обе части", async () => {
   const { run, sent, logs } = setup();
   assert.deepEqual(await run(lead), { status: 200, body: { ok: true } });
   assert.equal(sent.length, 1);
@@ -53,24 +53,30 @@ test("заявка уходит команде: Reply-To — клиент, об�
   const raw = sent[0].raw;
   assert.match(raw, /^From: "Sphagnum Eco" <noreply@sphagnum\.ae>$/m);
   assert.match(raw, /^To: team@sphagnum\.ae$/m);
-  assert.match(raw, /^Reply-To: =\?UTF-8\?B\?.+\?= <anna@example\.com>$/m);
+  assert.doesNotMatch(raw, /^Reply-To:/im);
+  assert.match(raw, /^Auto-Submitted: auto-generated$/m);
+  assert.match(raw, /^X-Auto-Response-Suppress: All$/m);
   assert.match(raw, /^Message-ID: <.+@sphagnum\.ae>$/m);
   const text = decoded(raw);
   assert.match(text, /Content-Type: text\/plain[\s\S]+Имя и компания: Анна Петрова, Acme/);
   assert.match(text, /Content-Type: text\/html[\s\S]+Нужен &lt;b&gt;субстрат&lt;\/b&gt;/);
   assert.match(text, /Заявка № 261010-[A-Z2-9]{4}/);
+  assert.match(text, /отвечать на него не нужно\. Все заявки — в кабинете: https:\/\/sphagnum\.ae\/admin/);
+  assert.doesNotMatch(text, /mailto:|tel:|wa\.me/);
   assert.ok(logs.every((line) => !line.includes("anna@") && !line.includes("Анна")));
 });
 
-test("LEAD_AUTOREPLY=1: второе письмо клиенту, Reply-To — команда", async () => {
+test("LEAD_AUTOREPLY=1: второе письмо клиенту, тоже без Reply-To", async () => {
   const { run, sent } = setup({ env: { LEAD_TO: "team@sphagnum.ae, boss@sphagnum.ae", LEAD_AUTOREPLY: "1", LEAD_FROM: "Sales <sales@sphagnum.ae>" } });
   assert.equal((await run(lead)).status, 200);
   assert.equal(sent.length, 2);
   assert.match(sent[0].raw, /^To: team@sphagnum\.ae, boss@sphagnum\.ae$/m);
   assert.match(decoded(sent[0].raw), /Клиенту отправлен автоответ/);
   assert.match(sent[1].raw, /^To: anna@example\.com$/m);
-  assert.match(sent[1].raw, /^Reply-To: team@sphagnum\.ae$/m);
-  assert.match(sent[1].raw, /^Auto-Submitted: auto-replied$/m);
+  assert.doesNotMatch(sent[1].raw, /^Reply-To:/im);
+  assert.match(sent[1].raw, /^Auto-Submitted: auto-generated$/m);
+  assert.match(sent[1].raw, /^X-Auto-Response-Suppress: All$/m);
+  assert.match(decoded(sent[1].raw), /This is an automated message, please do not reply\./);
   assert.match(decoded(sent[1].raw), /Thank you, Анна\./);
   assert.equal(sent[1].from, "sales@sphagnum.ae");
   // В автоответе нет свободного текста из формы.
