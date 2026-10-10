@@ -3,7 +3,8 @@
   Письмо команде о новой заявке с формы «Send an enquiry».
   Подстановки: {{leadId}} {{submittedAt}} {{replyBy}} {{name}} {{email}} {{phone}}
   {{phoneDigits}} (только цифры, для wa.me) {{region}} {{projectType}} {{area}}
-  {{message}} {{pageUrl}}. Пустые поля бэкенд заменяет на «—».
+  {{message}} {{pageUrl}} {{autoreplyNote}} (ушёл ли клиенту автоответ).
+  Пустые поля бэкенд заменяет на «—».
   Вёрстка письма: таблицы и инлайн-стили — иначе Outlook и Gmail разваливают макет.
 -->
 <html lang="ru" xmlns="http://www.w3.org/1999/xhtml">
@@ -155,7 +156,7 @@
           <tr>
             <td bgcolor="#102B20" class="px" style="background:#102B20;padding:20px 40px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:rgba(245,244,240,.6);line-height:1.6;">
               Отправлено с формы на странице <a href="{{pageUrl}}" style="color:#D7B15E;text-decoration:none;">{{pageUrl}}</a><br />
-              Клиент получил автоответ о том, что заявка принята.
+              {{autoreplyNote}}
             </td>
           </tr>
 
