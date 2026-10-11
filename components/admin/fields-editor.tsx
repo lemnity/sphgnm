@@ -3,10 +3,13 @@
 // Редактор блока, собранный по описанию полей из lib/admin/fields.ts.
 // Изменения идут функциями-обновлениями (prev → next): загрузка файла завершается
 // позже, и её результат должен лечь на актуальный черновик, а не на снимок.
-import { createContext, useContext, type ReactNode } from "react";
-import { ICON_LABELS, ICON_NAMES, SECTION_ANCHORS, newListItem, type Field } from "@/lib/admin/fields";
-import type { IconName } from "@/lib/content/schema";
+import { createContext, useContext, useState, type ReactNode } from "react";
+import { ICON_LABELS, ICON_NAMES, SECTION_ANCHORS, emptyObject, newListItem, type Field } from "@/lib/admin/fields";
+import type { IconName, IconRef } from "@/lib/content/schema";
+import { iconWithImage, resolveIcon } from "@/lib/content/render";
+import { withBase } from "@/lib/media";
 import { ICONS } from "@/components/site-icons";
+import { BUILT_IN_PREVIEW } from "./built-in";
 import { useT } from "./i18n";
 import { MediaPathControl } from "./media";
 import { useUi } from "./ui";
@@ -81,9 +84,27 @@ function FieldView({ field, value, update, path }: { field: Field; value: unknow
         </Row>
       );
     case "icon":
+      return <IconField field={field} value={value as IconRef | undefined} update={update} path={path} />;
+    case "file":
+      return (
+        <Row field={field} path={path} asGroup>
+          <div className="adm-contain">
+            <MediaPathControl
+              value={String(value ?? "")}
+              onChange={set}
+              accept="image"
+              optional
+              label={pick(field.label)}
+              describedBy={describedBy(field, path, errors.at(path))}
+              fallback={field.builtIn ? BUILT_IN_PREVIEW[field.builtIn]() : undefined}
+            />
+          </div>
+        </Row>
+      );
+    case "percent":
       return (
         <Row field={field} path={path}>
-          <IconSelect id={id} value={String(value ?? "")} onChange={set} describedBy={describedBy(field, path, errors.at(path))} />
+          <PercentInput id={id} value={typeof value === "number" ? value : 0} onChange={set} describedBy={describedBy(field, path, errors.at(path))} invalid={errors.at(path).length > 0} />
         </Row>
       );
     case "video":
@@ -94,14 +115,22 @@ function FieldView({ field, value, update, path }: { field: Field; value: unknow
       );
     case "image":
       return <ImageView field={field} value={(value ?? { src: "", alt: "" }) as Obj} update={update as Update<Obj>} path={path} />;
-    case "group":
+    case "group": {
+      // Необязательной группы (фон секции) в старом контенте нет: правка начинается с пустой формы.
+      const empty = () => emptyObject(field.fields);
       return (
         <fieldset className="adm-group">
           <legend>{pick(field.label)}</legend>
           {field.hint ? <p className="adm-hint">{pick(field.hint)}</p> : null}
-          <FieldsEditor fields={field.fields} value={(value ?? {}) as Obj} update={update as Update<Obj>} path={path} />
+          <FieldsEditor
+            fields={field.fields}
+            value={(value ?? empty()) as Obj}
+            update={(fn) => update((prev) => fn((prev ?? empty()) as Obj))}
+            path={path}
+          />
         </fieldset>
       );
+    }
     case "list":
       return <ListView field={field} value={Array.isArray(value) ? value : []} update={update as Update<unknown[]>} path={path} />;
   }
@@ -174,15 +203,30 @@ export function AnchorDatalist() {
   );
 }
 
-export function IconSelect({ id, value, onChange, describedBy }: { id: string; value: string; onChange: (value: string) => void; describedBy?: string }) {
+export function IconSelect({
+  id,
+  value,
+  onChange,
+  describedBy,
+  labelledBy,
+  image = "",
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  describedBy?: string;
+  labelledBy?: string;
+  /** Своя картинка: в превью показывается она, а не встроенная. */
+  image?: string;
+}) {
   const { pick } = useT();
   const Icon = ICONS[value as IconName];
   return (
     <div className="adm-icon-select">
       <span className="adm-icon-select__preview" aria-hidden>
-        {Icon ? <Icon size={22} strokeWidth={1.6} /> : "?"}
+        {image ? <img src={withBase(image)} alt="" /> : Icon ? <Icon size={22} strokeWidth={1.6} /> : "?"}
       </span>
-      <select id={id} className="adm-input" value={value} onChange={(event) => onChange(event.target.value)} aria-describedby={describedBy}>
+      <select id={id} className="adm-input" value={value} onChange={(event) => onChange(event.target.value)} aria-describedby={describedBy} aria-labelledby={labelledBy}>
         {ICON_NAMES.includes(value as IconName) ? null : <option value={value}>{value || "—"}</option>}
         {ICON_NAMES.map((name) => (
           <option key={name} value={name}>
@@ -190,6 +234,90 @@ export function IconSelect({ id, value, onChange, describedBy }: { id: string; v
           </option>
         ))}
       </select>
+    </div>
+  );
+}
+
+/**
+ * Иконка: встроенная из списка или своя картинка. Строка в контенте — встроенная;
+ * { name, src } — своя картинка (name остаётся для «сбросить на встроенную»).
+ */
+function IconField({ field, value, update, path }: { field: Extract<Field, { kind: "icon" }>; value: IconRef | undefined; update: Update<unknown>; path: string }) {
+  const errors = useContext(ErrorsContext);
+  const { t, pick } = useT();
+  const { name, src } = resolveIcon(value, field.fallback ?? "moss");
+  const [mode, setMode] = useState<"builtIn" | "custom">(src ? "custom" : "builtIn");
+  const id = fieldId(path);
+  const partErrors = [...errors.at(`${path}.name`), ...errors.at(`${path}.src`)];
+  const set = (next: IconRef) => {
+    errors.clear(path);
+    errors.clear(`${path}.name`);
+    errors.clear(`${path}.src`);
+    update(() => next);
+  };
+  const reset = () => {
+    set(name);
+    setMode("builtIn");
+  };
+  const label = pick(field.label);
+  return (
+    <Row field={field} path={path} asGroup extraErrors={partErrors}>
+      <div className="adm-iconfield" role="group" aria-labelledby={`${id}-label`}>
+        <div className="adm-segmented" role="group" aria-label={t("icon.mode")}>
+          <button type="button" aria-pressed={mode === "builtIn"} onClick={() => setMode("builtIn")}>
+            {t("icon.builtIn")}
+          </button>
+          <button type="button" aria-pressed={mode === "custom"} onClick={() => setMode("custom")}>
+            {t("icon.custom")}
+          </button>
+        </div>
+        {mode === "builtIn" ? (
+          <IconSelect
+            id={id}
+            value={name}
+            image={src}
+            labelledBy={`${id}-label`}
+            onChange={(next) => set(iconWithImage(next as IconName, src))}
+            describedBy={describedBy(field, path, [...errors.at(path), ...partErrors])}
+          />
+        ) : (
+          <div className="adm-iconfield__custom adm-contain">
+            <MediaPathControl value={src} onChange={(next) => set(iconWithImage(name, next))} accept="image" label={label} />
+            <p className="adm-hint">{t("icon.customHint")}</p>
+          </div>
+        )}
+        {src && mode === "builtIn" ? <p className="adm-hint">{t("icon.customActive")}</p> : null}
+        {src ? (
+          <button type="button" className="adm-btn adm-btn--small" onClick={reset}>
+            {t("icon.reset")}
+            <span className="adm-sr"> — {label}</span>
+          </button>
+        ) : null}
+      </div>
+    </Row>
+  );
+}
+
+/** Целое 0…100: ползунок и поле с числом. */
+function PercentInput({ id, value, onChange, describedBy, invalid }: { id: string; value: number; onChange: (value: number) => void; describedBy?: string; invalid: boolean }) {
+  const read = (raw: string) => (raw.trim() === "" ? 0 : Math.round(Number(raw)));
+  return (
+    <div className="adm-percent">
+      <input type="range" min={0} max={100} step={1} value={Math.min(100, Math.max(0, value))} onChange={(event) => onChange(read(event.target.value))} aria-hidden tabIndex={-1} />
+      <input
+        id={id}
+        className="adm-input"
+        type="number"
+        min={0}
+        max={100}
+        step={1}
+        inputMode="numeric"
+        value={Number.isFinite(value) ? value : 0}
+        onChange={(event) => onChange(read(event.target.value))}
+        aria-describedby={describedBy}
+        aria-invalid={invalid || undefined}
+      />
+      <span aria-hidden>%</span>
     </div>
   );
 }

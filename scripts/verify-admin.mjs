@@ -1,6 +1,6 @@
 // Сквозная проверка кабинета в браузере: вход, правка и сохранение, ошибка
 // валидации, английский интерфейс, галерея, медиатека, откат через историю,
-// сохранение из устаревшей вкладки, выход.
+// сохранение из устаревшей вкладки, своя иконка и фон секции, выход.
 // Запуск при работающем сервере: URL=http://127.0.0.1:3041/ npm run verify:admin
 // Пароль — ADMIN_PASSWORD (npm-скрипт подхватывает .env.local).
 // Скрипт сам возвращает content/*.json и удаляет загруженные им файлы и версии истории.
@@ -57,6 +57,9 @@ async function homeHtml(request) {
   return response.text();
 }
 
+/** Разметка главной без скриптов и меток версии стилей (?v=…): по ней сравниваем «страница как была». */
+const pageMarkup = (html) => html.replace(/\?v=\d+/g, "").replace(/<script[\s\S]*?<\/script>/g, "");
+
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
 const page = await context.newPage();
@@ -66,6 +69,10 @@ const status = page.locator(".adm-status");
 const saveButton = page.getByRole("button", { name: "Сохранить", exact: true });
 const sidebar = (name) => page.getByRole("navigation", { name: "Разделы сайта" }).getByRole("button", { name, exact: false }).first();
 let uploaded = "";
+let markupBefore = "";
+let originalBenefitIcon = "";
+let customIcon = "";
+let customBackground = "";
 
 // Ждём не тост (от прошлого сохранения он ещё может висеть), а смену статуса.
 async function saveAndWait() {
@@ -285,6 +292,62 @@ try {
     await input.fill(previous);
     await saveAndWait();
     invariant((await readJson(files.site)).footer.copyright === previous, "копирайт не вернулся");
+  });
+
+  await step("своя картинка-иконка у преимущества и фон секции FAQ видны на сайте", async () => {
+    markupBefore = pageMarkup(await homeHtml(context.request));
+    originalBenefitIcon = JSON.parse(original.site).platform.benefits[0].icon;
+
+    await sidebar("Субстраты").click();
+    const iconField = page.locator('[data-path="platform.benefits[0].icon"]');
+    await iconField.getByRole("button", { name: "Своя картинка" }).click();
+    await iconField.locator("input[type=file]").setInputFiles(path.join(root, "public/media/solution-moss.webp"));
+    await iconField.locator(".adm-media__path", { hasText: "uploads/" }).waitFor();
+    await iconField.getByRole("button", { name: /^Сбросить на встроенную/ }).waitFor();
+
+    await sidebar("FAQ").click();
+    const bgField = page.locator('[data-path="faq.background.src"]');
+    await bgField.locator("input[type=file]").setInputFiles(path.join(root, "public/media/fuscum-wetland.webp"));
+    await bgField.locator(".adm-media__path", { hasText: "uploads/" }).waitFor();
+    await page.locator("#f-faq-background-overlay").fill("35");
+    await saveAndWait();
+
+    const site = await readJson(files.site);
+    const icon = site.platform.benefits[0].icon;
+    invariant(icon && typeof icon === "object" && icon.name === originalBenefitIcon && /^uploads\/.+\.webp$/.test(icon.src), `иконка в site.json: ${JSON.stringify(icon)}`);
+    invariant(/^uploads\/.+\.webp$/.test(site.faq.background?.src ?? "") && site.faq.background.overlay === 35, `фон в site.json: ${JSON.stringify(site.faq.background)}`);
+    customIcon = icon.src;
+    customBackground = site.faq.background.src;
+
+    const view = await context.newPage();
+    try {
+      await view.goto(at("/"), { waitUntil: "load", timeout: 120_000 });
+      const img = view.locator('[data-reference-surface="benefits"] article').first().locator("img[data-custom-icon]");
+      await img.scrollIntoViewIfNeeded();
+      invariant((await img.getAttribute("src"))?.endsWith(customIcon), `src иконки: ${await img.getAttribute("src")}`);
+      invariant((await img.getAttribute("alt")) === "" && (await img.getAttribute("aria-hidden")) === "true", "иконка не декоративная");
+      await view.waitForFunction((element) => element.complete && element.naturalWidth > 0, await img.elementHandle());
+      const box = await img.boundingBox();
+      invariant(box && Math.round(box.width) === 20 && Math.round(box.height) === 20, `размер иконки ${JSON.stringify(box)} вместо 20×20`);
+      const background = await view.locator("#faq").evaluate((section) => getComputedStyle(section).backgroundImage);
+      invariant(background.includes(customBackground) && background.includes("rgba(245, 244, 240, 0.35)"), `фон FAQ: ${background}`);
+    } finally {
+      await view.close();
+    }
+  });
+
+  await step("сброс иконки и фона: страница как была", async () => {
+    await sidebar("Субстраты").click();
+    await page.locator('[data-path="platform.benefits[0].icon"]').getByRole("button", { name: /^Сбросить на встроенную/ }).click();
+    await sidebar("FAQ").click();
+    await page.locator('[data-path="faq.background.src"]').getByRole("button", { name: /^Убрать/ }).click();
+    await saveAndWait();
+    const site = await readJson(files.site);
+    invariant(site.platform.benefits[0].icon === originalBenefitIcon, `иконка после сброса: ${JSON.stringify(site.platform.benefits[0].icon)}`);
+    invariant(site.faq.background?.src === "", `фон после сброса: ${JSON.stringify(site.faq.background)}`);
+    const markup = pageMarkup(await homeHtml(context.request));
+    invariant(!markup.includes(customIcon) && !markup.includes(customBackground), "на главной остались загруженные файлы");
+    invariant(markup === markupBefore, "разметка главной после сброса отличается от исходной");
   });
 
   await step("выход", async () => {

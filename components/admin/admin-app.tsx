@@ -3,7 +3,7 @@
 // Кабинет: верхняя панель, список блоков, редактор выбранного блока, история.
 // Черновик живёт в памяти страницы до «Сохранить»; блоки можно переключать без потерь.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BLOCKS, describePath, parseApiError, splitPath, type BlockId, type FieldError } from "@/lib/admin/fields";
+import { BLOCKS, describePath, emptyObject, parseApiError, splitPath, type BlockId, type FieldError } from "@/lib/admin/fields";
 import type { AdminLang } from "@/lib/admin/i18n";
 import { validateGallery, validateSiteContent, type GalleryItem, type SiteContent } from "@/lib/content/schema";
 import { withBase } from "@/lib/media";
@@ -25,7 +25,7 @@ const UNREAD_POLL_MS = 60_000;
 type Obj = Record<string, unknown>;
 
 /* Сервисные блоки — не секции страницы, а общие для всего сайта данные. */
-const SHARED_BLOCKS = new Set<BlockId>(["contacts", "nav", "footer", "loader", "meta"]);
+const SHARED_BLOCKS = new Set<BlockId>(["brand", "contacts", "nav", "footer", "loader", "meta"]);
 
 export type AdminAppProps = { site: SiteContent; gallery: GalleryItem[]; versions: Versions; instagramLive: number; lang: AdminLang };
 
@@ -346,7 +346,8 @@ function Cabinet({
   const block = BLOCKS.find((candidate) => candidate.id === view) ?? null;
   const updateBlock: Update<Obj> = (fn) => {
     if (!block) return;
-    setSite((prev) => ({ ...prev, [block.id]: fn(prev[block.id] as unknown as Obj) }));
+    // Необязательного блока (логотип) в старом контенте может не быть — начинаем с пустого.
+    setSite((prev) => ({ ...prev, [block.id]: fn((prev[block.id] ?? emptyObject(block.fields)) as unknown as Obj) }));
   };
 
   const groups = [
@@ -505,7 +506,7 @@ function Cabinet({
                   </h1>
                   <p className="adm-lead">{pick(block.description)}</p>
                 </header>
-                <FieldsEditor fields={block.fields} value={site[block.id] as unknown as Obj} update={updateBlock} path={block.id} />
+                <FieldsEditor fields={block.fields} value={(site[block.id] ?? emptyObject(block.fields)) as unknown as Obj} update={updateBlock} path={block.id} />
               </section>
               {block.id === "gallery" ? (
                 <GalleryEditor items={gallery} update={setGallery} errors={galleryErrors} instagramLive={instagramLive} />

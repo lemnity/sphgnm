@@ -30,6 +30,9 @@ export const ICON_NAMES = [
   "star",
   "thermometerSun",
   "waves",
+  "checkCircle",
+  "phone",
+  "mail",
 ] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];
@@ -37,12 +40,25 @@ export type IconName = (typeof ICON_NAMES)[number];
 /** Картинка блока. src — путь от public без ведущего слэша («media/…», «uploads/…»). */
 export type ImageRef = { src: string; alt: string };
 
-export type IconText = { icon: IconName; title: string; text: string };
+/**
+ * Иконка: ключ встроенной или своя картинка. Строка — как было всегда; объект
+ * появляется, когда загружена своя картинка (name — встроенная, к ней вернёт «сброс»).
+ * Пустой src равен встроенной иконке.
+ */
+export type IconRef = IconName | { name: IconName; src: string };
+
+/** Фон секции: пустой src — фон из вёрстки; overlay — заливка цветом секции поверх, 0…100 %. */
+export type SectionBackground = { src: string; overlay: number };
+
+export type IconText = { icon: IconRef; title: string; text: string };
 
 export type SiteContent = {
   /** siteUrl — публичный адрес сайта (для абсолютных ссылок Open Graph), image — превью при пересылке ссылки. */
   meta: { title: string; description: string; shareDescription: string; siteUrl: string; image: ImageRef };
-  contacts: { person: string; role: string; phone: string; email: string };
+  contacts: { person: string; role: string; phone: string; email: string; phoneIcon?: IconRef; emailIcon?: IconRef };
+  /** Свой логотип вместо фирменного SVG. logo — на тёмном фоне (шапка над первым экраном,
+      меню, экран загрузки), logoOnLight — в светлой шапке после прокрутки; пусто — SVG. */
+  brand?: { logo: string; logoOnLight: string };
   nav: {
     /** target — id секции на странице, без решётки. */
     links: { label: string; target: string }[];
@@ -50,10 +66,18 @@ export type SiteContent = {
     openMenuLabel: string;
     closeMenuLabel: string;
   };
-  hero: { title: string; subtitle: string; ctaLabel: string; bullets: string[]; image: ImageRef };
+  hero: {
+    title: string;
+    subtitle: string;
+    ctaLabel: string;
+    bullets: string[];
+    image: ImageRef;
+    /** Значок у пунктов; нет — галочка в круге. */
+    bulletIcon?: IconRef;
+  };
   strip: {
     intro: { text: string; linkLabel: string; linkHref: string };
-    cards: { icon: IconName; text: string }[];
+    cards: { icon: IconRef; text: string }[];
     fact: { value: string; text: string };
   };
   product: {
@@ -61,11 +85,31 @@ export type SiteContent = {
     title: string;
     lead: string;
     featuresLabel: string;
+    /** Значок после надзаголовка и у свойств; нет — листок. */
+    kickerIcon?: IconRef;
+    featureIcon?: IconRef;
+    /** Свисающие лозы справа вверху; пусто — встроенная картинка. */
+    vinesImage?: string;
+    background?: SectionBackground;
     /** В title перенос строки (\n) — место принудительного переноса в заголовке карточки. */
-    solutions: { icon: IconName; kicker: string; title: string; lead: string; features: string[]; image: ImageRef }[];
+    solutions: { icon: IconRef; kicker: string; title: string; lead: string; features: string[]; image: ImageRef }[];
   };
-  fuscum: { kicker: string; areaValue: string; areaUnit: string; areaCaption: string; image: ImageRef };
-  wetland: { text: string; facts: { icon: IconName; value: string; text: string }[]; wallImage: ImageRef };
+  fuscum: {
+    kicker: string;
+    areaValue: string;
+    areaUnit: string;
+    areaCaption: string;
+    image: ImageRef;
+    kickerIcon?: IconRef;
+    background?: SectionBackground;
+  };
+  wetland: {
+    text: string;
+    facts: { icon: IconRef; value: string; text: string }[];
+    wallImage: ImageRef;
+    /** Фон секции с фото живой стены. */
+    background?: SectionBackground;
+  };
   platform: {
     kicker: string;
     title: string;
@@ -75,8 +119,12 @@ export type SiteContent = {
     benefitsTitle: string;
     benefits: IconText[];
     rangeTitle: string;
-    range: { icon: IconName; name: string; text: string }[];
+    range: { icon: IconRef; name: string; text: string }[];
     ctaLabel: string;
+    kickerIcon?: IconRef;
+    /** Фон секции с опорами и фон секции с преимуществами и линейкой. */
+    background?: SectionBackground;
+    benefitsBackground?: SectionBackground;
   };
   gallery: {
     kicker: string;
@@ -93,6 +141,10 @@ export type SiteContent = {
     closeLabel: string;
     previousLabel: string;
     nextLabel: string;
+    /** Декор слева внизу: ботаника и точки; пусто — встроенные картинки. */
+    botanicalImage?: string;
+    dotsImage?: string;
+    background?: SectionBackground;
   };
   applications: {
     kicker: string;
@@ -100,6 +152,7 @@ export type SiteContent = {
     itemKicker: string;
     /** У преимущества text может быть пустым — тогда выводится только заголовок. */
     items: { title: string; text: string; image: ImageRef; benefits: IconText[] }[];
+    background?: SectionBackground;
   };
   advantages: {
     kicker: string;
@@ -107,14 +160,16 @@ export type SiteContent = {
     titleAccent: string;
     lead: string;
     items: IconText[];
-    tags: { icon: IconName; label: string }[];
+    tags: { icon: IconRef; label: string }[];
+    background?: SectionBackground;
   };
-  faq: { kicker: string; title: string; items: { question: string; answer: string }[] };
+  faq: { kicker: string; title: string; items: { question: string; answer: string }[]; background?: SectionBackground };
   contact: {
     kicker: string;
     title: string;
     lead: string;
-    deliverables: { title: string; text: string }[];
+    /** icon нет — галочка в круге. */
+    deliverables: { title: string; text: string; icon?: IconRef }[];
     formTitle: string;
     formLead: string;
     consent: string;
@@ -137,8 +192,9 @@ export type SiteContent = {
       /** Заявка не ушла (в статике API нет) — под текстом выводится почта из контактов. */
       errorMessage: string;
     };
+    background?: SectionBackground;
   };
-  footer: { copyright: string };
+  footer: { copyright: string; background?: SectionBackground };
   /** Экран загрузки: label — aria-метка, srLabel — скрытая подпись, phrases — бегущие фразы. */
   loader: { label: string; srLabel: string; phrases: string[] };
 };
@@ -156,22 +212,36 @@ export type GalleryItem = {
 
 /* Описание формы site.json для проверки. Держать в паре с типом SiteContent:
    тест прогоняет через него настоящий content/site.json, так что расхождение
-   вылезет сразу. По нему же тест сверяет поля редактора (lib/admin/fields.ts). */
-export type Shape = "string" | "path" | "icon" | "href" | "anchor" | "url" | Shape[] | { [key: string]: Shape };
+   вылезет сразу. По нему же тест сверяет поля редактора (lib/admin/fields.ts).
+   Ключ с «?» на конце — необязательный: старый контент без него остаётся валидным.
+   optPath — путь к файлу или пустая строка («встроенное»), percent — целое 0…100. */
+export type Shape =
+  | "string"
+  | "path"
+  | "optPath"
+  | "percent"
+  | "icon"
+  | "href"
+  | "anchor"
+  | "url"
+  | Shape[]
+  | { [key: string]: Shape };
 
 const IMAGE: Shape = { src: "path", alt: "string" };
 const ICON_TEXT: Shape = { icon: "icon", title: "string", text: "string" };
+const BACKGROUND: Shape = { src: "optPath", overlay: "percent" };
 
 export const SITE_SHAPE: Shape = {
   meta: { title: "string", description: "string", shareDescription: "string", siteUrl: "url", image: IMAGE },
-  contacts: { person: "string", role: "string", phone: "string", email: "string" },
+  contacts: { person: "string", role: "string", phone: "string", email: "string", "phoneIcon?": "icon", "emailIcon?": "icon" },
+  "brand?": { logo: "optPath", logoOnLight: "optPath" },
   nav: {
     links: [{ label: "string", target: "anchor" }],
     ctaLabel: "string",
     openMenuLabel: "string",
     closeMenuLabel: "string",
   },
-  hero: { title: "string", subtitle: "string", ctaLabel: "string", bullets: ["string"], image: IMAGE },
+  hero: { title: "string", subtitle: "string", ctaLabel: "string", bullets: ["string"], image: IMAGE, "bulletIcon?": "icon" },
   strip: {
     intro: { text: "string", linkLabel: "string", linkHref: "href" },
     cards: [{ icon: "icon", text: "string" }],
@@ -183,9 +253,21 @@ export const SITE_SHAPE: Shape = {
     lead: "string",
     featuresLabel: "string",
     solutions: [{ icon: "icon", kicker: "string", title: "string", lead: "string", features: ["string"], image: IMAGE }],
+    "kickerIcon?": "icon",
+    "featureIcon?": "icon",
+    "vinesImage?": "optPath",
+    "background?": BACKGROUND,
   },
-  fuscum: { kicker: "string", areaValue: "string", areaUnit: "string", areaCaption: "string", image: IMAGE },
-  wetland: { text: "string", facts: [{ icon: "icon", value: "string", text: "string" }], wallImage: IMAGE },
+  fuscum: {
+    kicker: "string",
+    areaValue: "string",
+    areaUnit: "string",
+    areaCaption: "string",
+    image: IMAGE,
+    "kickerIcon?": "icon",
+    "background?": BACKGROUND,
+  },
+  wetland: { text: "string", facts: [{ icon: "icon", value: "string", text: "string" }], wallImage: IMAGE, "background?": BACKGROUND },
   platform: {
     kicker: "string",
     title: "string",
@@ -197,6 +279,9 @@ export const SITE_SHAPE: Shape = {
     rangeTitle: "string",
     range: [{ icon: "icon", name: "string", text: "string" }],
     ctaLabel: "string",
+    "kickerIcon?": "icon",
+    "background?": BACKGROUND,
+    "benefitsBackground?": BACKGROUND,
   },
   gallery: {
     kicker: "string",
@@ -212,12 +297,16 @@ export const SITE_SHAPE: Shape = {
     closeLabel: "string",
     previousLabel: "string",
     nextLabel: "string",
+    "botanicalImage?": "optPath",
+    "dotsImage?": "optPath",
+    "background?": BACKGROUND,
   },
   applications: {
     kicker: "string",
     title: "string",
     itemKicker: "string",
     items: [{ title: "string", text: "string", image: IMAGE, benefits: [ICON_TEXT] }],
+    "background?": BACKGROUND,
   },
   advantages: {
     kicker: "string",
@@ -226,13 +315,14 @@ export const SITE_SHAPE: Shape = {
     lead: "string",
     items: [ICON_TEXT],
     tags: [{ icon: "icon", label: "string" }],
+    "background?": BACKGROUND,
   },
-  faq: { kicker: "string", title: "string", items: [{ question: "string", answer: "string" }] },
+  faq: { kicker: "string", title: "string", items: [{ question: "string", answer: "string" }], "background?": BACKGROUND },
   contact: {
     kicker: "string",
     title: "string",
     lead: "string",
-    deliverables: [{ title: "string", text: "string" }],
+    deliverables: [{ title: "string", text: "string", "icon?": "icon" }],
     formTitle: "string",
     formLead: "string",
     consent: "string",
@@ -253,8 +343,9 @@ export const SITE_SHAPE: Shape = {
       successMessage: "string",
       errorMessage: "string",
     },
+    "background?": BACKGROUND,
   },
-  footer: { copyright: "string" },
+  footer: { copyright: "string", "background?": BACKGROUND },
   loader: { label: "string", srLabel: "string", phrases: ["string"] },
 };
 
@@ -283,7 +374,8 @@ const SCHEMA_RU = {
   urlInvalid: "«{value}»: нужен полный адрес сайта, с http:// или https://, без ? и #",
   expectAnchor: "ожидается id секции",
   anchorInvalid: "«{value}» — нужен id секции без решётки: латиница, цифры, - и _",
-  expectIcon: "ожидается ключ иконки",
+  expectIcon: "ожидается ключ иконки или своя картинка",
+  expectPercent: "ожидается целое число от 0 до 100",
   unknownIcon: "неизвестная иконка «{value}»",
   expectList: "ожидается список",
   expectObject: "ожидается объект",
@@ -316,7 +408,8 @@ export const SCHEMA_MESSAGES: Record<SchemaLang, Record<SchemaMessageKey, string
     urlInvalid: "“{value}”: enter the full site address, starting with http:// or https://, without ? or #",
     expectAnchor: "must be a section id",
     anchorInvalid: "“{value}” — enter a section id without the #: Latin letters, digits, - and _",
-    expectIcon: "must be an icon key",
+    expectIcon: "must be an icon key or a custom image",
+    expectPercent: "must be a whole number from 0 to 100",
     unknownIcon: "unknown icon “{value}”",
     expectList: "must be a list",
     expectObject: "must be an object",
@@ -404,6 +497,18 @@ function check(value: unknown, shape: Shape, path: string, errors: string[], lan
     }
     return;
   }
+  if (shape === "optPath") {
+    if (typeof value !== "string") fail("expectPath");
+    else if (value !== "") {
+      const problem = checkMediaPath(value, lang);
+      if (problem) errors.push(`${path}: ${problem}`);
+    }
+    return;
+  }
+  if (shape === "percent") {
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > 100) fail("expectPercent");
+    return;
+  }
   if (shape === "href") {
     if (typeof value !== "string") fail("expectHref");
     else {
@@ -426,7 +531,15 @@ function check(value: unknown, shape: Shape, path: string, errors: string[], lan
     return;
   }
   if (shape === "icon") {
-    if (typeof value !== "string") fail("expectIcon");
+    // Своя картинка: { name, src }, лишних ключей нет.
+    if (isObject(value)) {
+      const keys = Object.keys(value).sort().join(",");
+      if (keys !== "name,src") fail("expectIcon");
+      else {
+        check(value.name, "icon", `${path}.name`, errors, lang);
+        check(value.src, "optPath", `${path}.src`, errors, lang);
+      }
+    } else if (typeof value !== "string") fail("expectIcon");
     else if (!ICON_SET.has(value)) fail("unknownIcon", { value });
     return;
   }
@@ -442,10 +555,13 @@ function check(value: unknown, shape: Shape, path: string, errors: string[], lan
     fail("expectObject");
     return;
   }
-  for (const [key, inner] of Object.entries(shape)) {
+  for (const [rawKey, inner] of Object.entries(shape)) {
+    const optional = rawKey.endsWith("?");
+    const key = optional ? rawKey.slice(0, -1) : rawKey;
     const innerPath = path ? `${path}.${key}` : key;
-    if (!(key in value)) errors.push(`${innerPath}: ${msg(lang, "missingField")}`);
-    else check(value[key], inner, innerPath, errors, lang);
+    if (!(key in value)) {
+      if (!optional) errors.push(`${innerPath}: ${msg(lang, "missingField")}`);
+    } else check(value[key], inner, innerPath, errors, lang);
   }
 }
 

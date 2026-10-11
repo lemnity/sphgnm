@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { withBase } from "@/lib/media";
 import { LOGO_PATHS } from "./sphagnum-logo";
 
 /* Экран загрузки: логотип вычерчивается по контуру, по каждому контуру бежит «перо»
@@ -9,7 +10,8 @@ import { LOGO_PATHS } from "./sphagnum-logo";
    эмиттер идёт по путям логотипа, а палитра фирменная вместо радуги.
    Контур рисует CSS-анимация, поэтому он идёт с первого байта HTML, ещё до гидратации.
    Лоадер держится, пока не придёт window.load, но не меньше одной прорисовки (MIN_MS);
-   SAFETY_MS — страховка на случай зависшего ресурса, чтобы сайт не остался закрытым. */
+   SAFETY_MS — страховка на случай зависшего ресурса, чтобы сайт не остался закрытым.
+   Свой логотип из кабинета (logo) — растр без контуров: он просто проявляется, без искр. */
 
 const DRAW_MS = 1800; // вычерчивание контура, совпадает с CSS
 const LOOP_MS = 2600; // круг пера по контуру после прорисовки
@@ -24,7 +26,18 @@ type Particle = { x: number; y: number; angle: number; speed: number; accel: num
 
 const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 
-export function SphagnumLoader({ label, srLabel, phrases }: { label: string; srLabel: string; phrases: string[] }) {
+export function SphagnumLoader({
+  label,
+  srLabel,
+  phrases,
+  logo = "",
+}: {
+  label: string;
+  srLabel: string;
+  phrases: string[];
+  /** Путь своего логотипа от public; пусто — фирменный SVG с прорисовкой. */
+  logo?: string;
+}) {
   const [step, setStep] = useState(0);
   const [hiding, setHiding] = useState(false);
   const [gone, setGone] = useState(false);
@@ -163,6 +176,9 @@ export function SphagnumLoader({ label, srLabel, phrases }: { label: string; srL
       }}
     >
       <style>{LOADER_CSS}</style>
+      {logo ? (
+        <img src={withBase(logo)} alt="" aria-hidden className="sph-loader__custom" />
+      ) : (
       <div ref={boxRef} className="sph-loader__logo">
         <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} aria-hidden focusable="false">
           <g className="sph-loader__fill">
@@ -185,6 +201,7 @@ export function SphagnumLoader({ label, srLabel, phrases }: { label: string; srL
         </svg>
         <canvas ref={canvasRef} className="sph-loader__sparks" aria-hidden />
       </div>
+      )}
       <div className="sph-loader__messages" aria-hidden>
         {visible.map((index, position) => (
           <p key={index} data-pos={visible.length === 3 ? position : position + 1}>
@@ -216,6 +233,10 @@ const LOADER_CSS = `
 }
 @keyframes sph-loader-draw { to { stroke-dashoffset: 0; } }
 @keyframes sph-loader-fill { to { opacity: 1; } }
+.sph-loader__custom {
+  display: block; width: min(520px, 78vw); max-height: 30vh; object-fit: contain;
+  opacity: 0; animation: sph-loader-fill .9s ease .2s forwards;
+}
 .sph-loader__messages {
   position: relative; overflow: hidden;
   width: min(400px, 90vw); height: 1.5em; margin-top: 34px;
@@ -232,7 +253,7 @@ const LOADER_CSS = `
 .sph-loader__sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 @media (prefers-reduced-motion: reduce) {
   .sph-loader__outline path { animation: none; stroke-dashoffset: 0; }
-  .sph-loader__fill path { animation: none; opacity: 1; }
+  .sph-loader__fill path, .sph-loader__custom { animation: none; opacity: 1; }
   .sph-loader__messages p { transition: none; }
 }
 `;

@@ -28,6 +28,9 @@ import {
   Star,
   ThermometerSun,
   Waves,
+  CheckCircle2,
+  Phone,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 import type { IconName } from "@/lib/content/schema";
@@ -60,4 +63,7 @@ export const ICONS = {
   star: Star,
   thermometerSun: ThermometerSun,
   waves: Waves,
+  checkCircle: CheckCircle2,
+  phone: Phone,
+  mail: Mail,
 } satisfies Record<IconName, LucideIcon>;

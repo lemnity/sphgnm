@@ -638,6 +638,64 @@
   color: var(--muted);
   font-size: 12px;
 }
+/* Иконки, логотип и декор: целиком, без обрезки. */
+.adm-contain .adm-preview img,
+.adm-preview--builtin img {
+  object-fit: contain;
+}
+.adm-preview__dark {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  background: var(--ink);
+}
+.adm-preview__light {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  background: #f5f4f0;
+  color: var(--ink);
+}
+.adm-preview__dark.adm-preview__logo {
+  color: #f5f4f0;
+}
+.adm-preview__svg {
+  width: 82%;
+  height: auto;
+}
+
+/* Иконка: встроенная или своя картинка. */
+.adm-iconfield {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+.adm-iconfield__custom {
+  display: grid;
+  gap: 8px;
+}
+.adm-icon-select__preview img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+
+/* Проценты: ползунок и число. */
+.adm-percent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 420px;
+}
+.adm-percent input[type="range"] {
+  flex: 1;
+  accent-color: var(--ink);
+}
+.adm-percent .adm-input {
+  width: 84px;
+}
 .adm-badge {
   position: absolute;
   top: 6px;

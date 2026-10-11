@@ -176,6 +176,17 @@ const ru = {
   "media.remove": "Убрать",
   "media.needImage": "Сюда нужна картинка, а не ролик",
   "media.needVideo": "Сюда нужен ролик, а не картинка",
+  "media.builtIn": "встроенная",
+  "media.builtInPath": "встроенная картинка",
+  "media.resetBuiltIn": "Вернуть встроенную",
+
+  // иконка: встроенная или своя картинка
+  "icon.mode": "Вид иконки",
+  "icon.builtIn": "Встроенная иконка",
+  "icon.custom": "Своя картинка",
+  "icon.reset": "Сбросить на встроенную",
+  "icon.customActive": "Сейчас на сайте своя картинка. Встроенная выбрана на случай сброса.",
+  "icon.customHint": "PNG, WebP, AVIF, JPG или GIF до 15 МБ; SVG не принимается. Лучше квадратный PNG или WebP с прозрачным фоном, от 96×96 px. Цвет сайта к картинке не применяется — она показывается как есть.",
 
   // сеть и форматы
   "net.offline": "Нет связи с сервером. Проверьте подключение и попробуйте ещё раз.",
@@ -469,6 +480,16 @@ const en: Record<MessageKey, string> = {
   "media.remove": "Remove",
   "media.needImage": "This field needs an image, not a video",
   "media.needVideo": "This field needs a video, not an image",
+  "media.builtIn": "built-in",
+  "media.builtInPath": "built-in image",
+  "media.resetBuiltIn": "Back to built-in",
+
+  "icon.mode": "Icon type",
+  "icon.builtIn": "Built-in icon",
+  "icon.custom": "Custom image",
+  "icon.reset": "Reset to built-in",
+  "icon.customActive": "The site currently shows your custom image. The built-in icon is kept for a reset.",
+  "icon.customHint": "PNG, WebP, AVIF, JPG or GIF up to 15 MB; SVG isn't accepted. A square PNG or WebP with a transparent background, 96×96 px or larger, works best. Site colours aren't applied to the image — it's shown as is.",
 
   "net.offline": "Can't reach the server. Check your connection and try again.",
   "net.uploadOffline": "Can't reach the server, so the file wasn't uploaded.",

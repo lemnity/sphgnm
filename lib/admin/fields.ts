@@ -20,7 +20,12 @@ export type Field =
   | (Base & { kind: "url" })
   /** id секции на странице, без решётки. */
   | (Base & { kind: "anchor" })
-  | (Base & { kind: "icon" })
+  /** Иконка: встроенная или своя картинка. fallback — необязательное поле: чем рисуется, пока его нет в контенте. */
+  | (Base & { kind: "icon"; fallback?: IconName })
+  /** Необязательная картинка путём-строкой: пусто — встроенная (builtIn — какая, для превью) или ничего. */
+  | (Base & { kind: "file"; builtIn?: BuiltInImage })
+  /** Целое число 0…100 (прозрачность заливки фона). */
+  | (Base & { kind: "percent" })
   /** Картинка { src, alt }. alt: "unused" — подпись на сайте не выводится, поле скрыто. */
   | (Base & { kind: "image"; alt?: "edit" | "unused" })
   /** Путь к ролику строкой. */
@@ -28,6 +33,9 @@ export type Field =
   | (Base & { kind: "group"; fields: Field[] })
   /** Список: элементы — объекты с полями или просто строки. */
   | (Base & { kind: "list"; itemLabel: L; item: Field[] | "text" | "textarea" });
+
+/** Встроенные картинки сайта, которые можно заменить своими: по ключу кабинет показывает превью. */
+export type BuiltInImage = "vines" | "botanical" | "dots" | "logo" | "logoOnLight";
 
 export type BlockId = keyof SiteContent;
 export type Block = { id: BlockId; title: L; description: L; fields: Field[] };
@@ -56,7 +64,28 @@ const T = {
   srOnly: l("Для экранных читалок", "For screen readers"),
 };
 
-const icon = (key = "icon", label = T.icon): Field => ({ kind: "icon", key, label });
+const icon = (key = "icon", label = T.icon, fallback?: IconName, hint?: L): Field => ({ kind: "icon", key, label, fallback, hint });
+const file = (key: string, label: L, builtIn?: BuiltInImage, hint?: L): Field => ({ kind: "file", key, label, builtIn, hint });
+
+/** Фон секции: картинка и заливка поверх неё. Пусто — фон из вёрстки. */
+const background = (key = "background", label = l("Фон секции", "Section background")): Field => ({
+  kind: "group",
+  key,
+  label,
+  hint: l(
+    "Необязательно. Пусто — фон как в дизайне. Картинка растягивается на всю секцию (cover). Если текст плохо читается, увеличьте заливку: она закрашивает картинку цветом секции.",
+    "Optional. Leave empty to keep the designed background. The image covers the whole section. If the text is hard to read, raise the tint: it washes the image with the section's own colour.",
+  ),
+  fields: [
+    file("src", l("Картинка фона", "Background image")),
+    {
+      kind: "percent",
+      key: "overlay",
+      label: l("Заливка поверх картинки, %", "Tint over the image, %"),
+      hint: l("0 — картинка как есть, 100 — сплошной цвет секции", "0 shows the image as is, 100 is the plain section colour"),
+    },
+  ],
+});
 const kicker = text("kicker", l("Надзаголовок", "Eyebrow"), l("Маленькая строка над заголовком", "Small line above the heading"));
 
 const ICON_TEXT: Field[] = [icon(), text("title", T.title), area("text", T.text)];
@@ -72,6 +101,7 @@ export const BLOCKS: Block[] = [
       text("subtitle", l("Подзаголовок", "Subheading")),
       text("ctaLabel", T.buttonText),
       list("bullets", l("Пункты", "Bullet points"), l("Пункт", "Bullet"), "text"),
+      icon("bulletIcon", l("Значок у пунктов", "Bullet icon"), "checkCircle"),
       {
         kind: "image",
         key: "image",
@@ -114,6 +144,8 @@ export const BLOCKS: Block[] = [
       text("title", T.title),
       area("lead", T.lead, undefined, 2),
       text("featuresLabel", l("Подпись над списком свойств", "Label above the feature list")),
+      icon("kickerIcon", l("Значок после надзаголовка", "Icon after the eyebrow"), "moss"),
+      icon("featureIcon", l("Значок у свойств", "Feature bullet icon"), "moss"),
       list("solutions", l("Решения", "Solutions"), l("Решение", "Solution"), [
         icon(),
         text("kicker", l("Надзаголовок", "Eyebrow")),
@@ -122,6 +154,8 @@ export const BLOCKS: Block[] = [
         list("features", l("Свойства", "Features"), l("Свойство", "Feature"), "text"),
         image("image", T.picture),
       ]),
+      file("vinesImage", l("Лозы справа вверху", "Hanging vines, top right"), "vines", l("Необязательно. Пусто — встроенная картинка. Нужен PNG или WebP с прозрачным фоном.", "Optional. Leave empty for the built-in artwork. Use a PNG or WebP with a transparent background.")),
+      background(),
     ],
   },
   {
@@ -130,10 +164,12 @@ export const BLOCKS: Block[] = [
     description: l("Сырьевая база: площадь болот и большая фотография.", "The raw-material source: wetland area and a large photo."),
     fields: [
       kicker,
+      icon("kickerIcon", l("Значок перед надзаголовком", "Icon before the eyebrow"), "moss"),
       text("areaValue", l("Площадь, число", "Area, number")),
       text("areaUnit", l("Единица", "Unit")),
       text("areaCaption", l("Подпись к площади", "Area caption")),
       image("image", l("Фотография", "Photo")),
+      background(),
     ],
   },
   {
@@ -144,6 +180,7 @@ export const BLOCKS: Block[] = [
       area("text", T.text, undefined, 4),
       list("facts", l("Факты", "Facts"), l("Факт", "Fact"), [icon(), text("value", l("Значение", "Value")), area("text", T.explanation, undefined, 2)]),
       image("wallImage", l("Фото живой стены", "Living wall photo")),
+      background("background", l("Фон секции с фото стены", "Living wall section background")),
     ],
   },
   {
@@ -152,6 +189,7 @@ export const BLOCKS: Block[] = [
     description: l("Платформа субстратов: опоры, преимущества, линейка продуктов.", "The substrate platform: pillars, benefits and the product range."),
     fields: [
       kicker,
+      icon("kickerIcon", l("Значок после надзаголовка", "Icon after the eyebrow"), "moss"),
       text("title", T.title),
       area("lead", T.lead, undefined, 2),
       list("pillars", l("Опоры", "Pillars"), l("Опора", "Pillar"), ICON_TEXT),
@@ -161,6 +199,8 @@ export const BLOCKS: Block[] = [
       text("rangeTitle", l("Заголовок линейки", "Product range heading")),
       list("range", l("Линейка", "Product range"), l("Продукт", "Product"), [icon(), text("name", l("Название", "Name")), area("text", T.description, undefined, 2)]),
       text("ctaLabel", T.buttonText),
+      background("background", l("Фон секции с опорами", "Pillars section background")),
+      background("benefitsBackground", l("Фон секции с преимуществами и линейкой", "Benefits and range section background")),
     ],
   },
   {
@@ -184,6 +224,9 @@ export const BLOCKS: Block[] = [
       text("closeLabel", l("Кнопка «закрыть»", "“Close” button")),
       text("previousLabel", l("Кнопка «предыдущее фото»", "“Previous photo” button")),
       text("nextLabel", l("Кнопка «следующее фото»", "“Next photo” button")),
+      file("botanicalImage", l("Декор слева внизу: ботаника", "Bottom-left artwork: botanical"), "botanical", l("Необязательно. Пусто — встроенная картинка. Нужен PNG или WebP с прозрачным фоном.", "Optional. Leave empty for the built-in artwork. Use a PNG or WebP with a transparent background.")),
+      file("dotsImage", l("Декор слева внизу: точки", "Bottom-left artwork: dots"), "dots", l("Необязательно. Пусто — встроенная картинка. Нужен PNG или WebP с прозрачным фоном.", "Optional. Leave empty for the built-in artwork. Use a PNG or WebP with a transparent background.")),
+      background(),
     ],
   },
   {
@@ -204,6 +247,7 @@ export const BLOCKS: Block[] = [
           area("text", T.text, l("Можно оставить пустым — тогда только заголовок", "Can be left empty — then only the heading is shown"), 2),
         ]),
       ]),
+      background(),
     ],
   },
   {
@@ -217,6 +261,7 @@ export const BLOCKS: Block[] = [
       area("lead", T.lead),
       list("items", T.advantages, T.advantage, ICON_TEXT),
       list("tags", l("Ярлыки", "Tags"), l("Ярлык", "Tag"), [icon(), text("label", T.text)]),
+      background(),
     ],
   },
   {
@@ -227,6 +272,7 @@ export const BLOCKS: Block[] = [
       kicker,
       text("title", T.title),
       list("items", l("Вопросы", "Questions"), l("Вопрос", "Question"), [text("question", l("Вопрос", "Question")), area("answer", l("Ответ", "Answer"), undefined, 4)]),
+      background(),
     ],
   },
   {
@@ -237,7 +283,7 @@ export const BLOCKS: Block[] = [
       kicker,
       text("title", T.title),
       area("lead", T.lead),
-      list("deliverables", l("Что получит клиент", "What the client gets"), T.item, [text("title", T.title), area("text", T.text, undefined, 2)]),
+      list("deliverables", l("Что получит клиент", "What the client gets"), T.item, [text("title", T.title), area("text", T.text, undefined, 2), icon("icon", T.icon, "checkCircle")]),
       text("formTitle", l("Заголовок формы", "Form heading")),
       text("formLead", l("Текст под заголовком формы", "Text below the form heading")),
       area("consent", l("Согласие на обработку данных", "Data processing consent")),
@@ -263,6 +309,7 @@ export const BLOCKS: Block[] = [
           text("errorMessage", l("Сообщение, если заявка не ушла", "Message if the enquiry failed to send"), l("Под ним сайт сам покажет почту из контактов.", "The contact email is shown below it automatically.")),
         ],
       },
+      background("background", l("Фон секции", "Section background")),
     ],
   },
   {
@@ -277,6 +324,36 @@ export const BLOCKS: Block[] = [
       text("role", l("Должность", "Job title"), l("Показывается под именем", "Shown under the name")),
       text("phone", l("Телефон", "Phone"), l("Пусто — телефона нет на сайте; ссылка tel: подставится сама", "Leave empty to hide the phone; the tel: link is added automatically")),
       text("email", l("Электронная почта", "Email"), l("Ссылка mailto: подставится сама", "The mailto: link is added automatically")),
+      icon("phoneIcon", l("Значок у телефона", "Phone icon"), "phone"),
+      icon("emailIcon", l("Значок у почты", "Email icon"), "mail"),
+    ],
+  },
+  {
+    id: "brand",
+    title: l("Логотип", "Logo"),
+    description: l(
+      "Свой логотип вместо фирменного. Пусто — фирменный логотип SPHAGNUM с прорисовкой на экране загрузки.",
+      "Your own logo instead of the brand one. Leave empty for the SPHAGNUM brand logo, drawn line by line on the loading screen.",
+    ),
+    fields: [
+      file(
+        "logo",
+        l("Логотип на тёмном фоне", "Logo on dark backgrounds"),
+        "logo",
+        l(
+          "Шапка над первым экраном, мобильное меню и экран загрузки (там логотип просто проявится, без прорисовки). PNG или WebP с прозрачным фоном, светлый; по высоте шапка — 28–32 px, лучше загрузить в 3–4 раза крупнее.",
+          "Header over the hero, mobile menu and the loading screen (it fades in there instead of being drawn). A light PNG or WebP with a transparent background; the header shows it 28–32 px tall, so upload it 3–4 times larger.",
+        ),
+      ),
+      file(
+        "logoOnLight",
+        l("Логотип на светлом фоне", "Logo on light backgrounds"),
+        "logoOnLight",
+        l(
+          "Светлая шапка после прокрутки. Тёмный вариант логотипа; пусто — тот же, что на тёмном фоне.",
+          "The light header after scrolling. A dark version of the logo; leave empty to use the logo for dark backgrounds.",
+        ),
+      ),
     ],
   },
   {
@@ -294,7 +371,7 @@ export const BLOCKS: Block[] = [
     id: "footer",
     title: l("Подвал", "Footer"),
     description: l("Строка внизу страницы.", "The line at the very bottom of the page."),
-    fields: [text("copyright", l("Копирайт", "Copyright"))],
+    fields: [text("copyright", l("Копирайт", "Copyright")), background()],
   },
   {
     id: "loader",
@@ -379,11 +456,14 @@ export const ICON_LABELS: Record<IconName, L> = {
   star: l("Звезда", "Star"),
   thermometerSun: l("Жара", "Heat"),
   waves: l("Волны", "Waves"),
+  checkCircle: l("Галочка в круге", "Check mark in a circle"),
+  phone: l("Телефон", "Phone"),
+  mail: l("Конверт", "Envelope"),
 };
 
 /* ---------- листья: для сверки описания со схемой ---------- */
 
-export type LeafKind = "string" | "path" | "icon" | "href" | "anchor" | "url";
+export type LeafKind = "string" | "path" | "optPath" | "percent" | "icon" | "href" | "anchor" | "url";
 
 /** Листья описания полей в виде "hero.image.src:path", элементы списков — "[]". */
 export function fieldLeaves(fields: Field[], prefix = ""): string[] {
@@ -400,6 +480,10 @@ export function fieldLeaves(fields: Field[], prefix = ""): string[] {
         return [`${at}:${field.kind}`];
       case "video":
         return [`${at}:path`];
+      case "file":
+        return [`${at}:optPath`];
+      case "percent":
+        return [`${at}:percent`];
       case "image":
         return [`${at}.src:path`, `${at}.alt:string`];
       case "group":
@@ -410,11 +494,14 @@ export function fieldLeaves(fields: Field[], prefix = ""): string[] {
   });
 }
 
-/** Те же листья, но из SITE_SHAPE. */
+/** Те же листья, но из SITE_SHAPE. «?» необязательного ключа в лист не попадает. */
 export function shapeLeaves(shape: Shape, prefix = ""): string[] {
   if (typeof shape === "string") return [`${prefix}:${shape}`];
   if (Array.isArray(shape)) return shapeLeaves(shape[0], `${prefix}[]`);
-  return Object.entries(shape).flatMap(([key, inner]) => shapeLeaves(inner, prefix ? `${prefix}.${key}` : key));
+  return Object.entries(shape).flatMap(([raw, inner]) => {
+    const key = raw.replace(/\?$/, "");
+    return shapeLeaves(inner, prefix ? `${prefix}.${key}` : key);
+  });
 }
 
 export function blockLeaves(blocks: Block[] = BLOCKS): string[] {
@@ -426,7 +513,9 @@ export function blockLeaves(blocks: Block[] = BLOCKS): string[] {
 export function emptyValue(field: Field): unknown {
   switch (field.kind) {
     case "icon":
-      return "moss" satisfies IconName;
+      return field.fallback ?? ("moss" satisfies IconName);
+    case "percent":
+      return 0;
     case "image":
       return { src: "", alt: "" };
     case "group":
@@ -471,6 +560,7 @@ export function splitPath(path: string): (string | number)[] {
 }
 
 const IMAGE_PARTS: Record<string, L> = { src: l("файл", "file"), alt: l("подпись", "alt text") };
+const ICON_PARTS: Record<string, L> = { src: l("своя картинка", "custom image"), name: l("встроенная", "built-in") };
 const GALLERY_PARTS: Record<string, L> = {
   src: l("файл", "file"),
   poster: l("постер", "poster"),
@@ -514,6 +604,9 @@ export function describePath(file: "site" | "gallery", path: string, lang: Admin
     } else if (field.kind === "image") {
       if (typeof tokens[i] === "string") parts.push(IMAGE_PARTS[tokens[i] as string]?.[lang] ?? String(tokens[i]));
       fields = null;
+    } else if (field.kind === "icon") {
+      if (typeof tokens[i] === "string") parts.push(ICON_PARTS[tokens[i] as string]?.[lang] ?? String(tokens[i]));
+      fields = null;
     } else fields = null;
   }
   return { blockId: block.id, label: parts.join(" › ") };
@@ -549,6 +642,7 @@ export function allLabels(): { at: string; text: L }[] {
   for (const anchor of SECTION_ANCHORS) out.push({ at: `#${anchor.id}`, text: anchor.label });
   for (const [name, label] of Object.entries(ICON_LABELS)) out.push({ at: `icon:${name}`, text: label });
   for (const [name, label] of Object.entries({ ...IMAGE_PARTS, ...GALLERY_PARTS })) out.push({ at: `part:${name}`, text: label });
+  for (const [name, label] of Object.entries(ICON_PARTS)) out.push({ at: `icon-part:${name}`, text: label });
   return out;
 }
 

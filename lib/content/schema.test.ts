@@ -283,3 +283,110 @@ test("тексты проверки: у каждого сообщения ест
     assert.doesNotMatch(en, /[а-яё]/i, key);
   }
 });
+
+/* ---------- свои иконки, фоны секций, декор и логотип ---------- */
+
+const BG = { src: "uploads/bg.webp", overlay: 40 };
+
+/** Контент со всеми необязательными полями. */
+function full() {
+  const content = site();
+  content.brand = { logo: "uploads/logo.png", logoOnLight: "" };
+  content.hero.bulletIcon = { name: "checkCircle", src: "uploads/check.png" };
+  content.product.kickerIcon = "moss";
+  content.product.featureIcon = { name: "moss", src: "" };
+  content.product.vinesImage = "uploads/vines.png";
+  content.product.solutions[0].icon = { name: "moss", src: "uploads/moss.webp" };
+  content.fuscum.kickerIcon = "sprout";
+  content.platform.kickerIcon = "moss";
+  content.platform.benefits[0].icon = { name: "droplet", src: "uploads/drop.png" };
+  content.gallery.botanicalImage = "";
+  content.gallery.dotsImage = "uploads/dots.webp";
+  content.contacts.phoneIcon = "phone";
+  content.contacts.emailIcon = { name: "mail", src: "uploads/mail.png" };
+  content.contact.deliverables[0].icon = { name: "checkCircle", src: "uploads/check.png" };
+  for (const block of ["product", "fuscum", "wetland", "platform", "gallery", "applications", "advantages", "faq", "contact", "footer"]) {
+    content[block].background = { ...BG };
+  }
+  content.platform.benefitsBackground = { src: "", overlay: 0 };
+  return content;
+}
+
+test("старый контент без новых полей проходит без миграции", () => {
+  const content = full();
+  // Вычищаем всё новое — получается контент «как до» — он валиден.
+  delete content.brand;
+  for (const block of Object.values(content) as Record<string, unknown>[]) {
+    for (const key of ["background", "benefitsBackground", "kickerIcon", "featureIcon", "vinesImage", "botanicalImage", "dotsImage", "bulletIcon", "phoneIcon", "emailIcon"]) delete block[key];
+  }
+  content.product.solutions[0].icon = "moss";
+  content.platform.benefits[0].icon = "droplet";
+  delete content.contact.deliverables[0].icon;
+  assert.deepEqual(validateSiteContent(content), []);
+  // И в текущем site.json новых полей нет вовсе — он остаётся валидным.
+  const current = site();
+  assert.equal(current.brand, undefined);
+  assert.deepEqual(validateSiteContent(current), []);
+});
+
+test("новые поля: свои иконки, фоны, декор и логотип проходят проверку", () => {
+  assert.deepEqual(validateSiteContent(full()), []);
+});
+
+test("иконка: своя картинка — объект { name, src } с допустимым путём", () => {
+  const content = full();
+  content.platform.benefits[0].icon = { name: "droplet", src: "https://evil.example/x.png" };
+  content.platform.benefits[1].icon = { name: "nope", src: "uploads/a.png" };
+  content.platform.benefits[2].icon = { src: "uploads/a.png" };
+  content.platform.benefits[3].icon = { name: "droplet", src: "uploads/a.png", extra: 1 };
+  content.platform.benefits[4].icon = 7;
+  content.hero.bulletIcon = { name: "checkCircle", src: "../secret.png" };
+  assert.deepEqual(validateSiteContent(content), [
+    "hero.bulletIcon.src: «../secret.png»: недопустимый путь",
+    "platform.benefits[0].icon.src: «https://evil.example/x.png»: нужен относительный путь внутри public",
+    "platform.benefits[1].icon.name: неизвестная иконка «nope»",
+    "platform.benefits[2].icon: ожидается ключ иконки или своя картинка",
+    "platform.benefits[3].icon: ожидается ключ иконки или своя картинка",
+    "platform.benefits[4].icon: ожидается ключ иконки или своя картинка",
+  ]);
+});
+
+test("пустой путь — встроенное: у декора, логотипа и фона допустим, у обычных картинок нет", () => {
+  const content = full();
+  content.product.vinesImage = "";
+  content.brand = { logo: "", logoOnLight: "" };
+  content.faq.background = { src: "", overlay: 0 };
+  assert.deepEqual(validateSiteContent(content), []);
+  content.product.vinesImage = "javascript:alert(1)";
+  content.gallery.dotsImage = "uploads/точки.png";
+  content.brand.logo = 5;
+  assert.deepEqual(validateSiteContent(content), [
+    "brand.logo: ожидается путь к файлу",
+    "product.vinesImage: «javascript:alert(1)»: нужен относительный путь внутри public",
+    "gallery.dotsImage: «uploads/точки.png»: в имени файла и папок допустимы только латинские буквы, цифры, точка, «_» и «-»",
+  ]);
+});
+
+test("фон секции: заливка — целое от 0 до 100, обе части обязательны", () => {
+  const ok = [0, 1, 50, 100];
+  const bad = [-1, 101, 12.5, "50", null, Number.NaN, Number.POSITIVE_INFINITY];
+  for (const overlay of ok) {
+    const content = full();
+    content.faq.background.overlay = overlay;
+    assert.deepEqual(validateSiteContent(content), [], String(overlay));
+  }
+  for (const overlay of bad) {
+    const content = full();
+    content.faq.background.overlay = overlay;
+    assert.deepEqual(validateSiteContent(content), ["faq.background.overlay: ожидается целое число от 0 до 100"], String(overlay));
+  }
+  const content = full();
+  content.contact.background = { src: "uploads/bg.webp" };
+  content.footer.background = { src: "media/x.webp", overlay: 1, extra: true };
+  content.brand = { logo: "" };
+  assert.deepEqual(validateSiteContent(content), ["brand.logoOnLight: нет обязательного поля", "contact.background.overlay: нет обязательного поля"]);
+  assert.deepEqual(validateSiteContent(content, "en"), ["brand.logoOnLight: required field is missing", "contact.background.overlay: required field is missing"]);
+  content.brand = { logo: "", logoOnLight: "" };
+  content.contact.background.overlay = 101;
+  assert.deepEqual(validateSiteContent(content, "en"), ["contact.background.overlay: must be a whole number from 0 to 100"]);
+});

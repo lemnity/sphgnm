@@ -248,7 +248,8 @@ export function MediaPreview({ path, poster, className = "adm-preview" }: { path
 
 /**
  * Поле файла: превью, «Загрузить/Заменить», «Выбрать из загруженных», при optional — «Убрать».
- * Значение — путь от public ("uploads/…").
+ * Значение — путь от public ("uploads/…"). fallback — превью встроенной картинки, которая
+ * стоит на сайте, пока поле пустое; тогда «Убрать» зовётся «Вернуть встроенную».
  */
 export function MediaPathControl({
   value,
@@ -257,6 +258,7 @@ export function MediaPathControl({
   optional = false,
   label,
   describedBy,
+  fallback,
 }: {
   value: string;
   onChange: (path: string) => void;
@@ -264,6 +266,7 @@ export function MediaPathControl({
   optional?: boolean;
   label: string;
   describedBy?: string;
+  fallback?: ReactNode;
 }) {
   const { upload, progress } = useUpload();
   const { pick } = useLibrary();
@@ -273,9 +276,16 @@ export function MediaPathControl({
 
   return (
     <div className="adm-media" aria-describedby={describedBy}>
-      <MediaPreview path={value} />
+      {!value && fallback ? (
+        <div className="adm-preview adm-preview--builtin">
+          {fallback}
+          <span className="adm-badge">{t("media.builtIn")}</span>
+        </div>
+      ) : (
+        <MediaPreview path={value} />
+      )}
       <div className="adm-media__side">
-        <code className="adm-media__path">{value || t("media.notChosen")}</code>
+        <code className="adm-media__path">{value || (fallback ? t("media.builtInPath") : t("media.notChosen"))}</code>
         <div className="adm-media__buttons">
           <button type="button" className="adm-btn adm-btn--small" onClick={() => input.current?.click()} disabled={progress !== null}>
             {value ? t("media.replace") : t("media.upload")}
@@ -294,7 +304,7 @@ export function MediaPathControl({
           </button>
           {optional && value ? (
             <button type="button" className="adm-btn adm-btn--small adm-btn--ghost-danger" onClick={() => onChange("")}>
-              {t("media.remove")}
+              {fallback ? t("media.resetBuiltIn") : t("media.remove")}
               <span className="adm-sr"> — {label}</span>
             </button>
           ) : null}

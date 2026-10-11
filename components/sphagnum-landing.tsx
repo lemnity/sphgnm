@@ -4,10 +4,7 @@ import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNo
 import {
   ArrowRight,
   ArrowUpRight,
-  CheckCircle2,
   Leaf,
-  Mail,
-  Phone,
   Menu,
   X,
   Plus,
@@ -15,12 +12,14 @@ import {
 } from "lucide-react";
 import { ICONS } from "./site-icons";
 
-// Декор (лозы, точки, ботаника) — статические импорты: их не правят из админки.
+// Декор (лозы, точки, ботаника) по умолчанию — статические импорты; из кабинета
+// его можно заменить своей картинкой (пустое поле — эти файлы).
 import portfolioBotanical from "./assets/reference/crops/portfolio-botanical-original.webp";
 import portfolioDots from "./assets/reference/crops/portfolio-dots-original.webp";
 import solutionsHangingVines from "./assets/reference/crops/solutions-hanging-vines-transparent.png";
-import type { GalleryItem, SiteContent } from "@/lib/content/schema";
+import type { GalleryItem, IconName, IconRef, SiteContent } from "@/lib/content/schema";
 import type { InstagramPost } from "@/lib/content/load";
+import { resolveIcon, sectionBackground } from "@/lib/content/render";
 import { withBase } from "@/lib/media";
 import { InstagramGallery, type GalleryPhoto } from "./instagram-gallery";
 import { SphagnumLoader } from "./sphagnum-loader";
@@ -87,9 +86,49 @@ const VINE_BRANCHES = [
   { clipPath: "inset(0 0 0 87%)", anchor: 0.935, x: 1.08, y: 0.7, rotate: -1.16, duration: 700 },
 ] as const;
 
-function Icon({ name, className = "size-5" }: { name: string; className?: string }) {
-  const C = ICONS[name as keyof typeof ICONS] ?? Leaf;
-  return <C className={className} strokeWidth={1.6} aria-hidden />;
+/* Цвета секций "r, g, b": ими заливается своя фоновая картинка на overlay %. */
+const TINT = {
+  product: "248, 247, 242",
+  fuscum: "248, 247, 243",
+  wetland: "250, 250, 250",
+  platform: "248, 249, 244",
+  benefits: "251, 250, 248",
+  gallery: "0, 11, 7",
+  applications: "247, 244, 239",
+  advantages: "15, 19, 20",
+  faq: "245, 244, 240",
+  ink: "16, 43, 32",
+} as const;
+
+/** Фон секции из кабинета; нет картинки — undefined, и остаётся фон из вёрстки. */
+const bgStyle = (background: SiteContent["faq"]["background"], tint: string): CSSProperties | undefined =>
+  sectionBackground(background, tint) ?? undefined;
+
+/**
+ * Иконка из контента: встроенная (lucide) или своя картинка того же размера.
+ * Растр не перекрашивается цветом текста — это ожидаемо. Обе — декоративные.
+ */
+function Icon({
+  icon,
+  fallback = "moss",
+  className = "size-5",
+  strokeWidth = 1.6,
+}: {
+  icon: IconRef | undefined;
+  fallback?: IconName;
+  className?: string;
+  strokeWidth?: number;
+}) {
+  const { name, src } = resolveIcon(icon, fallback);
+  if (src) return <img src={withBase(src)} alt="" aria-hidden data-custom-icon className={`${className} object-contain`} />;
+  const C = ICONS[name] ?? Leaf;
+  return <C className={className} strokeWidth={strokeWidth} aria-hidden />;
+}
+
+/** Логотип: свой файл из кабинета или фирменный SVG. */
+function SiteLogo({ src, className }: { src: string; className: string }) {
+  if (!src) return <SphagnumLogo className={className} />;
+  return <img src={withBase(src)} alt="SPHAGNUM" data-custom-logo className={`${className} object-contain`} />;
 }
 
 /** Тип входной анимации — тот же набор, что и у keyframes в sphagnum-styles. */
@@ -144,6 +183,7 @@ function SectionHead({
   lead,
   light,
   leafMark,
+  leafIcon,
 }: {
   kicker?: string;
   title: string;
@@ -151,12 +191,14 @@ function SectionHead({
   light?: boolean;
   /** Листок после надзага — у разделов про продукт. */
   leafMark?: boolean;
+  /** Своя иконка вместо листка (из кабинета). */
+  leafIcon?: IconRef;
 }) {
   return (
     <div className="max-w-3xl">
       {kicker ? (
         <p className={`mb-3 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.14em] ${light ? "text-[color:var(--brand-sage)]" : "text-[color:var(--brand-moss)]"}`}>
-          {kicker}{leafMark ? <Leaf className="size-4" strokeWidth={1.8} aria-hidden /> : null}
+          {kicker}{leafMark ? <Icon icon={leafIcon} className="size-4" strokeWidth={1.8} /> : null}
         </p>
       ) : null}
       <h2
@@ -364,6 +406,10 @@ function PdfAlignedSections({
   gallery: GalleryPhoto[];
 }) {
   const { product, fuscum, wetland, platform, applications, advantages } = content;
+  const vinesSrc = product.vinesImage ? withBase(product.vinesImage) : solutionsHangingVines.src;
+  const botanicalSrc = content.gallery.botanicalImage ? withBase(content.gallery.botanicalImage) : portfolioBotanical.src;
+  const dotsSrc = content.gallery.dotsImage ? withBase(content.gallery.dotsImage) : portfolioDots.src;
+  const platformBg = bgStyle(platform.background, TINT.platform);
   const productSectionRef = useRef<HTMLElement | null>(null);
   const vinesRef = useRef<HTMLDivElement | null>(null);
 
@@ -467,7 +513,7 @@ function PdfAlignedSections({
 
   return (
     <>
-      <section ref={productSectionRef} id="product" className="relative overflow-hidden bg-[#f8f7f2] py-20 lg:py-28">
+      <section ref={productSectionRef} id="product" className="relative overflow-hidden bg-[#f8f7f2] py-20 lg:py-28" style={bgStyle(product.background, TINT.product)}>
         <div
           ref={vinesRef}
           aria-hidden
@@ -475,7 +521,7 @@ function PdfAlignedSections({
           className="pointer-events-none absolute right-0 top-0 hidden aspect-[1761/893] w-[min(39vw,650px)] lg:block"
         >
           <img
-            src={solutionsHangingVines.src}
+            src={vinesSrc}
             alt=""
             data-reference-visual="solutions-vines"
             className="absolute inset-0 size-full object-contain object-right-top [clip-path:polygon(0_0,100%_0,100%_28%,92%_25%,83%_29%,72%_25%,60%_29%,48%_23%,36%_28%,24%_25%,12%_30%,0_24%)]"
@@ -483,7 +529,7 @@ function PdfAlignedSections({
           {VINE_BRANCHES.map((branch, index) => (
             <img
               key={branch.clipPath}
-              src={solutionsHangingVines.src}
+              src={vinesSrc}
               alt=""
               data-vine-branch={index}
               className="absolute inset-0 size-full object-contain object-right-top"
@@ -497,7 +543,7 @@ function PdfAlignedSections({
         </div>
         <div className="pdf-grid relative">
           <Reveal>
-            <SectionHead leafMark kicker={product.kicker} title={product.title} lead={product.lead} />
+            <SectionHead leafMark leafIcon={product.kickerIcon} kicker={product.kicker} title={product.title} lead={product.lead} />
           </Reveal>
         </div>
         <div data-solution-grid className="solutions-reference-grid relative mt-12 grid gap-6 xl:grid-cols-2 xl:gap-10">
@@ -506,7 +552,7 @@ function PdfAlignedSections({
               <article className="group relative h-full overflow-hidden rounded-[22px] border border-[color:var(--brand-line)] bg-[#fbfaf6] p-7 shadow-[0_18px_55px_rgba(20,24,22,.07)] sm:p-8 xl:min-h-[560px]">
                 <div data-solution-copy className="relative z-10">
                   <div className="flex items-center gap-7 xl:max-w-[74%]">
-                    <span data-solution-icon className="grid size-16 shrink-0 place-items-center rounded-[14px] bg-[color:var(--brand-moss)] text-white"><Icon name={solution.icon} className="size-8" /></span>
+                    <span data-solution-icon className="grid size-16 shrink-0 place-items-center rounded-[14px] bg-[color:var(--brand-moss)] text-white"><Icon icon={solution.icon} className="size-8" /></span>
                     <p data-solution-kicker className="label text-[13px] leading-relaxed text-[color:var(--brand-moss)]">{solution.kicker}</p>
                   </div>
                   <h3 className="mt-5 text-[30px] font-bold leading-[1.08] xl:max-w-[58%] xl:text-[34px]">
@@ -518,7 +564,7 @@ function PdfAlignedSections({
                   <ul className="mt-4 grid gap-3 xl:max-w-[62%]">
                     {solution.features.map((feature, featureIndex) => (
                       <li key={featureIndex} className="flex gap-3 text-[14px] leading-snug xl:text-[15px]">
-                        <Leaf className="mt-0.5 size-[18px] shrink-0 text-[color:var(--brand-moss)]" strokeWidth={1.7} aria-hidden />
+                        <Icon icon={product.featureIcon} className="mt-0.5 size-[18px] shrink-0 text-[color:var(--brand-moss)]" strokeWidth={1.7} />
                         {feature}
                       </li>
                     ))}
@@ -537,11 +583,11 @@ function PdfAlignedSections({
         </div>
       </section>
 
-      <section id="fuscum" className="bg-[#f8f7f3] pb-16 lg:pb-24">
+      <section id="fuscum" className="bg-[#f8f7f3] pb-16 lg:pb-24" style={bgStyle(fuscum.background, TINT.fuscum)}>
         <div className="pdf-grid">
         <div className="grid overflow-hidden rounded-[24px] border border-[color:var(--brand-line)] bg-[#faf9f7] lg:min-h-[608px] lg:grid-cols-[1.08fr_.92fr]">
           <div className="relative min-h-[470px] overflow-hidden p-8 sm:p-12 lg:min-h-[608px]">
-            <h2 className="label flex items-center gap-2 text-[12px] text-[color:var(--brand-moss)]"><Leaf className="size-5" strokeWidth={1.8} aria-hidden />{fuscum.kicker}</h2>
+            <h2 className="label flex items-center gap-2 text-[12px] text-[color:var(--brand-moss)]"><Icon icon={fuscum.kickerIcon} className="size-5" strokeWidth={1.8} />{fuscum.kicker}</h2>
             <span className="mt-5 block h-0.5 w-12 bg-[color:var(--brand-moss)]" aria-hidden />
             <p className="mt-12 whitespace-nowrap text-[52px] font-bold leading-none tracking-[-.055em] sm:text-[76px] lg:text-[88px]">{fuscum.areaValue} <span className="text-[.42em] tracking-normal text-[#5f792a]">{fuscum.areaUnit}</span></p>
             <p className="mt-3 text-[28px] font-bold leading-none sm:text-[34px]">{fuscum.areaCaption}</p>
@@ -552,7 +598,7 @@ function PdfAlignedSections({
             <dl className="mt-8">
               {wetland.facts.map((fact, index) => (
                 <div key={index} className="grid grid-cols-[48px_82px_1fr] items-center gap-3 border-b border-[color:var(--brand-line)] py-4 last:border-b-0 sm:grid-cols-[54px_100px_1fr] sm:gap-4">
-                  <span className="grid size-12 place-items-center rounded-xl bg-[#f1f4e9] text-[color:var(--brand-moss)]"><Icon name={fact.icon} /></span>
+                  <span className="grid size-12 place-items-center rounded-xl bg-[#f1f4e9] text-[color:var(--brand-moss)]"><Icon icon={fact.icon} /></span>
                   <dt className="text-[19px] font-bold text-[#5f792a] sm:text-[21px]">{fact.value}</dt>
                   <dd className="border-l border-[color:var(--brand-line)] pl-3 text-[13px] leading-snug text-[color:var(--brand-muted)] sm:pl-4 sm:text-[14px]">{fact.text}</dd>
                 </div>
@@ -563,7 +609,7 @@ function PdfAlignedSections({
         </div>
       </section>
 
-      <section className="bg-[#fafafa] bg-[linear-gradient(to_bottom,#f8f7f3_0%,#fafafa_22%,#fafafa_62%,#f8f9f4_100%)] pb-6 lg:pb-10">
+      <section className="bg-[#fafafa] bg-[linear-gradient(to_bottom,#f8f7f3_0%,#fafafa_22%,#fafafa_62%,#f8f9f4_100%)] pb-6 lg:pb-10" style={bgStyle(wetland.background, TINT.wetland)}>
         <figure className="pdf-grid living-wall-frame">
           <img src={withBase(wetland.wallImage.src)} alt={wetland.wallImage.alt} className="block h-auto w-full object-contain" />
         </figure>
@@ -571,18 +617,22 @@ function PdfAlignedSections({
 
       <section
         className="relative overflow-hidden pt-12 lg:pt-16"
-        style={{
-          background:
-            "radial-gradient(ellipse at 8% 82%, rgba(118,148,72,.24), transparent 32%), radial-gradient(ellipse at 92% 76%, rgba(151,175,91,.18), transparent 28%), #f8f9f4",
-        }}
+        style={
+          platformBg
+            ? { ...platformBg, backgroundColor: "#f8f9f4" }
+            : {
+                background:
+                  "radial-gradient(ellipse at 8% 82%, rgba(118,148,72,.24), transparent 32%), radial-gradient(ellipse at 92% 76%, rgba(151,175,91,.18), transparent 28%), #f8f9f4",
+              }
+        }
       >
         <div className="pdf-grid relative z-10 pb-40 lg:pb-[373px]">
-          <Reveal><SectionHead leafMark kicker={platform.kicker} title={platform.title} lead={platform.lead} /></Reveal>
+          <Reveal><SectionHead leafMark leafIcon={platform.kickerIcon} kicker={platform.kicker} title={platform.title} lead={platform.lead} /></Reveal>
           <div className="mt-12 grid gap-5 lg:grid-cols-3">
             {platform.pillars.map((pillar, index) => (
               <Reveal key={index} delay={index * 0.08}>
                 <article className="h-full rounded-[18px] border border-[color:var(--brand-line)] bg-white/90 p-7 shadow-[0_14px_38px_rgba(20,24,22,.06)] backdrop-blur">
-                  <div className="flex items-start justify-between"><span className="grid size-12 place-items-center rounded-xl bg-[#edf3e6] text-[color:var(--brand-moss)]"><Icon name={pillar.icon} className="size-6" /></span><span className="text-[13px] font-semibold text-[color:var(--brand-line)]">{ordinal(index)}</span></div>
+                  <div className="flex items-start justify-between"><span className="grid size-12 place-items-center rounded-xl bg-[#edf3e6] text-[color:var(--brand-moss)]"><Icon icon={pillar.icon} className="size-6" /></span><span className="text-[13px] font-semibold text-[color:var(--brand-line)]">{ordinal(index)}</span></div>
                   <h3 className="mt-5 text-[20px] font-bold">{pillar.title}</h3>
                   <p className="mt-3 text-[14px] leading-relaxed text-[color:var(--brand-muted)]">{pillar.text}</p>
                 </article>
@@ -593,13 +643,13 @@ function PdfAlignedSections({
         <img data-reference-visual="root-zone-scene" src={withBase(platform.rootZoneImage.src)} alt={platform.rootZoneImage.alt} className="absolute inset-x-0 bottom-0 h-auto w-full object-contain object-bottom [mask-image:linear-gradient(to_bottom,transparent_0%,#000_32%,#000_100%)]" />
       </section>
 
-      <section data-reference-surface="benefits" className="w-full bg-[#fbfaf8]">
+      <section data-reference-surface="benefits" className="w-full bg-[#fbfaf8]" style={bgStyle(platform.benefitsBackground, TINT.benefits)}>
         <div className="pdf-grid py-14 lg:py-40">
           <h3 className="text-[28px] font-bold">{platform.benefitsTitle}</h3><span className="mt-4 block h-0.5 w-12 bg-[color:var(--brand-moss)]" aria-hidden />
           <div className="mt-7 grid sm:grid-cols-2 lg:grid-cols-3">
             {platform.benefits.map((benefit, index) => (
               <article key={index} className="grid grid-cols-[48px_1fr] gap-4 border-b border-[color:var(--brand-line)] py-7 sm:px-5 lg:border-r lg:[&:nth-child(3n)]:border-r-0">
-                <span className="grid size-11 place-items-center rounded-lg bg-[#f1f3ec] text-[color:var(--brand-moss)]"><Icon name={benefit.icon} /></span>
+                <span className="grid size-11 place-items-center rounded-lg bg-[#f1f3ec] text-[color:var(--brand-moss)]"><Icon icon={benefit.icon} /></span>
                 <div><span className="text-[12px] font-semibold text-[color:var(--brand-moss)]">{ordinal(index)}</span><h4 className="mt-1 text-[16px] font-bold">{benefit.title}</h4><p className="mt-2 text-[13.5px] leading-relaxed text-[color:var(--brand-muted)]">{benefit.text}</p></div>
               </article>
             ))}
@@ -607,23 +657,23 @@ function PdfAlignedSections({
           <h3 className="mt-12 text-[28px] font-bold">{platform.rangeTitle}</h3><span className="mt-4 block h-0.5 w-12 bg-[color:var(--brand-moss)]" aria-hidden />
           <div className="mt-7 grid gap-4 lg:grid-cols-3">
             {platform.range.map((item, index) => (
-              <article key={index} className="flex gap-5 rounded-xl border border-[color:var(--brand-line)] p-6"><span className="grid size-14 shrink-0 place-items-center rounded-full bg-[#f1f3ec] text-[color:var(--brand-moss)]"><Icon name={item.icon} /></span><div><h4 className="text-[17px] font-bold">{item.name}</h4><p className="mt-2 text-[13.5px] leading-relaxed text-[color:var(--brand-muted)]">{item.text}</p><ArrowRight className="mt-4 size-4 text-[color:var(--brand-moss)]" aria-hidden /></div></article>
+              <article key={index} className="flex gap-5 rounded-xl border border-[color:var(--brand-line)] p-6"><span className="grid size-14 shrink-0 place-items-center rounded-full bg-[#f1f3ec] text-[color:var(--brand-moss)]"><Icon icon={item.icon} /></span><div><h4 className="text-[17px] font-bold">{item.name}</h4><p className="mt-2 text-[13.5px] leading-relaxed text-[color:var(--brand-muted)]">{item.text}</p><ArrowRight className="mt-4 size-4 text-[color:var(--brand-moss)]" aria-hidden /></div></article>
             ))}
           </div>
           <a href="#contact" className="btn btn-primary mt-7 inline-flex text-[13px]">{platform.ctaLabel} <ArrowUpRight className="size-4" /></a>
         </div>
       </section>
 
-      <section id="projects" className="relative overflow-hidden bg-[#000b07] py-20 text-[color:var(--brand-cream)] lg:py-28">
-        <img data-reference-visual="portfolio-botanical" src={portfolioBotanical.src} alt="" aria-hidden className="pointer-events-none absolute bottom-2 left-0 hidden h-auto w-[191.25px] mix-blend-lighten lg:block" />
-        <img data-reference-visual="portfolio-dots" src={portfolioDots.src} alt="" aria-hidden className="pointer-events-none absolute bottom-2 left-[191.25px] hidden h-auto w-[212.5px] mix-blend-lighten lg:block" />
+      <section id="projects" className="relative overflow-hidden bg-[#000b07] py-20 text-[color:var(--brand-cream)] lg:py-28" style={bgStyle(content.gallery.background, TINT.gallery)}>
+        <img data-reference-visual="portfolio-botanical" src={botanicalSrc} alt="" aria-hidden className="pointer-events-none absolute bottom-2 left-0 hidden h-auto w-[191.25px] mix-blend-lighten lg:block" />
+        <img data-reference-visual="portfolio-dots" src={dotsSrc} alt="" aria-hidden className="pointer-events-none absolute bottom-2 left-[191.25px] hidden h-auto w-[212.5px] mix-blend-lighten lg:block" />
         <div data-reference-visual="portfolio-baseline" aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-2 bg-[linear-gradient(to_bottom,#8d782d_0%,#c4a239_45%,#c4a239_100%)]" />
         <div className="pdf-grid">
           <InstagramGallery photos={gallery} text={content.gallery} />
         </div>
       </section>
 
-      <section id="applications" className="bg-[#f7f4ef] py-20 lg:pb-[136px] lg:pt-28">
+      <section id="applications" className="bg-[#f7f4ef] py-20 lg:pb-[136px] lg:pt-28" style={bgStyle(applications.background, TINT.applications)}>
         <div className="pdf-grid">
           <Reveal><SectionHead kicker={applications.kicker} title={applications.title} /></Reveal>
           <div className="mt-14 grid gap-20 lg:gap-28">
@@ -633,7 +683,7 @@ function PdfAlignedSections({
                   <figure className={`overflow-hidden rounded-[18px] bg-white shadow-[0_18px_50px_rgba(20,24,22,.07)] ${index > 0 ? "lg:order-2" : ""}`}><img src={withBase(application.image.src)} alt={application.image.alt} className="h-auto w-full object-contain" /></figure>
                   <div><p className="label text-[11px] text-[color:var(--brand-moss)]">{applications.itemKicker}</p><span className="mt-4 block h-px w-10 bg-[color:var(--brand-moss)]" /><span className="mt-8 block text-[13px] font-bold text-[#5f792a]">{ordinal(index)}</span><h3 className="mt-3 text-[33px] font-bold leading-[1.08] lg:text-[40px]">{application.title}</h3><p className="mt-5 text-[15px] leading-relaxed text-[color:var(--brand-muted)]">{application.text}</p>
                     <ul className={`mt-8 grid gap-4 ${application.benefits.length === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
-                      {application.benefits.map((benefit, benefitIndex) => <li key={benefitIndex} className="min-w-0"><span className="grid size-12 place-items-center rounded-xl bg-[#edf3e6] text-[color:var(--brand-moss)]"><Icon name={benefit.icon} /></span><span className="mt-3 block text-[13px] font-bold leading-tight">{benefit.title}</span>{benefit.text ? <span className="mt-1 block text-[12px] leading-snug text-[color:var(--brand-muted)]">{benefit.text}</span> : null}</li>)}
+                      {application.benefits.map((benefit, benefitIndex) => <li key={benefitIndex} className="min-w-0"><span className="grid size-12 place-items-center rounded-xl bg-[#edf3e6] text-[color:var(--brand-moss)]"><Icon icon={benefit.icon} /></span><span className="mt-3 block text-[13px] font-bold leading-tight">{benefit.title}</span>{benefit.text ? <span className="mt-1 block text-[12px] leading-snug text-[color:var(--brand-muted)]">{benefit.text}</span> : null}</li>)}
                     </ul>
                   </div>
                 </article>
@@ -643,13 +693,13 @@ function PdfAlignedSections({
         </div>
       </section>
 
-      <section id="advantages" className="bg-[#0f1314] py-20 text-[color:var(--brand-cream)] lg:py-28">
+      <section id="advantages" className="bg-[#0f1314] py-20 text-[color:var(--brand-cream)] lg:py-28" style={bgStyle(advantages.background, TINT.advantages)}>
         <div className="pdf-grid">
           <div className="grid gap-8 border-b border-[rgba(215,177,94,.55)] pb-8 lg:grid-cols-[1.2fr_.8fr] lg:items-end"><div><p className="label text-[11px] text-[color:var(--brand-gold)]">{advantages.kicker}</p><span className="mt-3 block h-px w-12 bg-[color:var(--brand-gold)]" aria-hidden /><h2 className="mt-5 text-[38px] font-bold leading-[1.03] sm:text-[52px]">{advantages.title} <span className="block text-[color:var(--brand-gold)]">{advantages.titleAccent}</span></h2></div><p className="max-w-[42ch] text-[15px] leading-relaxed text-[color:var(--brand-cream-72)]">{advantages.lead}</p></div>
           <div className="mt-8 grid gap-4 md:grid-cols-2">
-            {advantages.items.map((advantage, index) => <article key={index} className="grid gap-5 rounded-xl border border-[color:var(--brand-cream-15)] p-6 sm:grid-cols-[84px_1fr]"><span className="grid size-20 place-items-center rounded-full border border-[rgba(215,177,94,.45)] text-[color:var(--brand-gold)]"><Icon name={advantage.icon} className="size-9" /></span><div><span className="text-[13px] font-semibold text-[color:var(--brand-gold)]">{ordinal(index)}</span><h3 className="mt-1 text-[20px] font-bold">{advantage.title}</h3><span className="mt-3 block h-px w-10 bg-[color:var(--brand-gold)]" /><p className="mt-3 text-[13.5px] leading-relaxed text-[color:var(--brand-cream-72)]">{advantage.text}</p></div></article>)}
+            {advantages.items.map((advantage, index) => <article key={index} className="grid gap-5 rounded-xl border border-[color:var(--brand-cream-15)] p-6 sm:grid-cols-[84px_1fr]"><span className="grid size-20 place-items-center rounded-full border border-[rgba(215,177,94,.45)] text-[color:var(--brand-gold)]"><Icon icon={advantage.icon} className="size-9" /></span><div><span className="text-[13px] font-semibold text-[color:var(--brand-gold)]">{ordinal(index)}</span><h3 className="mt-1 text-[20px] font-bold">{advantage.title}</h3><span className="mt-3 block h-px w-10 bg-[color:var(--brand-gold)]" /><p className="mt-3 text-[13.5px] leading-relaxed text-[color:var(--brand-cream-72)]">{advantage.text}</p></div></article>)}
           </div>
-          <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">{advantages.tags.map((tag, index) => <span key={index} data-advantage-tag className="flex items-center justify-center gap-3 rounded-full border border-[rgba(215,177,94,.42)] px-4 py-2.5 text-[13px] text-[color:var(--brand-cream-85)]"><Icon name={tag.icon} className="size-5 shrink-0 text-[color:var(--brand-gold)]" />{tag.label}</span>)}</div>
+          <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">{advantages.tags.map((tag, index) => <span key={index} data-advantage-tag className="flex items-center justify-center gap-3 rounded-full border border-[rgba(215,177,94,.42)] px-4 py-2.5 text-[13px] text-[color:var(--brand-cream-85)]"><Icon icon={tag.icon} className="size-5 shrink-0 text-[color:var(--brand-gold)]" />{tag.label}</span>)}</div>
         </div>
       </section>
     </>
@@ -670,6 +720,9 @@ export default function SphagnumLanding({
   instagramPosts: InstagramPost[];
 }) {
   const { contacts, nav, hero, strip, faq, contact, footer } = content;
+  const logo = content.brand?.logo ?? "";
+  const logoOnLight = content.brand?.logoOnLight || logo;
+  const contactBg = bgStyle(contact.background, TINT.ink);
   const photos = galleryPhotos(instagramPosts, gallery, content.gallery.profileUrl);
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -713,7 +766,7 @@ export default function SphagnumLanding({
   return (
     <div className="sph scroll-smooth">
       <SphagnumStyles />
-      <SphagnumLoader {...content.loader} />
+      <SphagnumLoader {...content.loader} logo={logo} />
 
       {/* ═══════════ ШАПКА ═══════════
         Пока шапка над первым экраном, под ней мягкая тень вместо bg-transparent:
@@ -771,7 +824,7 @@ export default function SphagnumLanding({
               scrolled ? "text-[color:var(--brand-ink)]" : "text-[color:var(--brand-cream)]"
             }`}
           >
-            <SphagnumLogo className="h-7 w-auto lg:h-8" />
+            <SiteLogo src={scrolled ? logoOnLight : logo} className="h-7 w-auto lg:h-8" />
           </a>
 
           <nav className="a-in d4 ml-auto hidden items-center gap-5 xl:flex 2xl:gap-6">
@@ -817,7 +870,7 @@ export default function SphagnumLanding({
       {menuOpen ? (
         <div className="fixed inset-0 z-50 flex flex-col bg-[color:var(--brand-ink)] px-6 py-5 xl:hidden">
           <div className="flex items-center">
-            <SphagnumLogo className="h-7 w-auto text-[color:var(--brand-cream)]" />
+            <SiteLogo src={logo} className="h-7 w-auto text-[color:var(--brand-cream)]" />
             <button
               type="button"
               onClick={() => setMenuOpen(false)}
@@ -941,10 +994,11 @@ export default function SphagnumLanding({
                     key={i}
                     className="flex gap-2.5 text-[14px] leading-snug text-[color:var(--brand-cream-85)]"
                   >
-                    <CheckCircle2
+                    <Icon
+                      icon={hero.bulletIcon}
+                      fallback="checkCircle"
                       className="mt-0.5 size-4 shrink-0 text-[color:var(--brand-sage)]"
                       strokeWidth={1.7}
-                      aria-hidden
                     />
                     {b}
                   </li>
@@ -995,7 +1049,7 @@ export default function SphagnumLanding({
                     {/* Кружок всегда Moss: цвет по типу свойства (cyan, amber) выходил
                         за фирменную палитру и без легенды не считывался. */}
                     <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[color:var(--brand-moss)] text-[color:var(--brand-cream)] sm:size-12">
-                      <Icon name={c.icon} className="size-[18px]" />
+                      <Icon icon={c.icon} className="size-[18px]" />
                     </span>
                     <p
                       className="text-sm leading-[1.25] text-[color:var(--brand-ink-85)] sm:text-base lg:text-lg"
@@ -1035,7 +1089,7 @@ export default function SphagnumLanding({
 
 
       {/* ═══════════ FAQ ═══════════ */}
-      <section id="faq" className="bg-[color:var(--brand-cream)] py-24 lg:py-36">
+      <section id="faq" className="bg-[color:var(--brand-cream)] py-24 lg:py-36" style={bgStyle(faq.background, TINT.faq)}>
         <div className="pdf-grid">
           <Reveal>
             <SectionHead kicker={faq.kicker} title={faq.title} />
@@ -1083,13 +1137,18 @@ export default function SphagnumLanding({
       </section>
 
       {/* ═══════════ КОНТАКТЫ ═══════════ */}
-      <section id="contact" className="relative overflow-hidden bg-[color:var(--brand-ink)] py-24 text-[color:var(--brand-cream)] lg:py-36">
-        <MossTexture dark seed={77} density={280} className="absolute inset-0 h-full w-full opacity-30" />
-        <div
-          aria-hidden
-          className="absolute inset-0"
-          style={{ background: "linear-gradient(180deg, rgba(20,24,15,.80) 0%, rgba(20,24,15,.62) 50%, rgba(20,24,15,.86) 100%)" }}
-        />
+      <section id="contact" className="relative overflow-hidden bg-[color:var(--brand-ink)] py-24 text-[color:var(--brand-cream)] lg:py-36" style={contactBg}>
+        {/* Свой фон из кабинета заменяет мох и затемнение: читаемость держит его overlay. */}
+        {contactBg ? null : (
+          <>
+            <MossTexture dark seed={77} density={280} className="absolute inset-0 h-full w-full opacity-30" />
+            <div
+              aria-hidden
+              className="absolute inset-0"
+              style={{ background: "linear-gradient(180deg, rgba(20,24,15,.80) 0%, rgba(20,24,15,.62) 50%, rgba(20,24,15,.86) 100%)" }}
+            />
+          </>
+        )}
 
         <div className="relative grid gap-14 lg:grid-cols-[1fr_500px] lg:gap-20 pdf-grid">
           <div>
@@ -1107,7 +1166,7 @@ export default function SphagnumLanding({
               <ul className="mt-10 grid gap-5 lg:mt-12">
                 {contact.deliverables.map((d, i) => (
                   <li key={i} className="flex gap-4 border-t border-[color:var(--brand-cream-15)] pt-5">
-                    <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-[color:var(--brand-sage)]" strokeWidth={1.7} aria-hidden />
+                    <Icon icon={d.icon} fallback="checkCircle" className="mt-0.5 size-5 shrink-0 text-[color:var(--brand-sage)]" strokeWidth={1.7} />
                     <span>
                       <span className="block text-[15.5px] font-bold">{d.title}</span>
                       <span className="mt-1 block text-[14px] leading-relaxed text-[color:var(--brand-cream-72)]">{d.text}</span>
@@ -1132,7 +1191,7 @@ export default function SphagnumLanding({
                       href={telHref(contacts.phone)}
                       className="flex items-center gap-2.5 text-[15px] font-semibold transition-colors hover:text-[color:var(--brand-sage)]"
                     >
-                      <Phone className="size-[18px] text-[color:var(--brand-sage)]" strokeWidth={1.7} aria-hidden />
+                      <Icon icon={contacts.phoneIcon} fallback="phone" className="size-[18px] text-[color:var(--brand-sage)]" strokeWidth={1.7} />
                       {contacts.phone}
                     </a>
                   ) : null}
@@ -1141,7 +1200,7 @@ export default function SphagnumLanding({
                       href={`mailto:${contacts.email}`}
                       className="flex items-center gap-2.5 text-[15px] font-semibold transition-colors hover:text-[color:var(--brand-sage)]"
                     >
-                      <Mail className="size-[18px] text-[color:var(--brand-sage)]" strokeWidth={1.7} aria-hidden />
+                      <Icon icon={contacts.emailIcon} fallback="mail" className="size-[18px] text-[color:var(--brand-sage)]" strokeWidth={1.7} />
                       {contacts.email}
                     </a>
                   ) : null}
@@ -1166,7 +1225,7 @@ export default function SphagnumLanding({
       </section>
 
       {/* ═══════════ ПОДВАЛ ═══════════ */}
-      <footer className="bg-[color:var(--brand-ink)] py-8 text-[color:var(--brand-cream-72)]">
+      <footer className="bg-[color:var(--brand-ink)] py-8 text-[color:var(--brand-cream-72)]" style={bgStyle(footer.background, TINT.ink)}>
         <div className="flex flex-col gap-2 text-[13px] sm:flex-row sm:items-center pdf-grid">
           <p>{footer.copyright}</p>
           <a href={`mailto:${contacts.email}`} className="hover:text-[color:var(--brand-cream)] sm:ml-auto">

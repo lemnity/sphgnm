@@ -31,7 +31,8 @@ test("поля редактора покрывают каждое поле сх�
 test("каждый блок схемы есть в кабинете ровно один раз", () => {
   const ids = BLOCKS.map((block) => block.id);
   assert.equal(new Set(ids).size, ids.length);
-  assert.deepEqual([...ids].sort(), Object.keys(SITE_SHAPE).sort());
+  // Необязательный блок записан в схеме с «?» (brand?).
+  assert.deepEqual([...ids].sort(), Object.keys(SITE_SHAPE).map((key) => key.replace(/\?$/, "")).sort());
 });
 
 test("сверка ловит пропущенное поле", () => {
@@ -132,4 +133,46 @@ test("describePath и describeUsage по-английски", () => {
   assert.equal(describePath("gallery", "gallery[4].poster", "en").label, "Gallery › Item #5 › poster");
   assert.equal(describeUsage("site: hero.image.src", "en"), "Hero › Background image › file");
   assert.equal(describePath("site", "meta.siteUrl", "en").label, "SEO › Site address");
+});
+
+test("свои картинки, фоны и логотип: новые виды полей сверены со схемой", () => {
+  const leaves = blockLeaves();
+  for (const leaf of [
+    "faq.background.src:optPath",
+    "faq.background.overlay:percent",
+    "platform.benefitsBackground.overlay:percent",
+    "product.vinesImage:optPath",
+    "gallery.dotsImage:optPath",
+    "brand.logo:optPath",
+    "brand.logoOnLight:optPath",
+    "hero.bulletIcon:icon",
+    "contact.deliverables[].icon:icon",
+    "contacts.emailIcon:icon",
+  ]) {
+    assert.ok(leaves.includes(leaf), leaf);
+    assert.ok(shapeLeaves(SITE_SHAPE).includes(leaf), `схема: ${leaf}`);
+  }
+  // У всех секций лендинга, кроме первого экрана (у него своя картинка), есть фон.
+  for (const block of ["product", "fuscum", "wetland", "platform", "gallery", "applications", "advantages", "faq", "contact", "footer"]) {
+    assert.ok(leaves.includes(`${block}.background.src:optPath`), block);
+  }
+});
+
+test("новый элемент: необязательная иконка берёт свой значок по умолчанию, фон — пустой", () => {
+  const contact = BLOCKS.find((block) => block.id === "contact")!;
+  const deliverables = contact.fields.find((field) => field.key === "deliverables");
+  assert.ok(deliverables && deliverables.kind === "list");
+  assert.deepEqual(newListItem(deliverables), { title: "", text: "", icon: "checkCircle" });
+  const background = contact.fields.find((field) => field.key === "background");
+  assert.ok(background && background.kind === "group");
+  assert.deepEqual(emptyObject(background.fields), { src: "", overlay: 0 });
+  const brand = BLOCKS.find((block) => block.id === "brand")!;
+  assert.deepEqual(emptyObject(brand.fields), { logo: "", logoOnLight: "" });
+});
+
+test("describePath: своя иконка и фон секции", () => {
+  assert.equal(describePath("site", "platform.benefits[0].icon.src").label, "Субстраты › Преимущества › Преимущество № 1 › Иконка › своя картинка");
+  assert.equal(describePath("site", "faq.background.overlay").label, "FAQ › Фон секции › Заливка поверх картинки, %");
+  assert.equal(describePath("site", "brand.logo", "en").label, "Logo › Logo on dark backgrounds");
+  assert.equal(describeUsage("site: contact.deliverables[1].icon.src", "en"), "Enquiry › What the client gets › Item #2 › Icon › custom image");
 });
