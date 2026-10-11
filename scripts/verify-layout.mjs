@@ -1,4 +1,8 @@
+import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
+
+// Заголовок первого экрана правят из кабинета — маркер берём из контента, а не из кода.
+const heroTitle = JSON.parse(readFileSync(new URL("../content/site.json", import.meta.url), "utf8")).hero.title.replace(/\s+/g, " ").trim().toLowerCase();
 
 const baseUrl = process.env.URL ?? "http://127.0.0.1:3000/";
 const failures = [];
@@ -42,7 +46,7 @@ try {
   await check("PDF primary sections render in the approved order", async () => {
     const pageText = (await desktop.locator("body").innerText()).replace(/\s+/g, " ").toLowerCase();
     const markers = [
-      "living substrates for green roofs, vertical gardens and interiors",
+      heroTitle,
       "two solutions for urban greening at every scale",
       "53,000 km²",
       "engineered root-zone performance",
