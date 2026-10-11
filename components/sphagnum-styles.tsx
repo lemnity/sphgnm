@@ -81,13 +81,16 @@ export function SphagnumStyles() {
   letter-spacing: 0.14em;
 }
 
-/* Общий шрифт PDF-референса; иерархия задаётся размером и насыщенностью. */
+/* Крупные заголовки — антиква Playfair Display, остальной текст — шрифт референса. */
 .sph .brand-serif {
-  font-family: var(--font-reference);
+  font-family: var(--font-display), Georgia, "Times New Roman", serif;
   text-transform: none;
   font-weight: 500;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.01em;
 }
+
+/* Переносы строк из кабинета (Enter в поле) показываются и на сайте. */
+.sph { white-space: pre-line; }
 
 /* Кнопка на фирменном акценте: Sage-заливка, текст Ink — 5.4:1, проходит AA.
    Белый текст по Sage дал бы 2.5:1, поэтому текст именно тёмный. */

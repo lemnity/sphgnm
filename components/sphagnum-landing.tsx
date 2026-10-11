@@ -344,6 +344,15 @@ function Lines({ text }: { text: string }) {
   ));
 }
 
+/** Строки заголовка (по Enter из кабинета) → слова со сквозным номером для задержки анимации. */
+function heroTitleLines(title: string) {
+  let index = 0;
+  return title
+    .split("\n")
+    .map((line) => line.split(/\s+/).filter(Boolean).map((word) => ({ word, index: index++ })))
+    .filter((line) => line.length > 0);
+}
+
 /** Номер пункта по порядку: 01, 02, … */
 const ordinal = (index: number) => String(index + 1).padStart(2, "0");
 
@@ -891,18 +900,23 @@ export default function SphagnumLanding({
         <div className="relative z-10 flex flex-1 items-center pb-12 pt-28 lg:pb-14 lg:pt-32">
           <div className="relative pdf-grid">
             <div className="max-w-[560px] lg:max-w-[760px]">
-              {/* Заголовок приходит одной строкой; слова режем ради пословной анимации. */}
+              {/* Слова режем ради пословной анимации; переносы строк из кабинета сохраняем. */}
               <h1
                 className="brand-serif leading-[1.08] text-[32px] text-[color:var(--brand-cream)] sm:text-[42px] md:text-[50px] lg:text-[56px] xl:text-[64px]"
               >
-                {hero.title.split(/\s+/).filter(Boolean).map((word, i) => (
-                  // Пробел настоящим текстовым узлом: margin-left между словами
-                  // сдвигал вправо ПЕРВОЕ слово каждой перенесённой строки.
-                  <span key={i}>
-                    <span className="word">
-                      <span style={{ animationDelay: `${0.3 + i * 0.06}s` }}>{word}</span>
-                    </span>{" "}
-                  </span>
+                {heroTitleLines(hero.title).map((line, lineIndex) => (
+                  <Fragment key={lineIndex}>
+                    {lineIndex > 0 ? <br /> : null}
+                    {line.map(({ word, index }) => (
+                      // Пробел настоящим текстовым узлом: margin-left между словами
+                      // сдвигал вправо ПЕРВОЕ слово каждой перенесённой строки.
+                      <span key={index}>
+                        <span className="word">
+                          <span style={{ animationDelay: `${0.3 + index * 0.06}s` }}>{word}</span>
+                        </span>{" "}
+                      </span>
+                    ))}
+                  </Fragment>
                 ))}
               </h1>
 

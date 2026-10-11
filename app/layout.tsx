@@ -1,7 +1,16 @@
 import type { Metadata } from "next";
+import { Playfair_Display } from "next/font/google";
 import { getSiteContent } from "@/lib/content/load";
 import { absoluteUrl, imageType, siteRoot } from "@/lib/seo";
 import "./globals.css";
+
+// Антиква крупных заголовков. next/font кладёт файлы шрифта в сборку — без запросов к Google.
+const display = Playfair_Display({
+  subsets: ["latin", "cyrillic"],
+  weight: ["400", "500", "600"],
+  variable: "--font-display",
+  display: "swap",
+});
 
 export async function generateMetadata(): Promise<Metadata> {
   const { meta } = getSiteContent();
@@ -33,7 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   // lang="en" — сайт одноязычный, английский. Скринридер и переводчик браузера
   // ориентируются именно на этот атрибут.
   return (
-    <html lang="en">
+    <html lang="en" className={display.variable}>
       <body>{children}</body>
     </html>
   );

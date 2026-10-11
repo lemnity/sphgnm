@@ -355,16 +355,20 @@ try {
   await check("all page containers and typography share the reference system", async () => {
     const result = await desktop.evaluate(() => {
       const grids = [...document.querySelectorAll(".sph .pdf-grid, .sph .solutions-reference-grid")];
-      const fonts = [...new Set([...document.querySelectorAll(".sph h1, .sph h2, .sph h3, .sph p, .sph button, .sph .label")].map(el => getComputedStyle(el).fontFamily))];
+      const fonts = [...new Set([...document.querySelectorAll(".sph h1, .sph h2, .sph h3, .sph p, .sph button, .sph .label")].filter(el => !el.classList.contains("brand-serif")).map(el => getComputedStyle(el).fontFamily))];
+      const display = [...new Set([...document.querySelectorAll(".sph .brand-serif")].map(el => getComputedStyle(el).fontFamily))];
       return {
         count: grids.length,
         offGrid: grids.map(el => el.getBoundingClientRect()).filter(r => Math.abs(r.left - 67.5) > 2 || Math.abs(r.width - 1550) > 2).map(r => ({left: r.left, width: r.width})),
         fonts,
+        display,
       };
     });
     invariant(result.count >= 15, `Not all page containers use the shared grid: ${result.count}`);
     invariant(result.offGrid.length === 0, `Misaligned page containers: ${JSON.stringify(result.offGrid)}`);
     invariant(result.fonts.length === 1 && result.fonts[0].includes("Arial"), `Mixed font families: ${result.fonts.join("; ")}`);
+    // Крупные заголовки — антиква Playfair Display (через next/font).
+    invariant(result.display.length === 1 && /Playfair/i.test(result.display[0]), `Display headings font: ${result.display.join("; ")}`);
   });
 
   await check("all in-page navigation anchors resolve to unique targets", async () => {
