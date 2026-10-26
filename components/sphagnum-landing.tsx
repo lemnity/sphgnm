@@ -1228,9 +1228,20 @@ export default function SphagnumLanding({
       <footer className="bg-[color:var(--brand-ink)] py-8 text-[color:var(--brand-cream-72)]" style={bgStyle(footer.background, TINT.ink)}>
         <div className="flex flex-col gap-2 text-[13px] sm:flex-row sm:items-center pdf-grid">
           <p>{footer.copyright}</p>
-          <a href={`mailto:${contacts.email}`} className="hover:text-[color:var(--brand-cream)] sm:ml-auto">
-            {contacts.email}
-          </a>
+          <div className="flex flex-col gap-2 sm:ml-auto sm:flex-row sm:items-center sm:gap-6">
+            <a href={`mailto:${contacts.email}`} className="hover:text-[color:var(--brand-cream)]">
+              {contacts.email}
+            </a>
+            {footer.creditLabel ? (
+              footer.creditUrl ? (
+                <a href={footer.creditUrl} target="_blank" rel="noopener" className="hover:text-[color:var(--brand-cream)]">
+                  {footer.creditLabel}
+                </a>
+              ) : (
+                <span>{footer.creditLabel}</span>
+              )
+            ) : null}
+          </div>
         </div>
       </footer>
     </div>

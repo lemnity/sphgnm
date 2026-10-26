@@ -371,7 +371,12 @@ export const BLOCKS: Block[] = [
     id: "footer",
     title: l("Подвал", "Footer"),
     description: l("Строка внизу страницы.", "The line at the very bottom of the page."),
-    fields: [text("copyright", l("Копирайт", "Copyright")), background()],
+    fields: [
+      text("copyright", l("Копирайт", "Copyright")),
+      text("creditLabel", l("Подпись разработчика", "Developer credit"), l("Пусто — строка скрыта", "Leave empty to hide")),
+      { kind: "href", key: "creditUrl", label: l("Ссылка на разработчика", "Developer link") },
+      background(),
+    ],
   },
   {
     id: "loader",

@@ -478,7 +478,9 @@
     }
   },
   "footer": {
-    "copyright": "© 2026 Sphagnum Eco · Natural Substrates · All rights reserved."
+    "copyright": "© 2026 Sphagnum Eco · Natural Substrates · All rights reserved.",
+    "creditLabel": "Разработка Simakoov",
+    "creditUrl": "https://simakoov.ru"
   },
   "loader": {
     "label": "Loading",

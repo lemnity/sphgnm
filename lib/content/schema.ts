@@ -194,7 +194,7 @@ export type SiteContent = {
     };
     background?: SectionBackground;
   };
-  footer: { copyright: string; background?: SectionBackground };
+  footer: { copyright: string; creditLabel?: string; creditUrl?: string; background?: SectionBackground };
   /** Экран загрузки: label — aria-метка, srLabel — скрытая подпись, phrases — бегущие фразы. */
   loader: { label: string; srLabel: string; phrases: string[] };
 };
@@ -345,7 +345,7 @@ export const SITE_SHAPE: Shape = {
     },
     "background?": BACKGROUND,
   },
-  footer: { copyright: "string", "background?": BACKGROUND },
+  footer: { copyright: "string", "creditLabel?": "string", "creditUrl?": "href", "background?": BACKGROUND },
   loader: { label: "string", srLabel: "string", phrases: ["string"] },
 };
 
